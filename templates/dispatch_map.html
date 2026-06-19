@@ -4,14 +4,93 @@
 
 <h2>Dispatch Map</h2>
 
-<p>Map integration coming soon.</p>
+<div style="display:flex; gap:20px;">
 
-<h3>Selected Stores</h3>
+    <!-- LEFT PANEL -->
+    <div style="width:250px;">
+        <h3>Available Stores</h3>
 
-<ul>
-    <li>Stores: 0</li>
-    <li>Racks: 0</li>
-    <li>Weight: 0 lbs</li>
-</ul>
+        <input type="checkbox"> Walmart #1001<br>
+        <input type="checkbox"> Home Depot #2001<br>
+        <input type="checkbox"> Lowe's #3001<br><br>
+
+        <button>Assign Driver</button>
+    </div>
+
+    <!-- MAP -->
+    <div style="flex:1;">
+        <div id="map" style="height:600px; border:1px solid black;"></div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div style="width:250px;">
+        <h3>Selected Stores</h3>
+
+        <p>Stores: <span id="store-count">0</span></p>
+        <p>Racks: <span id="rack-count">0</span></p>
+        <p>Weight: <span id="weight-count">0</span> lbs</p>
+
+        <hr>
+
+        <p><b>Max Capacity:</b> 25,001 lbs</p>
+    </div>
+
+</div>
+
+<script>
+function initMap() {
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 6,
+        center: { lat: 30.2672, lng: -97.7431 }
+    });
+
+    // SAN ANTONIO HUB
+    new google.maps.Marker({
+        position: { lat: 29.4241, lng: -98.4936 },
+        map: map,
+        title: "San Antonio Hub"
+    });
+
+    // HOUSTON HUB
+    new google.maps.Marker({
+        position: { lat: 29.7604, lng: -95.3698 },
+        map: map,
+        title: "Houston Hub"
+    });
+
+    // DALLAS HUB
+    new google.maps.Marker({
+        position: { lat: 32.7767, lng: -96.7970 },
+        map: map,
+        title: "Dallas Hub"
+    });
+
+    // SAMPLE STORES
+
+    new google.maps.Marker({
+        position: { lat: 30.0802, lng: -94.1266 },
+        map: map,
+        title: "Store A"
+    });
+
+    new google.maps.Marker({
+        position: { lat: 31.1171, lng: -97.7278 },
+        map: map,
+        title: "Store B"
+    });
+
+    new google.maps.Marker({
+        position: { lat: 29.8833, lng: -97.9414 },
+        map: map,
+        title: "Store C"
+    });
+
+}
+</script>
+
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap">
+</script>
 
 {% endblock %}
