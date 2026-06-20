@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Need Review</h2>
+        <p>PDFs that need manual hub or missing data review.</p>
+    </div>
+    <a class="link-btn" href="/dispatch-map">Back to Dispatch Map</a>
+</header>
+
+<div class="driver-list">
+{% for store in stores %}
+    <div class="panel" id="review-{{ store.id }}">
+        <h3>{{ store.store_name }} {{ store.origin }}</h3>
+        <p><b>BOL:</b> {{ store.bol }}</p>
+        <p><b>Address:</b> {{ store.address }}, {{ store.city }}, {{ store.state }}</p>
+        <p><b>Expected Racks:</b> {{ store.expected_racks }}</p>
+        <p><b>Reasons:</b> {{ store.review_reasons | join(", ") }}</p>
+
+        <label>Manual Hub</label>
+        <select id="hub-{{ store.id }}">
+            {% for hub_name in hubs.keys() %}
+                <option>{{ hub_name }}</option>
+            {% endfor %}
+        </select>
+
+        <button onclick="approveReview('{{ store.id }}')">Approve to Dispatch Map</button>
+    </div>
+{% else %}
+    <div class="panel">
+        <h3>No items need review.</h3>
+    </div>
+{% endfor %}
+</div>
+
+<script>
+async function approveReview(storeId){
+    const hub = document.getElementById("hub-" + storeId).value;
+    const response = await fetch("/api/approve-review", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({store_id:storeId, hub:hub})
+    });
+    const data = await response.json();
+    if(data.ok){
+        document.getElementById("review-" + storeId).remove();
+        alert("Approved");
+    }
+}
+</script>
+{% endblock %}

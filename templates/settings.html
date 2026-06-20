@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Settings</h2>
+        <p>RMS login foundation. Automatic RMS sync will be added later.</p>
+    </div>
+</header>
+
+<section class="panel import-panel">
+    <h3>RMS Login Settings</h3>
+    {% if message %}<div class="notice">{{ message }}</div>{% endif %}
+    <form method="post">
+        <label>RMS Username</label>
+        <input type="text" name="rms_username" value="{{ settings.rms_username }}">
+        <label>RMS Password</label>
+        <input type="password" name="rms_password" placeholder="Enter RMS password">
+        <button class="primary-btn" type="submit">Save RMS Settings</button>
+    </form>
+    <p class="muted">Do not hardcode RMS passwords in app.py. This screen prepares the future secure sync workflow.</p>
+</section>
+{% endblock %}

@@ -1,14 +1,13 @@
 {% extends "base.html" %}
-
 {% block content %}
-
 <header class="topbar">
     <div>
         <h2>Dispatch Map</h2>
-        <p>Real imported RMS stores, hub assignment, driver assignment, and M2 weight tracking.</p>
+        <p>Imported RMS PDFs, hub assignment, driver assignment, and M2 weight tracking.</p>
     </div>
     <div>
-        <a class="link-btn" href="/rms-import">Import RMS File</a>
+        <a class="link-btn" href="/rms-import">Import RMS PDF</a>
+        <a class="link-btn" href="/need-review">Need Review</a>
         <a class="link-btn" href="/driver">Driver Portal</a>
     </div>
 </header>
@@ -22,15 +21,11 @@
 </section>
 
 <div class="dispatch-grid">
-
     <section class="panel">
         <h3>Available Stores</h3>
-        <p class="muted">Only unassigned RMS work appears here.</p>
-
+        <p class="muted">Only unassigned imported PDFs appear here.</p>
         <div id="available-stores"></div>
-
         <hr>
-
         <label>Assign Driver</label>
         <select id="driver-select">
             <option value="">Select Driver</option>
@@ -38,20 +33,16 @@
             <option>Driver 2</option>
             <option>Driver 3</option>
         </select>
-
         <button class="primary-btn" onclick="assignDriver()">Assign Driver</button>
     </section>
 
-    <section class="map-panel">
-        <div id="map"></div>
-    </section>
+    <section class="map-panel"><div id="map"></div></section>
 
     <section class="panel">
         <h3>Assigned Queue</h3>
-        <p class="muted">Assigned stores leave the map/list. Unassign returns them.</p>
+        <p class="muted">Assign moves PDF to Assigned folder. Unassign returns it to Imported.</p>
         <div id="driver-results"></div>
     </section>
-
 </div>
 
 <script>
@@ -59,11 +50,6 @@ window.EOMS_STORES = {{ stores | tojson }};
 window.EOMS_HUBS = {{ hubs | tojson }};
 window.MAX_PAYLOAD = {{ max_payload }};
 </script>
-
 <script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
-
-<script async
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap">
-</script>
-
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap"></script>
 {% endblock %}
