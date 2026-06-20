@@ -52,6 +52,7 @@
                 <th>Hub</th>
                 <th>Racks</th>
                 <th>Weight</th>
+                <th>Due</th>
                 <th>Last Seen</th>
                 <th>View</th>
             </tr>
@@ -70,6 +71,7 @@
                 <td>{{ q.hub }}</td>
                 <td>{{ q.expected_racks }}</td>
                 <td>{{ q.weight }}</td>
+                <td><span class="due-chip" data-due="{{ q.due_date or '' }}">{{ q.due_date or 'Not captured' }}</span></td>
                 <td>{{ q.last_seen }}</td>
                 <td><a class="mini-link" href="/bol-live/{{ q.bol }}" target="_blank">Live Printable</a><br><a class="mini-link" href="/bol-view/{{ q.bol }}" target="_blank">Saved Copy</a><br><button class="tiny-btn" onclick="repairBol('{{ q.bol }}')">Repair/Parse</button></td>
             </tr>
@@ -161,3 +163,27 @@ async function repairBol(bol){
 </script>
 
 {% endblock %}
+
+<script>
+function dueColor(dueValue){
+    if(!dueValue) return "green";
+    const parts = dueValue.split("/");
+    let due = null;
+    if(parts.length === 3){
+        due = new Date(Number(parts[2]), Number(parts[0])-1, Number(parts[1]));
+    }else{
+        due = new Date(dueValue);
+    }
+    if(!due || isNaN(due.getTime())) return "green";
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const diff = Math.ceil((due - today) / (1000*60*60*24));
+    if(diff < 0) return "red";
+    if(diff <= 4) return "amber";
+    return "green";
+}
+document.querySelectorAll(".due-chip").forEach(chip => {
+    chip.classList.add("due-" + dueColor(chip.dataset.due || ""));
+});
+</script>

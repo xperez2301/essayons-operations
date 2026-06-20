@@ -511,7 +511,7 @@ def api_approve_review():
     stores = read_json(STORES_FILE)
     updated = None
     for store in stores:
-        if store["id"] == store_id:
+        if store.get("id") == store_id:
             store["hub"] = hub or store.get("hub")
             store["status"] = "Unassigned"
             store["review_reasons"] = []
@@ -769,6 +769,32 @@ def save_printable_snapshot(item, html):
     final_path.write_text(html, encoding="utf-8", errors="ignore")
     return str(final_path)
 
+
+def extract_date_from_text(text):
+    text = clean(text)
+    patterns = [
+        r"\b(\d{1,2}/\d{1,2}/\d{4})\b",
+        r"\b(\d{4}-\d{2}-\d{2})\b"
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            return clean(m.group(1))
+    return ""
+
+def normalize_due_date(value):
+    value = clean(value)
+    if not value:
+        return ""
+    try:
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+            return datetime.strptime(value, "%Y-%m-%d").strftime("%m/%d/%Y")
+        if re.match(r"^\d{1,2}/\d{1,2}/\d{4}$", value):
+            return datetime.strptime(value, "%m/%d/%Y").strftime("%m/%d/%Y")
+    except Exception:
+        pass
+    return value
+
 def collect_bol_links_from_all_pages(page, max_pages=50):
     bol_links = []
     seen = set()
@@ -782,7 +808,36 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
                 href = a.get_attribute("href") or ""
                 if re.fullmatch(r"\d{4,}", text) and text not in seen:
                     seen.add(text)
-                    found.append({"bol": text, "href": href})
+
+                    row_text = ""
+                    due_date = ""
+                    assigned_date = ""
+
+                    try:
+                        row = a.locator("xpath=ancestor::tr[1]")
+                        if row.count():
+                            row_text = clean(row.first.inner_text())
+                    except Exception:
+                        row_text = ""
+
+                    # RMS list row usually contains assigned/due dates. Capture first/last date as fallback.
+                    dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b", row_text)
+                    if dates:
+                        assigned_date = normalize_due_date(dates[0])
+                        due_date = normalize_due_date(dates[-1])
+
+                    # If row labels exist, prefer labeled due date.
+                    labeled_due = find_match(r"Due Date(?:\s*\(PDT\))?\s*[:\s]*([0-9/\-]+)", row_text)
+                    if labeled_due:
+                        due_date = normalize_due_date(labeled_due)
+
+                    found.append({
+                        "bol": text,
+                        "href": href,
+                        "row_text": row_text,
+                        "assigned_date": assigned_date,
+                        "due_date": due_date
+                    })
             except Exception:
                 pass
         return found
@@ -961,6 +1016,9 @@ def scan_rms_queue_with_playwright(headless=False):
                     old.update({
                         "href": item.get("href", ""),
                         "queue_status": status,
+                        "due_date": item.get("due_date", old.get("due_date", "")),
+                        "assigned_date": item.get("assigned_date", old.get("assigned_date", "")),
+                        "row_text": item.get("row_text", old.get("row_text", "")),
                         "last_seen": datetime.now().isoformat(timespec="seconds")
                     })
                 else:
@@ -976,6 +1034,9 @@ def scan_rms_queue_with_playwright(headless=False):
                         "hub": "",
                         "expected_racks": "",
                         "weight": "",
+                        "due_date": item.get("due_date", ""),
+                        "assigned_date": item.get("assigned_date", ""),
+                        "row_text": item.get("row_text", ""),
                         "last_seen": datetime.now().isoformat(timespec="seconds"),
                         "created_at": datetime.now().isoformat(timespec="seconds")
                     }
@@ -1069,6 +1130,9 @@ def import_selected_queue_bols(bol_numbers, headless=False):
             "errors": []
         }
 
+    queue = read_json(RMS_QUEUE_FILE)
+    queue_by_bol = {clean(q.get("bol")): q for q in queue}
+
     imported = 0
     need_review = 0
     errors = []
@@ -1102,6 +1166,12 @@ def import_selected_queue_bols(bol_numbers, headless=False):
                         item["bol"] = bol
                     if clean(item.get("bol")) != bol:
                         item["bol"] = bol
+
+                    queue_item = queue_by_bol.get(bol, {})
+                    if not item.get("due_date") and queue_item.get("due_date"):
+                        item["due_date"] = queue_item.get("due_date")
+                    if not item.get("assigned_date") and queue_item.get("assigned_date"):
+                        item["assigned_date"] = queue_item.get("assigned_date")
 
                     item["pdf_path"] = save_printable_snapshot(item, html)
 
@@ -1330,6 +1400,82 @@ def bol_live_printable(bol_number):
                 path=f"Direct printable RMS error: {str(e)[:300]}"
             )
 
+
+@app.route("/bol-print/<store_id>")
+def bol_print(store_id):
+    stores = read_json(STORES_FILE)
+    queue = read_json(RMS_QUEUE_FILE)
+
+    found = None
+    for s in stores:
+        if s.get("id") == store_id or clean(s.get("bol")) == store_id:
+            found = s
+            break
+
+    if not found:
+        for q in queue:
+            if q.get("id") == store_id or clean(q.get("bol")) == store_id:
+                found = q
+                break
+
+    if not found:
+        abort(404)
+
+    path = found.get("pdf_path") or found.get("printable_path") or ""
+    if not path:
+        bol = safe_part(found.get("bol"))
+        matches = list(BOL_DIR.rglob(f"*{bol}*.html")) + list(BOL_DIR.rglob(f"*{bol}*.pdf"))
+        if matches:
+            path = str(matches[0])
+
+    if not path or not Path(path).exists():
+        return render_template("bol_not_found.html", bol=found.get("bol", ""), path=path)
+
+    content = Path(path).read_text(encoding="utf-8", errors="ignore") if str(path).lower().endswith(".html") else ""
+    if content:
+        return f"""<!doctype html>
+<html>
+<head>
+<title>Print BOL {found.get('bol','')}</title>
+<style>
+@media print {{
+  button {{ display:none!important; }}
+  body {{ margin:0.25in; }}
+}}
+.print-toolbar {{
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  color: white;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  z-index: 9999;
+}}
+.print-toolbar button {{
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}}
+</style>
+</head>
+<body>
+<div class="print-toolbar">
+  <button onclick="window.print()">Print to Office Printer</button>
+  <button onclick="window.close()">Close</button>
+  <span>BOL {found.get('bol','')}</span>
+</div>
+{content}
+<script>
+window.addEventListener("load", function(){{
+  setTimeout(function(){{ window.print(); }}, 500);
+}});
+</script>
+</body>
+</html>"""
+
+    return send_file(Path(path), as_attachment=False)
+
 @app.route("/bol-view/<store_id>")
 def bol_view(store_id):
     stores = read_json(STORES_FILE)
@@ -1373,7 +1519,7 @@ def api_approve_review_force():
     updated = None
 
     for store in stores:
-        if store["id"] == store_id:
+        if store.get("id") == store_id:
             store["hub"] = hub or store.get("hub") or "San Antonio"
             store["status"] = "Unassigned"
             store["review_reasons"] = []
@@ -1589,6 +1735,20 @@ def settings():
         message = "RMS settings saved. Automatic sync will be added later."
     return render_template("settings.html", settings=settings_data, message=message)
 
+
+@app.route("/api/routes")
+def api_routes():
+    routes = read_json(ROUTES_FILE)
+    return jsonify({"ok": True, "routes": routes})
+
+@app.route("/api/route/<route_id>")
+def api_route_detail(route_id):
+    routes = read_json(ROUTES_FILE)
+    for route in routes:
+        if route.get("id") == route_id or route.get("route_number") == route_id:
+            return jsonify({"ok": True, "route": route})
+    return jsonify({"ok": False, "message": "Route not found."}), 404
+
 @app.route("/api/preview-route", methods=["POST"])
 def api_preview_route():
     data = request.get_json(force=True)
@@ -1642,6 +1802,7 @@ def api_assign_route():
         "driver": driver,
         "hub": hub_name,
         "mode": mode,
+        "mode_label": "Selection Order" if mode == "selection" else "Optimized Nearest Stop",
         "store_ids": assigned_ids,
         "stops": ordered,
         "metrics": metrics,
@@ -1656,6 +1817,93 @@ def api_assign_route():
 
     return jsonify({"ok": True, "route": route, "assigned": ordered, "metrics": metrics})
 
+
+
+@app.route("/api/update-route-driver", methods=["POST"])
+def api_update_route_driver():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+    driver = clean(data.get("driver"))
+    driver_phone = clean(data.get("driver_phone"))
+
+    routes = read_json(ROUTES_FILE)
+    stores = read_json(STORES_FILE)
+
+    updated = None
+    for route in routes:
+        if route.get("id") == route_id or route.get("route_number") == route_id:
+            route["driver"] = driver
+            route["driver_phone"] = driver_phone
+            route["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            updated = route
+
+            route_store_ids = set(route.get("store_ids", []))
+            for store in stores:
+                if store.get("id") in route_store_ids:
+                    store["assigned_driver"] = driver
+                    store["driver_phone"] = driver_phone
+            break
+
+    if not updated:
+        return jsonify({"ok": False, "message": "Route not found."})
+
+    write_json(ROUTES_FILE, routes)
+    write_json(STORES_FILE, stores)
+    audit("Update Route Driver", {"route_id": route_id, "driver": driver, "driver_phone": driver_phone})
+
+    return jsonify({"ok": True, "route": updated})
+
+@app.route("/route-view/<route_id>")
+def route_view(route_id):
+    routes = read_json(ROUTES_FILE)
+    route = None
+    for r in routes:
+        if r.get("id") == route_id or r.get("route_number") == route_id:
+            route = r
+            break
+
+    if not route:
+        return "Route not found", 404
+
+    return render_template("route_view.html", route=route)
+
+@app.route("/api/unassign-route", methods=["POST"])
+def api_unassign_route():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+
+    routes = read_json(ROUTES_FILE)
+    stores = read_json(STORES_FILE)
+
+    target_route = None
+    remaining_routes = []
+
+    for route in routes:
+        if route.get("id") == route_id or route.get("route_number") == route_id:
+            target_route = route
+        else:
+            remaining_routes.append(route)
+
+    if not target_route:
+        return jsonify({"ok": False, "message": "Route not found."})
+
+    route_store_ids = set(target_route.get("store_ids", []))
+
+    restored = 0
+    for store in stores:
+        if store.get("id") in route_store_ids:
+            store["status"] = "Unassigned"
+            store["assigned_driver"] = ""
+            if store.get("pdf_path"):
+                store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
+            restored += 1
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, remaining_routes)
+    audit("Unassign Entire Route", {"route_id": route_id, "restored": restored})
+
+    return jsonify({"ok": True, "message": f"Route unassigned. {restored} stores returned to Dispatch Map."})
+
 @app.route("/api/unassign-store", methods=["POST"])
 def api_unassign_store():
     data = request.get_json(force=True)
@@ -1663,14 +1911,25 @@ def api_unassign_store():
     stores = read_json(STORES_FILE)
     restored = None
     for store in stores:
-        if store["id"] == store_id:
+        if store.get("id") == store_id:
             store["status"] = "Unassigned"
             store["assigned_driver"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             restored = store
             break
+
+    routes = read_json(ROUTES_FILE)
+    cleaned_routes = []
+    for route in routes:
+        route["store_ids"] = [sid for sid in route.get("store_ids", []) if sid != store_id]
+        route["stops"] = [s for s in route.get("stops", []) if s.get("id") != store_id]
+        if route.get("stops"):
+            route["metrics"] = calculate_route_metrics(route["stops"], route.get("hub") or "San Antonio")
+            cleaned_routes.append(route)
+
     write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, cleaned_routes)
     audit("Unassign Store", {"store_id": store_id})
     return jsonify({"ok": True, "store": restored})
 
@@ -1687,7 +1946,7 @@ def api_driver_complete():
     stores = read_json(STORES_FILE)
     updated = None
     for store in stores:
-        if store["id"] == store_id:
+        if store.get("id") == store_id:
             store["collected_racks"] = collected_racks
             store["variance"] = collected_racks - num(store.get("expected_racks"))
             store["status"] = "Completed"

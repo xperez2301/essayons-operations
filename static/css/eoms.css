@@ -134,3 +134,150 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
 }
 #map{height:720px!important}
+
+/* EOMS v1.5 Route Builder Integration */
+.route-actions{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.route-card{
+    margin-bottom:18px;
+}
+.route-card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+}
+.status-pill{
+    padding:8px 12px;
+    border-radius:999px;
+    font-weight:900;
+    background:rgba(34,197,94,.18);
+    color:#22c55e;
+    border:1px solid rgba(34,197,94,.35);
+}
+.status-pill.warning{
+    background:rgba(245,158,11,.18);
+    color:#f59e0b;
+    border-color:rgba(245,158,11,.35);
+}
+.status-pill.over-limit{
+    background:rgba(239,68,68,.18);
+    color:#ef4444;
+    border-color:rgba(239,68,68,.35);
+}
+.route-metrics{
+    grid-template-columns:repeat(7,minmax(100px,1fr));
+}
+.route-table th,.route-table td{
+    font-size:12px;
+}
+
+/* EOMS v1.5.2 Print + Unassign Fix */
+.route-actions-inline{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+.danger-btn{
+    background:linear-gradient(135deg,#7f1d1d,#dc2626)!important;
+    color:white!important;
+    border:none!important;
+    border-radius:10px;
+    padding:8px 10px;
+    font-weight:900;
+    cursor:pointer;
+}
+.small-btn{
+    width:auto!important;
+}
+
+/* EOMS v1.5.3 Route Actions + Driver Send */
+.driver-box{
+    margin:12px 0;
+    padding:12px;
+    border:1px solid rgba(96,165,250,.25);
+    border-radius:14px;
+    background:rgba(37,99,235,.10);
+}
+.driver-box h4{
+    margin:0 0 8px;
+}
+.driver-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr auto auto;
+    gap:8px;
+    align-items:center;
+}
+.driver-grid input{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid rgba(148,163,184,.35);
+    background:#0f172a;
+    color:white;
+}
+.action-cell{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+}
+.route-actions-inline{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+.danger-btn{
+    background:linear-gradient(135deg,#7f1d1d,#dc2626)!important;
+    color:white!important;
+    border:none!important;
+    border-radius:10px;
+    padding:8px 10px;
+    font-weight:900;
+    cursor:pointer;
+}
+.small-btn{
+    width:auto!important;
+}
+@media(max-width:900px){
+    .driver-grid{grid-template-columns:1fr}
+}
+
+/* EOMS v1.5.4 Due Date + Nav Cleanup */
+.due-chip{
+    display:inline-block;
+    padding:4px 8px;
+    border-radius:999px;
+    font-weight:900;
+    font-size:11px;
+}
+.due-green{
+    background:rgba(34,197,94,.16);
+    color:#22c55e;
+    border:1px solid rgba(34,197,94,.35);
+}
+.due-amber{
+    background:rgba(245,158,11,.16);
+    color:#f59e0b;
+    border:1px solid rgba(245,158,11,.35);
+}
+.due-red{
+    background:rgba(239,68,68,.16);
+    color:#ef4444;
+    border:1px solid rgba(239,68,68,.35);
+}
+
+/* EOMS v1.5.5 Colored Map Pins Fix */
+.due-green{color:#22c55e!important;font-weight:900}
+.due-amber{color:#f59e0b!important;font-weight:900}
+.due-red{color:#ef4444!important;font-weight:900}
+.active-store{
+    border:2px solid #60a5fa!important;
+    background:rgba(37,99,235,.22)!important;
+    box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
+}

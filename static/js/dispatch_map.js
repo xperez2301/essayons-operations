@@ -93,7 +93,7 @@ function renderStores(){
                 <span>BOL ${store.bol || ""} • Origin ${store.origin || ""}</span>
                 <span>${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
                 <span>${store.due_date ? "Due: " + store.due_date : "Due: Not captured"} • <b class="due-${dueStatus(store)}">${dueStatus(store).toUpperCase()}</b></span>
-                <small>${store.hub || "Manual Review"}</small><br><a class="mini-link" href="/bol-live/${store.bol}" target="_blank" onclick="event.stopPropagation()">Live BOL</a> <a class="mini-link" href="/bol-view/${store.id}" target="_blank" onclick="event.stopPropagation()">Saved Copy</a>
+                <small>${store.hub || "Manual Review"}</small><br><a class="mini-link" href="/bol-live/${store.bol}" target="_blank" onclick="event.stopPropagation()">Live BOL</a> <a class="mini-link" href="/bol-view/${store.id}" target="_blank" onclick="event.stopPropagation()">Saved Copy</a> <a class="mini-link" href="/bol-print/${store.id}" target="_blank" onclick="event.stopPropagation()">Print</a>
             </div>
         `;
         container.appendChild(label);
@@ -284,7 +284,6 @@ function initMap(){
         bounds.extend(hubPos);
     });
 
-    const coordCount = {};
     let pinNumber = 1;
 
     stores.forEach(store => {
@@ -294,10 +293,6 @@ function initMap(){
         let lng = Number(store.lng);
         if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-        const key = lat.toFixed(4) + "," + lng.toFixed(4);
-        coordCount[key] = (coordCount[key] || 0) + 1;
-
-        // Use the true stored location. Do not offset pins.
         const pos = {lat: lat, lng: lng};
         const thisPinNumber = pinNumber++;
         const color = dueStatus(store);
@@ -305,7 +300,7 @@ function initMap(){
         markers[store.id] = new google.maps.Marker({
             position: pos,
             map,
-            title: `${thisPinNumber}. BOL ${store.bol || ""} ${store.store_name || store.origin || "Store"}`,
+            title: `${thisPinNumber}. BOL ${store.bol || ""} • Due ${store.due_date || "Not captured"} • ${color.toUpperCase()}`,
             icon: pinIcon(thisPinNumber, color)
         });
 
@@ -318,6 +313,79 @@ function initMap(){
     const visibleMarkers = Object.keys(markers).length;
     if(visibleMarkers > 0){
         map.fitBounds(bounds);
-        if(visibleMarkers === 1){ map.setZoom(8); }
+        if(visibleMarkers === 1){
+            map.setZoom(10);
+        }
     }
 }
+
+
+function getSelectedStoreIds(){
+    const checked = Array.from(document.querySelectorAll(".store-box:checked")).map(x => x.dataset.storeId);
+    const ordered = selectedOrder.filter(id => checked.includes(id));
+    checked.forEach(id => {
+        if(!ordered.includes(id)) ordered.push(id);
+    });
+    return ordered;
+}
+
+async function buildRoute(mode){
+    const storeIds = getSelectedStoreIds();
+    if(!storeIds.length){
+        alert("Select at least one store first.");
+        return;
+    }
+
+    const driverSelect = document.getElementById("driver-select");
+    const driver = driverSelect ? driverSelect.value : "";
+
+    const previewResponse = await fetch("/api/preview-route", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({store_ids: storeIds, mode})
+    });
+    const preview = await previewResponse.json();
+    if(!preview.ok){
+        alert(preview.message || "Unable to preview route.");
+        return;
+    }
+
+    const metrics = preview.metrics || {};
+    const confirmText =
+        "Build route using " + (mode === "selection" ? "your selected order" : "optimized nearest-stop order") + "?\\n\\n" +
+        "Stores: " + metrics.store_count + "\\n" +
+        "Racks: " + metrics.racks + "\\n" +
+        "Weight: " + metrics.weight + " lbs\\n" +
+        "Remaining: " + metrics.remaining_capacity + " lbs\\n" +
+        "Status: " + metrics.status;
+
+    if(!confirm(confirmText)) return;
+
+    const assignResponse = await fetch("/api/assign-route", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({store_ids: storeIds, mode, driver})
+    });
+    const result = await assignResponse.json();
+
+    if(!result.ok){
+        alert(result.message || "Route assignment failed.");
+        return;
+    }
+
+    alert("Route built: " + result.route.route_number);
+    window.location.href = "/route-builder";
+}
+
+
+document.addEventListener("change", function(e){
+    if(e.target && e.target.classList.contains("store-box")){
+        const id = e.target.dataset.storeId;
+        if(e.target.checked){
+            if(!selectedOrder.includes(id)) selectedOrder.push(id);
+        }else{
+            selectedOrder = selectedOrder.filter(x => x !== id);
+        }
+        updateTotals();
+    }
+});

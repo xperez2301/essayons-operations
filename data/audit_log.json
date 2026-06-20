@@ -1,7 +1,88 @@
 [
   {
-    "id": "86d16db8-f00c-4870-bc81-d2f4c351f200",
-    "time": "2026-06-20T01:02:56",
+    "id": "43d1086d-e32b-4c15-bcd9-279798e4071c",
+    "time": "2026-06-20T11:04:09",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": false
+    }
+  },
+  {
+    "id": "a7bcf30a-f4d0-4cda-965b-626083d7c024",
+    "time": "2026-06-20T11:04:15",
+    "action": "Refresh RMS Queue",
+    "details": {
+      "ok": false,
+      "status": "MISSING CREDENTIALS",
+      "message": "Save RMS username and password in Settings first.",
+      "found": 0,
+      "new": 0,
+      "existing": 0,
+      "id": "595f806f-4bef-4b8d-8b76-559c32b429fd",
+      "time": "2026-06-20T11:04:15",
+      "action": "Refresh RMS Queue"
+    }
+  },
+  {
+    "id": "93698bea-eadf-4ba9-8ae6-b18e5970fb04",
+    "time": "2026-06-20T11:04:19",
+    "action": "Refresh RMS Queue",
+    "details": {
+      "ok": false,
+      "status": "MISSING CREDENTIALS",
+      "message": "Save RMS username and password in Settings first.",
+      "found": 0,
+      "new": 0,
+      "existing": 0,
+      "id": "148a380a-b9f1-4942-ba3e-d3a1c0f72856",
+      "time": "2026-06-20T11:04:19",
+      "action": "Refresh RMS Queue"
+    }
+  },
+  {
+    "id": "86a550e3-a5df-44f3-9007-0b500958ce68",
+    "time": "2026-06-20T11:04:31",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": false
+    }
+  },
+  {
+    "id": "3dc1cf47-1075-461b-b5eb-e2fb985b4d03",
+    "time": "2026-06-20T11:04:35",
+    "action": "Refresh RMS Queue",
+    "details": {
+      "ok": false,
+      "status": "MISSING CREDENTIALS",
+      "message": "Save RMS username and password in Settings first.",
+      "found": 0,
+      "new": 0,
+      "existing": 0,
+      "id": "e601ba32-1454-424a-ad26-e76228022012",
+      "time": "2026-06-20T11:04:35",
+      "action": "Refresh RMS Queue"
+    }
+  },
+  {
+    "id": "549fa61d-dcc1-4896-bbb9-d82b80006ed5",
+    "time": "2026-06-20T11:04:44",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "MISSING CREDENTIALS",
+      "message": "Save RMS username and password in Settings first.",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "cee0b935-15d0-4121-84a8-84c733564e14",
+      "time": "2026-06-20T11:04:44",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "2508d0e3-18c1-4031-b105-b7f62249d9c9",
+    "time": "2026-06-20T11:04:59",
     "action": "Update RMS Settings",
     "details": {
       "username": "jperez+Texas@lkotrucking.com",
@@ -9,8 +90,8 @@
     }
   },
   {
-    "id": "d8971742-2f66-4168-818a-568cfd24ffee",
-    "time": "2026-06-20T01:03:55",
+    "id": "bc95ce3d-a0bd-4c8a-b815-bf26997b93d2",
+    "time": "2026-06-20T11:06:00",
     "action": "Refresh RMS Queue",
     "details": {
       "ok": false,
@@ -19,31 +100,31 @@
       "found": 0,
       "new": 0,
       "existing": 0,
-      "id": "dcdf3f5f-0b52-48c0-911c-3b8a0128ed81",
-      "time": "2026-06-20T01:03:55",
+      "id": "31f93f12-be4d-4e6f-b491-bfc5037b434e",
+      "time": "2026-06-20T11:06:00",
       "action": "Refresh RMS Queue"
     }
   },
   {
-    "id": "fad8159a-96af-4ca8-85bc-d42fe82cf0bb",
-    "time": "2026-06-20T01:05:03",
+    "id": "779143c1-990f-4927-ad00-c6bf2a5b10e4",
+    "time": "2026-06-20T11:08:53",
     "action": "Import Selected RMS Queue",
     "details": {
       "ok": true,
       "status": "IMPORT SELECTED COMPLETE",
-      "message": "Import/Re-import complete. Processed 4. Need Review 2.",
-      "imported": 4,
+      "message": "Import/Re-import complete. Processed 99. Need Review 5.",
+      "imported": 99,
       "skipped": 0,
-      "need_review": 2,
+      "need_review": 5,
       "errors": [],
-      "id": "9eddbd6b-c097-4e20-b9a2-afe865a4c6d6",
-      "time": "2026-06-20T01:05:03",
+      "id": "03f1ebfa-f9b8-48af-8151-3a23e084914a",
+      "time": "2026-06-20T11:08:53",
       "action": "Import Selected RMS Queue"
     }
   },
   {
-    "id": "caf0a13f-5a93-41e2-be16-73c0a6c1ccab",
-    "time": "2026-06-20T01:05:23",
+    "id": "a2e02e1b-fabe-4fdc-ae74-e1d532d1f623",
+    "time": "2026-06-20T11:11:46",
     "action": "Update RMS Settings",
     "details": {
       "username": "jperez+Texas@lkotrucking.com",
@@ -51,20 +132,250 @@
     }
   },
   {
-    "id": "e7168e09-fccf-4d18-b62d-755adbdf2e23",
-    "time": "2026-06-20T01:06:06",
+    "id": "f6be2c0b-47c4-4429-bf53-ac499156f7e1",
+    "time": "2026-06-20T11:19:30",
     "action": "Import Selected RMS Queue",
     "details": {
       "ok": true,
       "status": "IMPORT SELECTED COMPLETE",
-      "message": "Import/Re-import complete. Processed 5. Need Review 0.",
-      "imported": 5,
+      "message": "Import/Re-import complete. Processed 99. Need Review 18.",
+      "imported": 99,
       "skipped": 0,
-      "need_review": 0,
+      "need_review": 18,
       "errors": [],
-      "id": "a50dcfa1-97d9-48c7-bda8-b9ed1fc6632b",
-      "time": "2026-06-20T01:06:06",
+      "id": "6fc96929-6b2a-4ced-ae77-c7436b862996",
+      "time": "2026-06-20T11:19:30",
       "action": "Import Selected RMS Queue"
+    }
+  },
+  {
+    "id": "3a23c61d-cde2-439a-9ea4-c8e13a4946f4",
+    "time": "2026-06-20T11:20:37",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "",
+      "stores": 5,
+      "mode": "selection"
+    }
+  },
+  {
+    "id": "2b03dd5b-7d40-4b40-93db-6d08ca5195d5",
+    "time": "2026-06-20T11:25:54",
+    "action": "Driver Complete",
+    "details": {
+      "store_id": "dedc0b3a-0965-4d01-8414-6aaf54b982e0",
+      "collected_racks": 0.0
+    }
+  },
+  {
+    "id": "f33c8991-a8bc-4fce-86a5-86854219bfe1",
+    "time": "2026-06-20T11:25:59",
+    "action": "Driver Complete",
+    "details": {
+      "store_id": "5aa65ac7-5944-4974-927c-4e90d566b5fb",
+      "collected_racks": 0
+    }
+  },
+  {
+    "id": "7ecb3459-110f-4ce9-8c38-050d1e2bbe1f",
+    "time": "2026-06-20T11:26:01",
+    "action": "Driver Complete",
+    "details": {
+      "store_id": "d9d4f65a-9ee1-45a8-b941-30d66041f585",
+      "collected_racks": 0
+    }
+  },
+  {
+    "id": "634c99ca-79a7-449f-88d3-427adf0a7afd",
+    "time": "2026-06-20T11:26:03",
+    "action": "Driver Complete",
+    "details": {
+      "store_id": "df499ddf-c816-43a0-a359-b20f5256b01b",
+      "collected_racks": 0
+    }
+  },
+  {
+    "id": "f86d77cb-b698-45d2-8199-6a7ffdb8a65f",
+    "time": "2026-06-20T11:26:05",
+    "action": "Driver Complete",
+    "details": {
+      "store_id": "92ef84a3-d3ba-42bf-88f8-1ab95bd3bd23",
+      "collected_racks": 0
+    }
+  },
+  {
+    "id": "50c5a624-313a-4154-a7fe-dadb545112fd",
+    "time": "2026-06-20T11:27:52",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "1bc5a8ef-0901-443e-aafe-2d9bf1361900",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "c9602dec-a32f-4ec3-bb7d-be5d7849fda6",
+    "time": "2026-06-20T11:28:01",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "dd9d5050-a88f-4959-8e10-e2c25264b51f",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "63796568-01cf-4073-87f4-083be68b4f01",
+    "time": "2026-06-20T11:28:27",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "792dcd42-f183-415c-a063-971763fe3191",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "c75acdf3-4f95-4820-8875-d1db4a35337a",
+    "time": "2026-06-20T11:28:32",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "e9ab3d5c-3afb-48d5-99df-4e392cc5814b",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "17e1328b-abd8-4492-b7bc-172719bbd1bb",
+    "time": "2026-06-20T11:28:37",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "6dda1985-96bb-41fa-a795-a7a4cede2c22",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "a0bc1dc7-18ff-45cb-9a00-8ccae334317c",
+    "time": "2026-06-20T11:28:42",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "baf8c784-6ed4-4459-8834-46709b641d1c",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "ae16ac0d-deb5-4adb-90db-d9cffab44261",
+    "time": "2026-06-20T11:28:48",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "884722a7-a379-4bc4-b73f-75e44ae9497d",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "831eaab4-48da-4d84-8945-c83298942308",
+    "time": "2026-06-20T11:28:52",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "5bf1b9d0-8346-4851-9f7b-401b88400c43",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "31355fe5-5f0f-4677-b042-c23ad222bc59",
+    "time": "2026-06-20T11:28:56",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "f270bfc3-88d8-4c36-a30f-13d1375997c0",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "45be8709-3f52-45ed-9c24-7b6735764bb6",
+    "time": "2026-06-20T11:34:29",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00002",
+      "driver": "Driver 1",
+      "stores": 4,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "7dcd2a11-66e9-4f50-9503-d96c32009edd",
+    "time": "2026-06-20T11:35:41",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00003",
+      "driver": "Driver 2",
+      "stores": 4,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "3167358e-d17d-441e-ac00-928e778b4023",
+    "time": "2026-06-20T11:36:22",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00004",
+      "driver": "Driver 3",
+      "stores": 9,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "d14137f2-fb1c-44da-9c70-cecf5c0a815a",
+    "time": "2026-06-20T11:37:39",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "30cd4314-5ee7-46f9-a5c4-93e0f47e9d04",
+      "restored": 9
+    }
+  },
+  {
+    "id": "fded5cbe-daa2-4621-a35e-41dc564949e7",
+    "time": "2026-06-20T11:37:45",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "3969d8ed-c577-487e-8b95-c3dd24179543",
+      "restored": 4
+    }
+  },
+  {
+    "id": "8b8c6118-76e0-499f-aa23-0ddc78d0189a",
+    "time": "2026-06-20T11:37:48",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "32ebd742-6f30-4284-acb3-51efde5d891a",
+      "restored": 4
+    }
+  },
+  {
+    "id": "201900d4-3586-4b0d-82a6-92f935e75bdb",
+    "time": "2026-06-20T11:37:53",
+    "action": "Unassign Store",
+    "details": {
+      "store_id": "dedc0b3a-0965-4d01-8414-6aaf54b982e0"
+    }
+  },
+  {
+    "id": "f824d788-3fec-4b2c-b176-d5e5df88ed2d",
+    "time": "2026-06-20T11:37:56",
+    "action": "Unassign Store",
+    "details": {
+      "store_id": "d9d4f65a-9ee1-45a8-b941-30d66041f585"
+    }
+  },
+  {
+    "id": "6360efb3-1a5c-4718-82e5-f4c151e07644",
+    "time": "2026-06-20T11:38:01",
+    "action": "Unassign Store",
+    "details": {
+      "store_id": "df499ddf-c816-43a0-a359-b20f5256b01b"
+    }
+  },
+  {
+    "id": "f0740600-8e5c-4903-84bf-8614a3578d4a",
+    "time": "2026-06-20T11:38:22",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "d61f99da-19d3-40fc-aafe-fc1bb89c2d89",
+      "restored": 2
     }
   }
 ]
