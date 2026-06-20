@@ -1,0 +1,659 @@
+<!DOCTYPE html><html class="w-full h-screen pb-24 overflow-visible" lang="en"><head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="Hbes2o843coAqEGqA3FP8hc5cOrvrRDDxNKlQj8O">
+    <title>RMS - LadingBillPrintable</title>
+    <!-- Styles -->
+    <style type="text/css">:root, :host {
+  --fa-font-solid: normal 900 1em/1 "Font Awesome 6 Free";
+  --fa-font-regular: normal 400 1em/1 "Font Awesome 6 Free";
+  --fa-font-light: normal 300 1em/1 "Font Awesome 6 Pro";
+  --fa-font-thin: normal 100 1em/1 "Font Awesome 6 Pro";
+  --fa-font-duotone: normal 900 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-regular: normal 400 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-light: normal 300 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-thin: normal 100 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-brands: normal 400 1em/1 "Font Awesome 6 Brands";
+  --fa-font-sharp-solid: normal 900 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-regular: normal 400 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-light: normal 300 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-thin: normal 100 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-duotone-solid: normal 900 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-regular: normal 400 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-light: normal 300 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-thin: normal 100 1em/1 "Font Awesome 6 Sharp Duotone";
+}
+
+svg:not(:root).svg-inline--fa, svg:not(:host).svg-inline--fa {
+  overflow: visible;
+  box-sizing: content-box;
+}
+
+.svg-inline--fa {
+  display: var(--fa-display, inline-block);
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+}
+.svg-inline--fa.fa-2xs {
+  vertical-align: 0.1em;
+}
+.svg-inline--fa.fa-xs {
+  vertical-align: 0em;
+}
+.svg-inline--fa.fa-sm {
+  vertical-align: -0.0714285705em;
+}
+.svg-inline--fa.fa-lg {
+  vertical-align: -0.2em;
+}
+.svg-inline--fa.fa-xl {
+  vertical-align: -0.25em;
+}
+.svg-inline--fa.fa-2xl {
+  vertical-align: -0.3125em;
+}
+.svg-inline--fa.fa-pull-left {
+  margin-right: var(--fa-pull-margin, 0.3em);
+  width: auto;
+}
+.svg-inline--fa.fa-pull-right {
+  margin-left: var(--fa-pull-margin, 0.3em);
+  width: auto;
+}
+.svg-inline--fa.fa-li {
+  width: var(--fa-li-width, 2em);
+  top: 0.25em;
+}
+.svg-inline--fa.fa-fw {
+  width: var(--fa-fw-width, 1.25em);
+}
+
+.fa-layers svg.svg-inline--fa {
+  bottom: 0;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.fa-layers-counter, .fa-layers-text {
+  display: inline-block;
+  position: absolute;
+  text-align: center;
+}
+
+.fa-layers {
+  display: inline-block;
+  height: 1em;
+  position: relative;
+  text-align: center;
+  vertical-align: -0.125em;
+  width: 1em;
+}
+.fa-layers svg.svg-inline--fa {
+  transform-origin: center center;
+}
+
+.fa-layers-text {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+
+.fa-layers-counter {
+  background-color: var(--fa-counter-background-color, #ff253a);
+  border-radius: var(--fa-counter-border-radius, 1em);
+  box-sizing: border-box;
+  color: var(--fa-inverse, #fff);
+  line-height: var(--fa-counter-line-height, 1);
+  max-width: var(--fa-counter-max-width, 5em);
+  min-width: var(--fa-counter-min-width, 1.5em);
+  overflow: hidden;
+  padding: var(--fa-counter-padding, 0.25em 0.5em);
+  right: var(--fa-right, 0);
+  text-overflow: ellipsis;
+  top: var(--fa-top, 0);
+  transform: scale(var(--fa-counter-scale, 0.25));
+  transform-origin: top right;
+}
+
+.fa-layers-bottom-right {
+  bottom: var(--fa-bottom, 0);
+  right: var(--fa-right, 0);
+  top: auto;
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: bottom right;
+}
+
+.fa-layers-bottom-left {
+  bottom: var(--fa-bottom, 0);
+  left: var(--fa-left, 0);
+  right: auto;
+  top: auto;
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: bottom left;
+}
+
+.fa-layers-top-right {
+  top: var(--fa-top, 0);
+  right: var(--fa-right, 0);
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: top right;
+}
+
+.fa-layers-top-left {
+  left: var(--fa-left, 0);
+  right: auto;
+  top: var(--fa-top, 0);
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: top left;
+}
+
+.fa-1x {
+  font-size: 1em;
+}
+
+.fa-2x {
+  font-size: 2em;
+}
+
+.fa-3x {
+  font-size: 3em;
+}
+
+.fa-4x {
+  font-size: 4em;
+}
+
+.fa-5x {
+  font-size: 5em;
+}
+
+.fa-6x {
+  font-size: 6em;
+}
+
+.fa-7x {
+  font-size: 7em;
+}
+
+.fa-8x {
+  font-size: 8em;
+}
+
+.fa-9x {
+  font-size: 9em;
+}
+
+.fa-10x {
+  font-size: 10em;
+}
+
+.fa-2xs {
+  font-size: 0.625em;
+  line-height: 0.1em;
+  vertical-align: 0.225em;
+}
+
+.fa-xs {
+  font-size: 0.75em;
+  line-height: 0.0833333337em;
+  vertical-align: 0.125em;
+}
+
+.fa-sm {
+  font-size: 0.875em;
+  line-height: 0.0714285718em;
+  vertical-align: 0.0535714295em;
+}
+
+.fa-lg {
+  font-size: 1.25em;
+  line-height: 0.05em;
+  vertical-align: -0.075em;
+}
+
+.fa-xl {
+  font-size: 1.5em;
+  line-height: 0.0416666682em;
+  vertical-align: -0.125em;
+}
+
+.fa-2xl {
+  font-size: 2em;
+  line-height: 0.03125em;
+  vertical-align: -0.1875em;
+}
+
+.fa-fw {
+  text-align: center;
+  width: 1.25em;
+}
+
+.fa-ul {
+  list-style-type: none;
+  margin-left: var(--fa-li-margin, 2.5em);
+  padding-left: 0;
+}
+.fa-ul > li {
+  position: relative;
+}
+
+.fa-li {
+  left: calc(-1 * var(--fa-li-width, 2em));
+  position: absolute;
+  text-align: center;
+  width: var(--fa-li-width, 2em);
+  line-height: inherit;
+}
+
+.fa-border {
+  border-color: var(--fa-border-color, #eee);
+  border-radius: var(--fa-border-radius, 0.1em);
+  border-style: var(--fa-border-style, solid);
+  border-width: var(--fa-border-width, 0.08em);
+  padding: var(--fa-border-padding, 0.2em 0.25em 0.15em);
+}
+
+.fa-pull-left {
+  float: left;
+  margin-right: var(--fa-pull-margin, 0.3em);
+}
+
+.fa-pull-right {
+  float: right;
+  margin-left: var(--fa-pull-margin, 0.3em);
+}
+
+.fa-beat {
+  animation-name: fa-beat;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, ease-in-out);
+}
+
+.fa-bounce {
+  animation-name: fa-bounce;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.28, 0.84, 0.42, 1));
+}
+
+.fa-fade {
+  animation-name: fa-fade;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+}
+
+.fa-beat-fade {
+  animation-name: fa-beat-fade;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+}
+
+.fa-flip {
+  animation-name: fa-flip;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, ease-in-out);
+}
+
+.fa-shake {
+  animation-name: fa-shake;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, linear);
+}
+
+.fa-spin {
+  animation-name: fa-spin;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 2s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, linear);
+}
+
+.fa-spin-reverse {
+  --fa-animation-direction: reverse;
+}
+
+.fa-pulse,
+.fa-spin-pulse {
+  animation-name: fa-spin;
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, steps(8));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-beat,
+.fa-bounce,
+.fa-fade,
+.fa-beat-fade,
+.fa-flip,
+.fa-pulse,
+.fa-shake,
+.fa-spin,
+.fa-spin-pulse {
+    animation-delay: -1ms;
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+    transition-delay: 0s;
+    transition-duration: 0s;
+  }
+}
+@keyframes fa-beat {
+  0%, 90% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(var(--fa-beat-scale, 1.25));
+  }
+}
+@keyframes fa-bounce {
+  0% {
+    transform: scale(1, 1) translateY(0);
+  }
+  10% {
+    transform: scale(var(--fa-bounce-start-scale-x, 1.1), var(--fa-bounce-start-scale-y, 0.9)) translateY(0);
+  }
+  30% {
+    transform: scale(var(--fa-bounce-jump-scale-x, 0.9), var(--fa-bounce-jump-scale-y, 1.1)) translateY(var(--fa-bounce-height, -0.5em));
+  }
+  50% {
+    transform: scale(var(--fa-bounce-land-scale-x, 1.05), var(--fa-bounce-land-scale-y, 0.95)) translateY(0);
+  }
+  57% {
+    transform: scale(1, 1) translateY(var(--fa-bounce-rebound, -0.125em));
+  }
+  64% {
+    transform: scale(1, 1) translateY(0);
+  }
+  100% {
+    transform: scale(1, 1) translateY(0);
+  }
+}
+@keyframes fa-fade {
+  50% {
+    opacity: var(--fa-fade-opacity, 0.4);
+  }
+}
+@keyframes fa-beat-fade {
+  0%, 100% {
+    opacity: var(--fa-beat-fade-opacity, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(var(--fa-beat-fade-scale, 1.125));
+  }
+}
+@keyframes fa-flip {
+  50% {
+    transform: rotate3d(var(--fa-flip-x, 0), var(--fa-flip-y, 1), var(--fa-flip-z, 0), var(--fa-flip-angle, -180deg));
+  }
+}
+@keyframes fa-shake {
+  0% {
+    transform: rotate(-15deg);
+  }
+  4% {
+    transform: rotate(15deg);
+  }
+  8%, 24% {
+    transform: rotate(-18deg);
+  }
+  12%, 28% {
+    transform: rotate(18deg);
+  }
+  16% {
+    transform: rotate(-22deg);
+  }
+  20% {
+    transform: rotate(22deg);
+  }
+  32% {
+    transform: rotate(-12deg);
+  }
+  36% {
+    transform: rotate(12deg);
+  }
+  40%, 100% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.fa-rotate-90 {
+  transform: rotate(90deg);
+}
+
+.fa-rotate-180 {
+  transform: rotate(180deg);
+}
+
+.fa-rotate-270 {
+  transform: rotate(270deg);
+}
+
+.fa-flip-horizontal {
+  transform: scale(-1, 1);
+}
+
+.fa-flip-vertical {
+  transform: scale(1, -1);
+}
+
+.fa-flip-both,
+.fa-flip-horizontal.fa-flip-vertical {
+  transform: scale(-1, -1);
+}
+
+.fa-rotate-by {
+  transform: rotate(var(--fa-rotate-angle, 0));
+}
+
+.fa-stack {
+  display: inline-block;
+  vertical-align: middle;
+  height: 2em;
+  position: relative;
+  width: 2.5em;
+}
+
+.fa-stack-1x,
+.fa-stack-2x {
+  bottom: 0;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: var(--fa-stack-z-index, auto);
+}
+
+.svg-inline--fa.fa-stack-1x {
+  height: 1em;
+  width: 1.25em;
+}
+.svg-inline--fa.fa-stack-2x {
+  height: 2em;
+  width: 2.5em;
+}
+
+.fa-inverse {
+  color: var(--fa-inverse, #fff);
+}
+
+.sr-only,
+.fa-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:not(:focus),
+.fa-sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.svg-inline--fa .fa-primary {
+  fill: var(--fa-primary-color, currentColor);
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa .fa-secondary {
+  fill: var(--fa-secondary-color, currentColor);
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-primary {
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-secondary {
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa mask .fa-primary,
+.svg-inline--fa mask .fa-secondary {
+  fill: black;
+}</style><link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/app-rweeJo89.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/fortawesome-A2qYgHCJ.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/lodash-1qI-k1uP.js"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><script type="text/javascript" async="" src="https://www.googletagmanager.com/gtag/js?id=G-V1LEVKMM8Y&amp;cx=c&amp;gtm=4e66h0h1"></script><script async="" src="https://www.googletagmanager.com/gtm.js?id=GTM-MHTSPMN"></script><script type="module" src="https://rms.reusability.com/build/assets/app-rweeJo89.js"></script>        <!-- Google Tag Manager -->
+    <script type="text/javascript">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-MHTSPMN');</script>
+    <!-- End Google Tag Manager -->
+    <style type="text/css">
+.mapdiv[data-v-177d06e3] {
+  width: 100%;
+  height: 100%;
+}
+</style><style type="text/css">
+.info-window-content[data-v-5b373d6e] {
+  display: none;
+}
+.mapdiv .info-window-content[data-v-5b373d6e] {
+  display: block;
+}
+</style><style type="text/css" data-primevue-style-id="base">
+.p-hidden-accessible {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.p-hidden-accessible input,
+.p-hidden-accessible select {
+    transform: scale(0);
+}
+
+.p-overflow-hidden {
+    overflow: hidden;
+    padding-right: var(--scrollbar-width);
+}
+</style><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/BolPrintable-_ZlnZ2PX.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/BolsService-DnxGnQYZ.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderTypes-CP3qfu0s.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/LadingBillStatusTypes-BfUhLMuz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/lodash-1qI-k1uP.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/fortawesome-A2qYgHCJ.js"><link rel="stylesheet" crossorigin="" href="/build/assets/BolPrintable-BNGcsvtK.css"><style type="text/css">
+                        @media screen and (max-width: 960px) {
+                            .p-overlaypanel[pv_id_1] {
+                                width: 75vw !important;
+                            }
+                        }
+                    </style><style type="text/css" data-primevue-style-id="baseicon">
+.p-icon {
+    display: inline-block;
+}
+
+.p-icon-spin {
+    -webkit-animation: p-icon-spin 2s infinite linear;
+    animation: p-icon-spin 2s infinite linear;
+}
+
+@-webkit-keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+
+@keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+</style></head>
+
+<body id="docs-root" class="w-full h-screen overflow-hidden font-sans antialiased leading-none bg-gray-100">
+
+        <!-- Google Tag Manager (noscript) -->
+    <noscript>
+        <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MHTSPMN" height="0" width="0"
+                style="display:none;visibility:hidden"
+        ></iframe>
+    </noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <div class="flex flex-col">
+        <div class="h-screen">
+            <div id="vueApp" data-v-app=""><div class="vh-100 bg-gray-50"><div class="flex pt-4 app-shell-top-bar sm:px-4 drop-shadow-lg"><div class="flex-none w-[205px] logo-container sticky top-0"><div class="float-left"><div><img class="mx-auto h-14" src="/assets/images/logos/RMS_light_sans_company.svg" alt="RMS Logo"></div></div><!----></div><div class="flex-1"></div><div class="ml-4 text-s"><button class="p-button p-component user-profile-button" type="button" aria-label="Jessica Perez" aria:haspopup="true" aria-controls="overlay_panel" data-pc-name="button" data-pc-section="root"><span class="p-button-icon p-button-icon-left pi pi-user" data-pc-section="icon"></span><span class="p-button-label" data-pc-section="label">Jessica Perez</span><!----></button></div></div><div class="sticky top-0 left-0 flex h-screen"><div class="relative left-0 w-[220px] pb-10 overflow-auto z-50 transition-all duration-500 ease-in-out sidebar-container"><div class="w-full py-4"><div class="w-full pt-4 pb-4"><div class="sidebar-navigation"><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><svg class="svg-inline--fa fa-angles-left float-right mb-6 mr-2 text-xl text-gray-300 transition-all duration-200 ease-in-out cursor-pointer hover:text-white" aria-labelledby="svg-inline--fa-title-NUWNxMJW2Y4G" data-prefix="fas" data-icon="angles-left" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title class="" id="svg-inline--fa-title-NUWNxMJW2Y4G">Close menu</title><path class="" fill="currentColor" d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160zm352-160l-160 160c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L301.3 256 438.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0z"></path></svg></div></div><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><div class="p-accordion p-component" data-pc-name="accordion" data-pc-section="root"><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="0"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_0_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_0_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-truck fa-flip-horizontal text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="truck" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M48 0C21.5 0 0 21.5 0 48L0 368c0 26.5 21.5 48 48 48l16 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-64 0-32 0-18.7c0-17-6.7-33.3-18.7-45.3L512 114.7c-12-12-28.3-18.7-45.3-18.7L416 96l0-48c0-26.5-21.5-48-48-48L48 0zM416 160l50.7 0L544 237.3l0 18.7-128 0 0-96zM112 416a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path></svg><span class="ml-4">Recoveries</span></a></div><div id="pv_id_2_0_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_0_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/recoveries-by-zone" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Zones</span></div></div></a></div></div><div><div><a href="/recoveries-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Locations</span></div></div></a></div></div><div><div><a href="/recoveries-by-component" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Components</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="1"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_1_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_1_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-box-open text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="box-open" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M58.9 42.1c3-6.1 9.6-9.6 16.3-8.7L320 64 564.8 33.4c6.7-.8 13.3 2.7 16.3 8.7l41.7 83.4c9 17.9-.6 39.6-19.8 45.1L439.6 217.3c-13.9 4-28.8-1.9-36.2-14.3L320 64 236.6 203c-7.4 12.4-22.3 18.3-36.2 14.3L37.1 170.6c-19.3-5.5-28.8-27.2-19.8-45.1L58.9 42.1zM321.1 128l54.9 91.4c14.9 24.8 44.6 36.6 72.5 28.6L576 211.6l0 167c0 22-15 41.2-36.4 46.6l-204.1 51c-10.2 2.6-20.9 2.6-31 0l-204.1-51C79 419.7 64 400.5 64 378.5l0-167L191.6 248c27.8 8 57.6-3.8 72.5-28.6L318.9 128l2.2 0z"></path></svg><span class="ml-4">Orders &amp; BOLs</span></a></div><div id="pv_id_2_1_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_1_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/bills-of-lading" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">BOLs</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="2"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_2_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_2_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-address-book text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="address-book" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M96 0C60.7 0 32 28.7 32 64l0 384c0 35.3 28.7 64 64 64l288 0c35.3 0 64-28.7 64-64l0-384c0-35.3-28.7-64-64-64L96 0zM208 288l64 0c44.2 0 80 35.8 80 80c0 8.8-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16c0-44.2 35.8-80 80-80zm-32-96a64 64 0 1 1 128 0 64 64 0 1 1 -128 0zM512 80c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64zM496 192c-8.8 0-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8-7.2-16-16-16zm16 144c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64z"></path></svg><span class="ml-4">Account</span></a></div><div id="pv_id_2_2_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_2_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/accounts/SUMOGAUS2/inventory-location-summary" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">My Account</span></div></div></a></div></div><div><div><a href="/locations" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">My Locations</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="3"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_3_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_3_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-chart-line text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chart-line" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"></path></svg><span class="ml-4">Reports</span></a></div><div id="pv_id_2_3_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_3_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/reports/orders" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Order Details</span></div></div></a></div></div><div><div><a href="/reports/completed-orders" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Completed Orders</span></div></div></a></div></div><div><div><a href="/reports/current-inventory-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Current Inventory By Location</span></div></div></a></div></div><div><div><a href="/reports/historical-inventory-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Historical Inventory By Location</span></div></div></a></div></div><div><div><a href="/reports" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Archive</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="4"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_4_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_4_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-question text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="question" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path class="" fill="currentColor" d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z"></path></svg><span class="ml-4">Help</span></a></div><div id="pv_id_2_4_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_4_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/help-files" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Help Files</span></div></div></a></div></div></div></div></div></div></div></div></div></div></div></div></div><div class="h-full absolute  -left-[100px] z-50 transition-all duration-500 ease-in-out sidebar-container"><div class="w-full py-4"><div class="w-full pb-4 text-center"><div class="mt-4 sidebar-navigation"><div class="grid grid-cols-1 gap-4"><div class="object-center col-span-1"><svg class="svg-inline--fa fa-angles-right mb-6 text-xl text-gray-300 transition-all duration-200 ease-in-out cursor-pointer hover:text-white" aria-labelledby="svg-inline--fa-title-tBsqBUjOppYi" data-prefix="fas" data-icon="angles-right" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title class="" id="svg-inline--fa-title-tBsqBUjOppYi">Open menu</title><path class="" fill="currentColor" d="M470.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 256 265.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160zm-352 160l160-160c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L210.7 256 73.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0z"></path></svg></div></div><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-truck fa-flip-horizontal text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="truck" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M48 0C21.5 0 0 21.5 0 48L0 368c0 26.5 21.5 48 48 48l16 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-64 0-32 0-18.7c0-17-6.7-33.3-18.7-45.3L512 114.7c-12-12-28.3-18.7-45.3-18.7L416 96l0-48c0-26.5-21.5-48-48-48L48 0zM416 160l50.7 0L544 237.3l0 18.7-128 0 0-96zM112 416a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-box-open text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="box-open" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M58.9 42.1c3-6.1 9.6-9.6 16.3-8.7L320 64 564.8 33.4c6.7-.8 13.3 2.7 16.3 8.7l41.7 83.4c9 17.9-.6 39.6-19.8 45.1L439.6 217.3c-13.9 4-28.8-1.9-36.2-14.3L320 64 236.6 203c-7.4 12.4-22.3 18.3-36.2 14.3L37.1 170.6c-19.3-5.5-28.8-27.2-19.8-45.1L58.9 42.1zM321.1 128l54.9 91.4c14.9 24.8 44.6 36.6 72.5 28.6L576 211.6l0 167c0 22-15 41.2-36.4 46.6l-204.1 51c-10.2 2.6-20.9 2.6-31 0l-204.1-51C79 419.7 64 400.5 64 378.5l0-167L191.6 248c27.8 8 57.6-3.8 72.5-28.6L318.9 128l2.2 0z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-address-book text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="address-book" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M96 0C60.7 0 32 28.7 32 64l0 384c0 35.3 28.7 64 64 64l288 0c35.3 0 64-28.7 64-64l0-384c0-35.3-28.7-64-64-64L96 0zM208 288l64 0c44.2 0 80 35.8 80 80c0 8.8-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16c0-44.2 35.8-80 80-80zm-32-96a64 64 0 1 1 128 0 64 64 0 1 1 -128 0zM512 80c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64zM496 192c-8.8 0-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8-7.2-16-16-16zm16 144c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-chart-line text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chart-line" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-question text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="question" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path class="" fill="currentColor" d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z"></path></svg></div></div></div></div></div></div></div></div><div class="absolute version-container w-[185px] bottom-20 left-4 z-50"><p class="text-sm text-gray-300">RMS v3.9.3.0</p></div><div class="absolute version-container bottom-20 left-2 z-50" style="display: none;"><p class="text-sm text-gray-300">RMS</p><p class="text-xs text-gray-300">v3.9.3.0</p></div><div class="flex-row flex-1 overflow-auto border-2"><div class="flex overflow-auto primary-content main-content-container"><main class="flex-auto"><section aria-labelledby="primary-heading" class="h-full"><div class="w-full px-5 py-1"><div data-v-b00a5dd1="" id="printMe" class="text-xs"><div data-v-b00a5dd1="" class="mt-4 mb-1"><button data-v-b00a5dd1="" class="p-button p-component p-button-link excludeFromPrint" type="button" aria-label="Print this Bill of Lading" data-pc-name="button" data-pc-section="root"><span class="p-button-icon p-button-icon-left pi pi-print" data-pc-section="icon"></span><span class="p-button-label" data-pc-section="label">Print this Bill of Lading</span><!----></button><div data-v-b00a5dd1="" class="text-xs"><div data-v-b00a5dd1="" class="grid grid-cols-9 pl-2 pt-1 pb-1 text-lg text-center border-2 border-gray-900"><div data-v-b00a5dd1="" class="col-span-2 text-left"><span data-v-b00a5dd1="" class="font-bold">Updated: </span> 06/15/2026</div><div data-v-b00a5dd1="" class="col-span-5 font-bold">Bill of Lading - Master Work Order</div><div data-v-b00a5dd1="" class="col-span-2"><img data-v-b00a5dd1="" src="/assets/images/logos/EZRackLogo_Black.svg" class="relative h-[100%] max-w-[65%] ml-auto mr-[5%]" alt="RMS Logo"></div></div><div data-v-b00a5dd1="" class="grid grid-cols-12 border-l-2 border-r-2 border-b-2 border-gray-900"><div data-v-b00a5dd1="" class="col-span-6 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 text-white text-lg bg-black"><span data-v-b00a5dd1="" class="font-bold">Origin: </span>HOMFATX1</div><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 leading-6"><div data-v-b00a5dd1=""><span data-v-b00a5dd1="" class="font-bold">Name: </span>Home Grown Plants Inc</div><div><span class="font-bold">Address: </span><span>2675 West Audie Murphy Parkway</span><!----></div><div><span class="font-bold">City/State/Zip: </span><span>Farmersville</span><span>, </span><span>Texas</span><span>&nbsp;</span><span>75442</span></div><div><span class="font-bold">Contact: </span>Jesus</div><div><span>+1</span><span>(972)207-7964</span><span>, </span><span>homegrownplants@gmail.com</span></div></div></div><div data-v-b00a5dd1="" class="col-span-6"><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 text-white text-lg bg-black"><span data-v-b00a5dd1="" class="font-bold">Destination: </span>SUHOTXUS</div><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 leading-6"><div data-v-b00a5dd1=""><span data-v-b00a5dd1="" class="font-bold">Name: </span>4 US &amp; Company - Houston, TX</div><div><span class="font-bold">Address: </span><span>403 Century Plaza Drive, Suite 420</span><span>, Building 1</span></div><div><span class="font-bold">City/State/Zip: </span><span>Houston</span><span>, </span><span>Texas</span><span>&nbsp;</span><span>77073</span></div><div><span class="font-bold">Contact: </span>Jessica Perez; Juan Gonzalez</div><div><span>+1</span><span>(689)500-1829</span><span>, </span><span>Jgonzalez@lkotrucking.com</span></div></div></div></div><div data-v-b00a5dd1="" class="grid grid-cols-12 border-l-2 border-r-2 border-b-2 border-gray-900"><div data-v-b00a5dd1="" class="col-span-6 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 text-white text-lg bg-black"><span data-v-b00a5dd1="" class="font-bold">Carrier: </span>SUHOTXUS</div><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 leading-6"><div data-v-b00a5dd1=""><span data-v-b00a5dd1="" class="font-bold">Name: </span>4 US &amp; Company - Houston, TX</div><div><span class="font-bold">Address: </span><span>403 Century Plaza Drive, Suite 420</span><span>, Building 1</span></div><div><span class="font-bold">City/State/Zip: </span><span>Houston</span><span>, </span><span>Texas</span><span>&nbsp;</span><span>77073</span></div><div><span class="font-bold">Contact: </span>Jessica Perez; Juan Gonzalez</div><div><span>+1</span><span>(689)500-1829</span><span>, </span><span>Jgonzalez@lkotrucking.com</span></div></div></div><div data-v-b00a5dd1="" class="col-span-6"><div data-v-b00a5dd1="" class="pl-2 pt-1 pb-1 text-white text-lg bg-black"><span data-v-b00a5dd1="" class="font-bold">Bill of Lading: </span>939774</div><div data-v-b00a5dd1="" class="pl-2 pt-1 leading-6"><div data-v-b00a5dd1=""><span data-v-b00a5dd1="" class="font-bold">EZRack</span></div><div data-v-b00a5dd1="">2780 E Fowler Ave., PMB 2025</div><div data-v-b00a5dd1="">Tampa, FL 33612</div><div data-v-b00a5dd1="">(877)977-7225</div><div data-v-b00a5dd1="">recovery@reusabilty.com</div></div></div></div><div data-v-b00a5dd1="" class="grid grid-cols-11 text-sm border-l-2 border-r-2 border-b-2 border-gray-900"><div data-v-b00a5dd1="" class="col-span-1 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="pl-2 pt-1 text-black h-[1.75in]"><span data-v-b00a5dd1="" class="font-bold text-xs">Arrival Time: </span></div></div><div data-v-b00a5dd1="" class="col-span-3 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="text-sm"><div class="grid grid-cols-1 pl-2 pt-1 pb-2 font-bold" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Received By:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-6" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Name (Print):</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Signature:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Date:</div></div></div></div><div data-v-b00a5dd1="" class="col-span-3 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="text-sm"><div class="grid grid-cols-1 pl-2 pt-1 pb-2 font-bold" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Shipped By:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-6" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Name (Print):</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Signature:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Date:</div></div></div></div><div data-v-b00a5dd1="" class="col-span-1 border-r-2 border-gray-900"><div data-v-b00a5dd1="" class="pl-1 pt-1 text-black h-[1.75in]"><span data-v-b00a5dd1="" class="font-bold text-xs">Departure Time: </span></div></div><div data-v-b00a5dd1="" class="col-span-3"><div data-v-b00a5dd1="" class="text-sm"><div class="grid grid-cols-1 pl-2 pt-1 pb-2 font-bold" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Carrier:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-6" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Name (Print):</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Signature:</div></div><div class="grid grid-cols-1 pl-2 pr-2 pt-8" data-v-b00a5dd1=""><div class="col-span-1 border-b-2 border-gray-900" data-v-b00a5dd1=""></div></div><div class="grid grid-cols-1 pl-2" data-v-b00a5dd1=""><div class="col-span-1" data-v-b00a5dd1="">Date:</div></div></div></div></div><div data-v-b00a5dd1="" class="grid grid-cols-1 pt-1 pb-1 text-sm border-l-2 border-r-2 border-b-2 border-gray-900"><div data-v-b00a5dd1="" class="col-span-1 pl-2 leading-6"><span data-v-b00a5dd1="" class="font-bold">Special Configuration: </span></div></div></div></div><div data-v-b00a5dd1="" class="w-full mb-2"><div data-v-00523264="" data-v-b00a5dd1="" class="w-full text-sm"><div data-v-00523264=""><div data-v-00523264="" class="pb-1"><div data-v-00523264="" class="grid grid-cols-2 border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"><span data-v-00523264="" class="font-bold">Order #: </span>2942147</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"><span data-v-00523264="" class="font-bold">Customer PO #: </span></div></div><!----><!----><div class="grid grid-cols-11 bg-gray-300 border-l-2 border-t-2 border-gray-800" data-v-00523264=""><div class="col-span-3 p-2 border-r-2 border-gray-800" data-v-00523264="">Item</div><div class="col-span-2 p-2 border-r-2 border-gray-800" data-v-00523264="">SKU#</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">Item Wt</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">Total Wt</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">Item Qty</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">Qty PU</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">Qty Rec</div><div class="col-span-1 p-2 border-r-2 border-gray-800" data-v-00523264="">O/S/D</div></div><div data-v-00523264="" class="text-xs"><div data-v-00523264="" class="grid grid-cols-11 leading-6 border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-3 p-2 border-r-2 border-gray-800">84" Corner Post Only</div><div data-v-00523264="" class="col-span-2 p-2 border-r-2 border-gray-800">R-CPH84</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">6</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"> 146</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">28</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div></div><!----></div><div data-v-00523264="" class="text-xs"><div data-v-00523264="" class="grid grid-cols-11 leading-6 border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-3 p-2 border-r-2 border-gray-800">40" DRB</div><div data-v-00523264="" class="col-span-2 p-2 border-r-2 border-gray-800">R-DRB40</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">3</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"> 122</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">42</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div></div><!----></div><div data-v-00523264="" class="text-xs"><div data-v-00523264="" class="grid grid-cols-11 leading-6 border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-3 p-2 border-r-2 border-gray-800">48" DRB</div><div data-v-00523264="" class="col-span-2 p-2 border-r-2 border-gray-800">R-DRB48</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">4</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"> 143</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">42</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div></div><!----></div><div data-v-00523264="" class="text-xs"><div data-v-00523264="" class="grid grid-cols-11 leading-6 border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-3 p-2 border-r-2 border-gray-800">Wood Shelf</div><div data-v-00523264="" class="col-span-2 p-2 border-r-2 border-gray-800">R-W4048</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">17</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800"> 347</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">21</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-gray-800">&nbsp;</div></div><!----></div><div class="grid grid-cols-11 leading-10 border-l-2 border-t-2 border-gray-800" data-v-00523264=""><div class="col-span-3 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-2 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div><div class="col-span-1 border-r-2 border-gray-800" data-v-00523264="">&nbsp;</div></div><div data-v-00523264="" class="grid grid-cols-2 text-sm border-l-2 border-t-2 border-gray-800"><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-b-2 border-gray-800"><span data-v-00523264="" class="font-bold">Order Total Weight: </span> 757</div><div data-v-00523264="" class="col-span-1 p-2 border-r-2 border-b-2 border-gray-800"><span data-v-00523264="" class="font-bold">Bill of Lading Total Weight: </span> 757</div></div><div data-v-00523264=""><div data-v-00523264="" class="grid grid-cols-11 border-b-2 leading-10 border-gray-800"><div data-v-00523264="" class="col-span-11">&nbsp;</div></div><div data-v-00523264="" class="grid grid-cols-11 border-b-2 leading-10 border-gray-800"><div data-v-00523264="" class="col-span-11">&nbsp;</div></div></div></div></div></div></div></div></div></section></main></div></div></div></div></div>
+        </div>
+    </div>
+
+
+
+<div class="p-toast p-component p-toast-center p-ripple-disabled" data-pc-name="toast" data-pc-section="root" style="position: fixed; top: 50%; left: 50%;"><div data-pc-section="message"></div></div><!----></body></html>

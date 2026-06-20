@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Dispatch Board</h2>
+        <p>Daily operations view: review, assign, dispatch, complete, and track racks/weight/revenue.</p>
+    </div>
+    <div class="topbar-actions">
+        <a class="link-btn" href="/rms-queue">RMS Queue</a>
+        <a class="link-btn" href="/dispatch-map">Dispatch Map</a>
+        <a class="link-btn" href="/route-builder">Route Builder</a>
+    </div>
+</header>
+
+<section class="board-metrics">
+    <div class="metric"><span>Need Review</span><strong>{{ board.counts.need_review }}</strong></div>
+    <div class="metric"><span>Unassigned</span><strong>{{ board.counts.unassigned }}</strong></div>
+    <div class="metric"><span>Assigned</span><strong>{{ board.counts.assigned }}</strong></div>
+    <div class="metric"><span>Dispatched</span><strong>{{ board.counts.dispatched }}</strong></div>
+    <div class="metric"><span>Completed</span><strong>{{ board.counts.completed }}</strong></div>
+    <div class="metric"><span>Total Racks</span><strong>{{ board.metrics.total_racks }}</strong></div>
+    <div class="metric"><span>Total Weight</span><strong>{{ board.metrics.total_weight }} lbs</strong></div>
+    <div class="metric"><span>Revenue</span><strong>${{ board.metrics.total_revenue }}</strong></div>
+    <div class="metric"><span>Driver Pay</span><strong>${{ board.metrics.driver_pay }}</strong></div>
+</section>
+
+<section class="dispatch-board-grid">
+    {% set columns = [
+        ("Need Review", "need_review", board.columns.need_review),
+        ("Unassigned", "unassigned", board.columns.unassigned),
+        ("Assigned", "assigned", board.columns.assigned),
+        ("Dispatched", "dispatched", board.columns.dispatched),
+        ("Completed", "completed", board.columns.completed)
+    ] %}
+
+    {% for title, key, stores in columns %}
+    <div class="board-column board-{{ key }}">
+        <h3>{{ title }} <span>{{ stores|length }}</span></h3>
+
+        {% if not stores %}
+            <p class="muted small-muted">No items.</p>
+        {% endif %}
+
+        {% for store in stores %}
+        <div class="board-card">
+            <div class="card-head">
+                <strong>BOL {{ store.bol }}</strong>
+                <span class="due-chip" data-due="{{ store.due_date or '' }}">{{ store.due_date or "No Due" }}</span>
+            </div>
+
+            <p class="store-line">{{ store.store_name or store.origin_name or "Store" }} / {{ store.origin }}</p>
+            <p class="muted">{{ store.city }}, {{ store.state }} • {{ store.expected_racks or 0 }} racks • {{ store.weight or 0 }} lbs</p>
+
+            {% if store.assigned_driver %}
+            <p class="driver-line">Driver: <b>{{ store.assigned_driver }}</b></p>
+            {% endif %}
+
+            {% if store.review_reasons %}
+            <p class="review-line">{{ store.review_reasons|join(", ") }}</p>
+            {% endif %}
+
+            <div class="board-actions">
+                <a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live</a>
+                <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
+                <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
+
+                {% if key == "need_review" %}
+                    <button onclick="setStoreStatus('{{ store.id }}','Unassigned')" class="tiny-btn">Approve</button>
+                {% elif key == "unassigned" %}
+                    <a class="mini-link" href="/dispatch-map">Map</a>
+                {% elif key == "assigned" %}
+                    <button onclick="setStoreStatus('{{ store.id }}','Dispatched')" class="tiny-btn">Dispatch</button>
+                    <button onclick="setStoreStatus('{{ store.id }}','Unassigned')" class="tiny-btn">Unassign</button>
+                {% elif key == "dispatched" %}
+                    <button onclick="setStoreStatus('{{ store.id }}','Completed')" class="tiny-btn">Complete</button>
+                {% elif key == "completed" %}
+                    <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Archive</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</section>
+
+<script>
+function dueColor(dueValue){
+    if(!dueValue) return "green";
+    const parts = dueValue.split("/");
+    let due = null;
+    if(parts.length === 3){
+        due = new Date(Number(parts[2]), Number(parts[0])-1, Number(parts[1]));
+    }else{
+        due = new Date(dueValue);
+    }
+    if(!due || isNaN(due.getTime())) return "green";
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const diff = Math.ceil((due - today) / (1000*60*60*24));
+    if(diff < 0) return "red";
+    if(diff <= 4) return "amber";
+    return "green";
+}
+
+document.querySelectorAll(".due-chip").forEach(chip => {
+    chip.classList.add("due-" + dueColor(chip.dataset.due || ""));
+});
+
+async function setStoreStatus(storeId, status){
+    if(!confirm("Move this BOL to " + status + "?")) return;
+
+    const response = await fetch("/api/store-status", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({store_id:storeId, status:status})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to update status.");
+        return;
+    }
+
+    location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,80 @@
+[
+  {
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "found": 0,
+    "new": 0,
+    "existing": 0,
+    "id": "595f806f-4bef-4b8d-8b76-559c32b429fd",
+    "time": "2026-06-20T11:04:15",
+    "action": "Refresh RMS Queue"
+  },
+  {
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "found": 0,
+    "new": 0,
+    "existing": 0,
+    "id": "148a380a-b9f1-4942-ba3e-d3a1c0f72856",
+    "time": "2026-06-20T11:04:19",
+    "action": "Refresh RMS Queue"
+  },
+  {
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "found": 0,
+    "new": 0,
+    "existing": 0,
+    "id": "e601ba32-1454-424a-ad26-e76228022012",
+    "time": "2026-06-20T11:04:35",
+    "action": "Refresh RMS Queue"
+  },
+  {
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "bol_count": 0,
+    "sample_bols": [],
+    "id": "cee0b935-15d0-4121-84a8-84c733564e14",
+    "time": "2026-06-20T11:04:44",
+    "action": "Test RMS Login"
+  },
+  {
+    "ok": false,
+    "status": "ERROR",
+    "message": "RMS queue scan error: Page.screenshot: Timeout 30000ms exceeded.\nCall log:\ntaking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n",
+    "found": 0,
+    "new": 0,
+    "existing": 0,
+    "id": "31f93f12-be4d-4e6f-b491-bfc5037b434e",
+    "time": "2026-06-20T11:06:00",
+    "action": "Refresh RMS Queue"
+  },
+  {
+    "ok": true,
+    "status": "IMPORT SELECTED COMPLETE",
+    "message": "Import/Re-import complete. Processed 99. Need Review 5.",
+    "imported": 99,
+    "skipped": 0,
+    "need_review": 5,
+    "errors": [],
+    "id": "03f1ebfa-f9b8-48af-8151-3a23e084914a",
+    "time": "2026-06-20T11:08:53",
+    "action": "Import Selected RMS Queue"
+  },
+  {
+    "ok": true,
+    "status": "IMPORT SELECTED COMPLETE",
+    "message": "Import/Re-import complete. Processed 99. Need Review 18.",
+    "imported": 99,
+    "skipped": 0,
+    "need_review": 18,
+    "errors": [],
+    "id": "6fc96929-6b2a-4ced-ae77-c7436b862996",
+    "time": "2026-06-20T11:19:30",
+    "action": "Import Selected RMS Queue"
+  }
+]

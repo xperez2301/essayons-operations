@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EOMS Login | Essayons Operations</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top left,rgba(34,197,94,.18),transparent 32%),linear-gradient(135deg,#020617,#0f172a 55%,#111827);color:#e5e7eb;display:flex;align-items:center;justify-content:center;padding:24px}
+    .login-wrap{width:min(440px,100%);background:rgba(15,23,42,.95);border:1px solid rgba(148,163,184,.28);box-shadow:0 24px 80px rgba(0,0,0,.45);border-radius:24px;overflow:hidden}
+    .login-head{padding:28px 28px 18px;border-bottom:1px solid rgba(148,163,184,.18)}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+    .badge{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#84cc16);color:#052e16;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+    .brand-text strong{display:block;font-size:20px;letter-spacing:.3px}.brand-text span{display:block;color:#94a3b8;font-size:12px;margin-top:2px}
+    h1{margin:0 0 8px;font-size:28px}p{margin:0;color:#94a3b8;line-height:1.45}
+    form{padding:24px 28px 28px}label{display:block;font-size:13px;color:#cbd5e1;font-weight:700;margin:14px 0 7px}
+    input{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(148,163,184,.32);background:#020617;color:#f8fafc;outline:none;font-size:16px}
+    input:focus{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}
+    button{width:100%;margin-top:20px;padding:14px 16px;border:0;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#16a34a,#22c55e);color:#052e16;font-weight:900;font-size:16px}
+    .error{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);color:#fecaca;padding:12px;border-radius:12px;margin-bottom:14px;font-size:14px}
+    .foot{padding:0 28px 24px;font-size:12px;color:#64748b;text-align:center}
+  </style>
+</head>
+<body>
+  <main class="login-wrap">
+    <div class="login-head">
+      <div class="brand"><div class="badge">E</div><div class="brand-text"><strong>EOMS</strong><span>Essayons Operations Management System</span></div></div>
+      <h1>Admin Login</h1>
+      <p>Secure access for dispatch, RMS imports, route builder, driver assignment, and operations control.</p>
+    </div>
+    <form method="POST" action="/login">
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <input type="hidden" name="next" value="{{ next or '/dispatch-map' }}">
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Enter Dispatch Portal</button>
+    </form>
+    <div class="foot">Essayons Bax Recovery & Logistics · Authorized users only</div>
+  </main>
+</body>
+</html>

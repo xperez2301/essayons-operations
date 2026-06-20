@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Printable BOL Not Found</h2>
+        <p>The record exists, but the saved printable BOL file was not found.</p>
+    </div>
+    <a class="link-btn" href="/rms-queue">Back to RMS Queue</a>
+</header>
+
+<section class="panel">
+    <h3>BOL {{ bol }}</h3>
+    <p class="muted">Saved file path:</p>
+    <p>{{ path }}</p>
+    <p>Try re-importing this BOL from RMS Queue to regenerate the printable file.</p>
+</section>
+{% endblock %}
