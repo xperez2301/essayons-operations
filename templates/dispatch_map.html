@@ -2,331 +2,95 @@
 
 {% block content %}
 
-<h2>Dispatch Map</h2>
-
-<div style="display:flex;gap:20px;">
-
-```
-<!-- LEFT PANEL -->
-
-<div class="card" style="width:260px;">
-
-    <h3>Available Stores</h3>
-
-    <label>
-        <input type="checkbox"
-               class="store-box"
-               data-racks="12"
-               data-weight="2400">
-        Walmart #1001
-    </label><br>
-
-    <label>
-        <input type="checkbox"
-               class="store-box"
-               data-racks="18"
-               data-weight="3600">
-        Home Depot #2001
-    </label><br>
-
-    <label>
-        <input type="checkbox"
-               class="store-box"
-               data-racks="9"
-               data-weight="1800">
-        Lowe's #3001
-    </label>
-
-    <br><br>
-
-    <label>Assign Driver</label>
-
-    <select id="driver-select">
-        <option value="">Select Driver</option>
-        <option>Driver 1</option>
-        <option>Driver 2</option>
-        <option>Driver 3</option>
-    </select>
-
-    <button onclick="assignDriver()">
-        Assign Driver
-    </button>
-
-</div>
-
-<!-- MAP -->
-
-<div class="card" style="flex:1;">
-
-    <div id="map"
-         style="height:600px;">
+<header class="topbar">
+    <div>
+        <h2>Dispatch Map</h2>
+        <p>Live store selection, driver assignment, rack totals, and M2 weight tracking.</p>
     </div>
+    <div class="status-pill">M2 Max Payload: 25,001 lbs</div>
+</header>
+
+<section class="metrics">
+    <div class="metric">
+        <span>Selected Stores</span>
+        <strong id="store-count">0</strong>
+    </div>
+    <div class="metric">
+        <span>Racks</span>
+        <strong id="rack-count">0</strong>
+    </div>
+    <div class="metric">
+        <span>Weight</span>
+        <strong><span id="weight-count">0</span> lbs</strong>
+    </div>
+    <div class="metric">
+        <span>Remaining</span>
+        <strong><span id="remaining-capacity">25001</span> lbs</strong>
+    </div>
+    <div class="metric">
+        <span>Status</span>
+        <strong id="capacity-status" class="safe">SAFE</strong>
+    </div>
+</section>
+
+<div class="dispatch-grid">
+
+    <section class="panel">
+        <h3>Available Stores</h3>
+        <p class="muted">Unassigned RMS work appears here.</p>
+
+        <div id="available-stores">
+            <label class="store-card">
+                <input type="checkbox" class="store-box" data-racks="12" data-weight="2400">
+                <div>
+                    <strong>Walmart #1001</strong>
+                    <span>Beaumont, TX • 12 racks</span>
+                </div>
+            </label>
+
+            <label class="store-card">
+                <input type="checkbox" class="store-box" data-racks="18" data-weight="3600">
+                <div>
+                    <strong>Home Depot #2001</strong>
+                    <span>Killeen, TX • 18 racks</span>
+                </div>
+            </label>
+
+            <label class="store-card">
+                <input type="checkbox" class="store-box" data-racks="9" data-weight="1800">
+                <div>
+                    <strong>Lowe's #3001</strong>
+                    <span>San Marcos, TX • 9 racks</span>
+                </div>
+            </label>
+        </div>
+
+        <hr>
+
+        <label>Assign Driver</label>
+        <select id="driver-select">
+            <option value="">Select Driver</option>
+            <option>Driver 1</option>
+            <option>Driver 2</option>
+            <option>Driver 3</option>
+        </select>
+
+        <button class="primary-btn" onclick="assignDriver()">Assign Driver</button>
+    </section>
+
+    <section class="map-panel">
+        <div id="map"></div>
+    </section>
+
+    <section class="panel">
+        <h3>Assigned Queue</h3>
+        <p class="muted">Assigned stores leave the map/list. Unassign returns them.</p>
+        <div id="driver-results"></div>
+    </section>
 
 </div>
 
-<!-- RIGHT PANEL -->
-
-<div class="card" style="width:300px;">
-
-    <h3>Route Totals</h3>
-
-    <p>
-        Stores:
-        <span id="store-count">0</span>
-    </p>
-
-    <p>
-        Racks:
-        <span id="rack-count">0</span>
-    </p>
-
-    <p>
-        Weight:
-        <span id="weight-count">0</span> lbs
-    </p>
-
-    <p>
-        Remaining Capacity:
-        <span id="remaining-capacity">25001</span> lbs
-    </p>
-
-    <p>
-        Status:
-        <b id="capacity-status">SAFE</b>
-    </p>
-
-    <hr>
-
-    <h3>Assigned Queue</h3>
-
-    <div id="driver-results"></div>
-
-</div>
-```
-
-</div>
-
-<script>
-
-const MAX_CAPACITY = 25001;
-
-function updateTotals(){
-
-    let stores = 0;
-    let racks = 0;
-    let weight = 0;
-
-    document.querySelectorAll(".store-box").forEach(box => {
-
-        if(box.checked &&
-           box.parentElement.style.display !== "none"){
-
-            stores++;
-
-            racks += Number(box.dataset.racks);
-
-            weight += Number(box.dataset.weight);
-
-        }
-
-    });
-
-    document.getElementById("store-count").innerText = stores;
-    document.getElementById("rack-count").innerText = racks;
-    document.getElementById("weight-count").innerText = weight;
-
-    document.getElementById("remaining-capacity").innerText =
-        MAX_CAPACITY - weight;
-
-    let status =
-        document.getElementById("capacity-status");
-
-    if(weight > MAX_CAPACITY){
-
-        status.innerText = "OVER LIMIT";
-
-    }else if(weight > 22000){
-
-        status.innerText = "WARNING";
-
-    }else{
-
-        status.innerText = "SAFE";
-
-    }
-
-}
-
-document.addEventListener("change", updateTotals);
-
-function assignDriver(){
-
-    let driver =
-        document.getElementById("driver-select").value;
-
-    if(!driver){
-        alert("Select a driver");
-        return;
-    }
-
-    let selected =
-        document.querySelectorAll(".store-box:checked");
-
-    if(selected.length === 0){
-        alert("Select stores first");
-        return;
-    }
-
-    let routeBlock =
-        document.createElement("div");
-
-    routeBlock.style.border =
-        "1px solid #ccc";
-
-    routeBlock.style.padding =
-        "10px";
-
-    routeBlock.style.marginBottom =
-        "10px";
-
-    routeBlock.innerHTML =
-        "<h4>" + driver + "</h4>";
-
-    selected.forEach(box => {
-
-        let label =
-            box.parentElement;
-
-        let store =
-            label.innerText.trim();
-
-        let row =
-            document.createElement("div");
-
-        row.innerHTML =
-            store +
-            " <button onclick='restoreStore(this)'>Unassign</button>";
-
-        routeBlock.appendChild(row);
-
-        label.style.display = "none";
-
-        box.checked = false;
-
-    });
-
-    document.getElementById("driver-results")
-            .appendChild(routeBlock);
-
-    updateTotals();
-
-}
-
-function restoreStore(btn){
-
-    let storeText =
-        btn.parentElement.innerText
-           .replace("Unassign","")
-           .trim();
-
-    document.querySelectorAll(".store-box")
-        .forEach(box => {
-
-        let label =
-            box.parentElement;
-
-        let text =
-            label.innerText.trim();
-
-        if(text === storeText){
-
-            label.style.display =
-                "block";
-
-        }
-
-    });
-
-    btn.parentElement.remove();
-
-    updateTotals();
-
-}
-
-function initMap(){
-
-    const map =
-        new google.maps.Map(
-            document.getElementById("map"),
-            {
-                zoom:6,
-                center:{
-                    lat:30.2672,
-                    lng:-97.7431
-                }
-            }
-        );
-
-    const locations = [
-
-        {
-            lat:29.4241,
-            lng:-98.4936,
-            title:"San Antonio Hub"
-        },
-
-        {
-            lat:29.7604,
-            lng:-95.3698,
-            title:"Houston Hub"
-        },
-
-        {
-            lat:32.7767,
-            lng:-96.7970,
-            title:"Dallas Hub"
-        },
-
-        {
-            lat:30.0802,
-            lng:-94.1266,
-            title:"Walmart #1001"
-        },
-
-        {
-            lat:31.1171,
-            lng:-97.7278,
-            title:"Home Depot #2001"
-        },
-
-        {
-            lat:29.8833,
-            lng:-97.9414,
-            title:"Lowe's #3001"
-        }
-
-    ];
-
-    locations.forEach(location => {
-
-        new google.maps.Marker({
-
-            position:{
-                lat:location.lat,
-                lng:location.lng
-            },
-
-            map:map,
-
-            title:location.title
-
-        });
-
-    });
-
-}
-
-</script>
+<script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
 
 <script async
 src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap">

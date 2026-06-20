@@ -3,76 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>EOMS - Essayons Operations Management System</title>
-
-    <style>
-
-        body{
-            margin:0;
-            padding:0;
-            font-family:Arial, sans-serif;
-            background:#f4f4f4;
-        }
-
-        .header{
-            background:#1f2937;
-            color:white;
-            padding:15px;
-        }
-
-        .header h1{
-            margin:0;
-        }
-
-        .container{
-            padding:20px;
-        }
-
-        .card{
-            background:white;
-            padding:15px;
-            border-radius:8px;
-            box-shadow:0 2px 5px rgba(0,0,0,.1);
-        }
-
-        button{
-            background:#2563eb;
-            color:white;
-            border:none;
-            padding:10px 15px;
-            border-radius:5px;
-            cursor:pointer;
-        }
-
-        button:hover{
-            background:#1d4ed8;
-        }
-
-        input,
-        select{
-            width:100%;
-            padding:8px;
-            margin-top:5px;
-            margin-bottom:10px;
-        }
-
-    </style>
-
+    <title>EOMS | Essayons Operations</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
 </head>
-
 <body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo">E</div>
+                <div>
+                    <h1>EOMS</h1>
+                    <p>Essayons Operations</p>
+                </div>
+            </div>
 
-<div class="header">
-    <h1>EOMS - Essayons Operations Management System</h1>
-</div>
+            <nav>
+                <a class="active" href="/dispatch-map">Dispatch Map</a>
+                <a href="#">Route Builder</a>
+                <a href="#">Drivers</a>
+                <a href="#">RMS Import</a>
+                <a href="#">Driver Pay</a>
+                <a href="#">P&L</a>
+            </nav>
+        </aside>
 
-<div class="container">
-
-    {% block content %}
-    {% endblock %}
-
-</div>
-
+        <main class="main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 </body>
 </html>
