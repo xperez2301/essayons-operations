@@ -1,40 +1,84 @@
 [
   {
-    "id": "dadfa5ec-b619-4da8-882d-93e5c426c712",
-    "time": "2026-06-19T22:16:31",
-    "action": "Test RMS Connection",
-    "status": "READY",
-    "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
-    "login_url": "https://rms.reusability.com/login",
-    "bol_url": "https://rms.reusability.com/bills-of-lading"
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "bol_count": 0,
+    "sample_bols": [],
+    "id": "2f9bb3d1-ec39-42eb-834f-3fbce4854ef9",
+    "time": "2026-06-19T22:45:56",
+    "action": "Test RMS Login"
   },
   {
-    "id": "880df8ca-bf0a-4efa-863f-6cfb9345bb15",
-    "time": "2026-06-19T22:16:39",
-    "action": "Sync Open BOLs",
-    "status": "FOUNDATION ONLY",
-    "imported": 0,
-    "skipped": 0,
-    "need_review": 0,
-    "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "bol_count": 0,
+    "sample_bols": [],
+    "id": "1f20fc10-3dd1-4d6f-8722-df4cef1407ca",
+    "time": "2026-06-19T22:46:21",
+    "action": "Test RMS Login"
   },
   {
-    "id": "62ffa7c0-de87-4bf8-824d-30cfec91214e",
-    "time": "2026-06-19T22:17:09",
-    "action": "Sync Open BOLs",
-    "status": "FOUNDATION ONLY",
-    "imported": 0,
-    "skipped": 0,
-    "need_review": 0,
-    "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
+    "ok": false,
+    "status": "MISSING CREDENTIALS",
+    "message": "Save RMS username and password in Settings first.",
+    "bol_count": 0,
+    "sample_bols": [],
+    "id": "f1061571-35ce-4ef8-960f-0ba522c2c3c4",
+    "time": "2026-06-19T22:46:24",
+    "action": "Test RMS Login"
   },
   {
-    "id": "c0c60165-afc8-45eb-8468-2179c52ad3ea",
-    "time": "2026-06-19T22:17:22",
-    "action": "Test RMS Connection",
-    "status": "READY",
-    "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
-    "login_url": "https://rms.reusability.com/login",
-    "bol_url": "https://rms.reusability.com/bills-of-lading"
+    "ok": true,
+    "status": "LOGIN SUCCESS",
+    "message": "RMS login successful. Found 20 BOL links on the Bills of Lading page.",
+    "bol_count": 20,
+    "sample_bols": [
+      {
+        "bol": "945537",
+        "href": "/bills-of-lading/945537"
+      },
+      {
+        "bol": "945513",
+        "href": "/bills-of-lading/945513"
+      },
+      {
+        "bol": "945509",
+        "href": "/bills-of-lading/945509"
+      },
+      {
+        "bol": "945508",
+        "href": "/bills-of-lading/945508"
+      },
+      {
+        "bol": "945507",
+        "href": "/bills-of-lading/945507"
+      },
+      {
+        "bol": "945506",
+        "href": "/bills-of-lading/945506"
+      },
+      {
+        "bol": "945504",
+        "href": "/bills-of-lading/945504"
+      },
+      {
+        "bol": "945502",
+        "href": "/bills-of-lading/945502"
+      },
+      {
+        "bol": "945487",
+        "href": "/bills-of-lading/945487"
+      },
+      {
+        "bol": "945486",
+        "href": "/bills-of-lading/945486"
+      }
+    ],
+    "screenshot": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\diagnostics\\rms_sync_20260619_224714.png",
+    "id": "b0a4acdc-154b-484b-8e05-6e93870997f1",
+    "time": "2026-06-19T22:47:15",
+    "action": "Test RMS Login"
   }
 ]

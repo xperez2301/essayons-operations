@@ -3,7 +3,7 @@
 <header class="topbar">
     <div>
         <h2>Settings</h2>
-        <p>RMS login foundation. Keep credentials out of app.py.</p>
+        <p>RMS login foundation. Credentials are saved locally for RMS automation.</p>
     </div>
     <a class="link-btn" href="/rms-sync">RMS Sync</a>
 </header>
@@ -32,7 +32,7 @@
     </form>
 
     <p class="muted">
-        Next build will use Playwright browser automation to log in, open BOLs, open printable BOLs, and import data automatically.
+        This build uses Playwright to test RMS login and scan the BOL list. Next build imports printable BOLs automatically.
     </p>
 </section>
 {% endblock %}

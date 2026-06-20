@@ -11,6 +11,7 @@ from flask import Flask, jsonify, render_template, request
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 app = Flask(__name__)
 
@@ -58,7 +59,7 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password_saved": False, "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
         (SYNC_HISTORY_FILE, [])
     ]:
         if not path.exists():
@@ -414,6 +415,90 @@ def api_approve_review():
     return jsonify({"ok": True, "store": updated})
 
 
+
+def rms_login_with_playwright(headless=False):
+    settings_data = read_json(SETTINGS_FILE)
+
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+
+    if not username or not password:
+        return {
+            "ok": False,
+            "status": "MISSING CREDENTIALS",
+            "message": "Save RMS username and password in Settings first.",
+            "bol_count": 0,
+            "sample_bols": []
+        }
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        page = browser.new_page()
+        try:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+
+            # RMS login fields from observed page
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+
+            password_box = page.locator('input[type="password"]').first
+            password_box.fill(password)
+
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+
+            # Try to detect BOL links in the visible table
+            bol_links = []
+            anchors = page.locator("a").all()
+            for a in anchors:
+                try:
+                    text = clean(a.inner_text())
+                    href = a.get_attribute("href") or ""
+                    if re.fullmatch(r"\d{4,}", text):
+                        bol_links.append({"bol": text, "href": href})
+                except Exception:
+                    pass
+
+            # Save diagnostic screenshot for troubleshooting
+            diag_dir = BASE_DIR / "diagnostics"
+            diag_dir.mkdir(exist_ok=True)
+            screenshot_path = diag_dir / f"rms_sync_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            page.screenshot(path=str(screenshot_path), full_page=True)
+
+            browser.close()
+
+            return {
+                "ok": True,
+                "status": "LOGIN SUCCESS",
+                "message": f"RMS login successful. Found {len(bol_links)} BOL links on the Bills of Lading page.",
+                "bol_count": len(bol_links),
+                "sample_bols": bol_links[:10],
+                "screenshot": str(screenshot_path)
+            }
+
+        except PlaywrightTimeoutError as e:
+            browser.close()
+            return {
+                "ok": False,
+                "status": "TIMEOUT",
+                "message": f"RMS page timed out: {str(e)[:200]}",
+                "bol_count": 0,
+                "sample_bols": []
+            }
+        except Exception as e:
+            browser.close()
+            return {
+                "ok": False,
+                "status": "ERROR",
+                "message": f"RMS login automation error: {str(e)[:300]}",
+                "bol_count": 0,
+                "sample_bols": []
+            }
+
 @app.route("/rms-sync")
 def rms_sync():
     settings_data = read_json(SETTINGS_FILE)
@@ -422,46 +507,43 @@ def rms_sync():
 
 @app.route("/api/rms/test-connection", methods=["POST"])
 def api_rms_test_connection():
-    settings_data = read_json(SETTINGS_FILE)
     history = read_json(SYNC_HISTORY_FILE)
 
-    result = {
+    result = rms_login_with_playwright(headless=False)
+    result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
-        "action": "Test RMS Connection",
-        "status": "READY",
-        "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
-        "login_url": settings_data.get("rms_login_url", "https://rms.reusability.com/login"),
-        "bol_url": settings_data.get("rms_bol_url", "https://rms.reusability.com/bills-of-lading")
-    }
+        "action": "Test RMS Login"
+    })
 
     history.append(result)
     write_json(SYNC_HISTORY_FILE, history)
-    audit("RMS Test Connection", result)
+    audit("RMS Login Test", result)
 
-    return jsonify({"ok": True, "result": result})
+    return jsonify({"ok": result.get("ok", False), "result": result})
 
 @app.route("/api/rms/sync-open-bols", methods=["POST"])
 def api_rms_sync_open_bols():
-    settings_data = read_json(SETTINGS_FILE)
     history = read_json(SYNC_HISTORY_FILE)
 
-    result = {
+    result = rms_login_with_playwright(headless=False)
+    result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
-        "action": "Sync Open BOLs",
-        "status": "FOUNDATION ONLY",
+        "action": "Scan RMS Open BOLs",
         "imported": 0,
         "skipped": 0,
-        "need_review": 0,
-        "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
-    }
+        "need_review": 0
+    })
+
+    if result.get("ok"):
+        result["message"] = result["message"] + " Next build will open each BOL, read Printable BOL, and import automatically."
 
     history.append(result)
     write_json(SYNC_HISTORY_FILE, history)
-    audit("RMS Sync Foundation", result)
+    audit("RMS Open BOL Scan", result)
 
-    return jsonify({"ok": True, "result": result})
+    return jsonify({"ok": result.get("ok", False), "result": result})
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
@@ -471,7 +553,12 @@ def settings():
         settings_data["rms_username"] = clean(request.form.get("rms_username"))
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
-        settings_data["rms_password_saved"] = bool(request.form.get("rms_password"))
+        rms_password = clean(request.form.get("rms_password"))
+        if rms_password:
+            settings_data["rms_password"] = rms_password
+            settings_data["rms_password_saved"] = True
+        elif not settings_data.get("rms_password"):
+            settings_data["rms_password_saved"] = False
         write_json(SETTINGS_FILE, settings_data)
         audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"]})
         message = "RMS settings saved. Automatic sync will be added later."
