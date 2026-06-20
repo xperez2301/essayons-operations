@@ -3,8 +3,19 @@ let markers = {};
 const stores = window.EOMS_STORES || [];
 const hubs = window.EOMS_HUBS || {};
 const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
+let selectedOrder = [];
 
 function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned"); }
+
+function selectedIds(){
+    return [...document.querySelectorAll(".store-box:checked")].map(b => b.dataset.storeId);
+}
+
+function updateSelectionOrder(){
+    const ids = selectedIds();
+    ids.forEach(id => { if(!selectedOrder.includes(id)) selectedOrder.push(id); });
+    selectedOrder = selectedOrder.filter(id => ids.includes(id));
+}
 
 function renderStores(){
     const container = document.getElementById("available-stores");
@@ -33,7 +44,9 @@ function renderStores(){
 }
 
 function updateTotals(){
+    updateSelectionOrder();
     let count = 0, racks = 0, weight = 0;
+
     document.querySelectorAll(".store-box:checked").forEach(box => {
         count++;
         racks += Number(box.dataset.racks || 0);
@@ -51,32 +64,98 @@ function updateTotals(){
     else if(weight > 22000){ status.innerText = "WARNING"; status.classList.add("warning"); }
     else{ status.innerText = "SAFE"; status.classList.add("safe"); }
 }
+
 document.addEventListener("change", updateTotals);
+
+async function previewRoute(){
+    const ids = selectedOrder.length ? selectedOrder : selectedIds();
+    const mode = document.getElementById("route-mode").value;
+
+    if(ids.length === 0){
+        alert("Select stores first");
+        return;
+    }
+
+    const response = await fetch("/api/preview-route", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({store_ids: ids, mode: mode})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Preview failed");
+        return;
+    }
+
+    renderPreview(data);
+}
+
+function renderPreview(data){
+    const m = data.metrics;
+    let html = `
+        <div class="route-card">
+            <h4>Route Preview</h4>
+            <p><b>Hub:</b> ${data.hub}</p>
+            <p><b>Mode:</b> ${data.mode === "optimized" ? "Nearest Stop From Hub" : "Selection Order"}</p>
+            <p><b>Stores:</b> ${m.store_count}</p>
+            <p><b>Racks:</b> ${m.racks}</p>
+            <p><b>Pieces:</b> ${m.pieces}</p>
+            <p><b>Weight:</b> ${m.weight} lbs</p>
+            <p><b>Remaining:</b> ${m.remaining_capacity} lbs</p>
+            <p><b>Mileage:</b> ${m.mileage} mi</p>
+            <p><b>Revenue:</b> $${m.revenue}</p>
+            <p><b>Driver Pay:</b> $${m.driver_pay}</p>
+            <p><b>Status:</b> <span class="${m.status === "SAFE" ? "safe" : m.status === "WARNING" ? "warning" : "over"}">${m.status}</span></p>
+            <hr>
+            <h4>Stop Order</h4>
+    `;
+
+    data.stores.forEach((s, index) => {
+        html += `<div class="preview-stop">${index + 1}. ${s.store_name || s.origin} — ${s.city}, ${s.state} — BOL ${s.bol || ""}</div>`;
+    });
+
+    html += "</div>";
+    document.getElementById("route-preview").innerHTML = html;
+}
 
 async function assignDriver(){
     const driver = document.getElementById("driver-select").value;
     if(!driver){ alert("Select a driver"); return; }
 
-    const selectedBoxes = [...document.querySelectorAll(".store-box:checked")];
-    if(selectedBoxes.length === 0){ alert("Select stores first"); return; }
+    const ids = selectedOrder.length ? selectedOrder : selectedIds();
+    if(ids.length === 0){ alert("Select stores first"); return; }
 
-    const storeIds = selectedBoxes.map(box => box.dataset.storeId);
+    const mode = document.getElementById("route-mode").value;
+
     const response = await fetch("/api/assign-route", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({driver:driver, store_ids:storeIds})
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({driver: driver, store_ids: ids, mode: mode})
     });
-    const data = await response.json();
-    if(!data.ok){ alert("Assignment failed"); return; }
 
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Assignment failed");
+        return;
+    }
+
+    const route = data.route;
     const routeBlock = document.createElement("div");
     routeBlock.className = "route-card";
-    routeBlock.innerHTML = `<h4>${driver}</h4>`;
+    routeBlock.innerHTML = `
+        <h4>${route.route_number}</h4>
+        <p><b>Driver:</b> ${driver}</p>
+        <p><b>Hub:</b> ${route.hub}</p>
+        <p><b>Miles:</b> ${route.metrics.mileage}</p>
+        <p><b>Revenue:</b> $${route.metrics.revenue}</p>
+        <p><b>Driver Pay:</b> $${route.metrics.driver_pay}</p>
+    `;
 
     data.assigned.forEach(store => {
         const row = document.createElement("div");
         row.className = "route-row";
-        row.innerHTML = `<span>${store.store_name || store.origin} <small>BOL ${store.bol || ""}</small></span>`;
+        row.innerHTML = `<span>${store.store_name || store.origin}<br><small>BOL ${store.bol || ""}</small></span>`;
 
         const btn = document.createElement("button");
         btn.innerText = "Unassign";
@@ -95,8 +174,10 @@ async function assignDriver(){
     });
 
     document.getElementById("driver-results").appendChild(routeBlock);
+    selectedOrder = [];
     renderStores();
     updateTotals();
+    document.getElementById("route-preview").innerHTML = "<p class='muted'>Route assigned. View full route in Route Builder.</p>";
 }
 
 async function unassignStore(storeId, row){
@@ -105,6 +186,7 @@ async function unassignStore(storeId, row){
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({store_id:storeId})
     });
+
     const data = await response.json();
 
     if(data.ok && data.store){
@@ -113,7 +195,9 @@ async function unassignStore(storeId, row){
             original.status = "Unassigned";
             original.assigned_driver = "";
         }
+
         if(markers[storeId]) markers[storeId].setMap(map);
+
         row.remove();
         renderStores();
         updateTotals();
@@ -122,24 +206,38 @@ async function unassignStore(storeId, row){
 
 function initMap(){
     map = new google.maps.Map(document.getElementById("map"), {
-        zoom:6,
-        center:{lat:30.2672,lng:-97.7431},
-        mapTypeControl:false,
-        streetViewControl:false
+        zoom: 6,
+        center: {lat: 30.2672, lng: -97.7431},
+        mapTypeControl: false,
+        streetViewControl: false
     });
 
     Object.keys(hubs).forEach(hubName => {
         const hub = hubs[hubName];
-        new google.maps.Marker({position:{lat:hub.lat,lng:hub.lng}, map, title:hubName + " Hub", label:"H"});
+        new google.maps.Marker({
+            position: {lat: hub.lat, lng: hub.lng},
+            map,
+            title: hubName + " Hub",
+            label: "H"
+        });
     });
 
     stores.forEach(store => {
         if(store.status !== "Unassigned") return;
+
         markers[store.id] = new google.maps.Marker({
-            position:{lat:Number(store.lat),lng:Number(store.lng)},
+            position: {lat: Number(store.lat), lng: Number(store.lng)},
             map,
-            title:store.store_name || store.origin || "Store",
-            label:"S"
+            title: store.store_name || store.origin || "Store",
+            label: "S"
+        });
+
+        markers[store.id].addListener("click", () => {
+            const box = document.querySelector(`.store-box[data-store-id="${store.id}"]`);
+            if(box){
+                box.checked = !box.checked;
+                updateTotals();
+            }
         });
     });
 

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Route Builder</h2>
+        <p>Assigned routes with stop order, mileage, revenue, driver pay, racks, and payload status.</p>
+    </div>
+    <a class="link-btn" href="/dispatch-map">Back to Dispatch Map</a>
+</header>
+
+<div class="driver-list">
+{% for route in routes|reverse %}
+    <div class="panel">
+        <h3>{{ route.route_number }}</h3>
+        <p><b>Driver:</b> {{ route.driver }}</p>
+        <p><b>Hub:</b> {{ route.hub }}</p>
+        <p><b>Stores:</b> {{ route.metrics.store_count }}</p>
+        <p><b>Racks:</b> {{ route.metrics.racks }}</p>
+        <p><b>Pieces:</b> {{ route.metrics.pieces }}</p>
+        <p><b>Weight:</b> {{ route.metrics.weight }} lbs</p>
+        <p><b>Remaining:</b> {{ route.metrics.remaining_capacity }} lbs</p>
+        <p><b>Mileage:</b> {{ route.metrics.mileage }} mi</p>
+        <p><b>Revenue:</b> ${{ route.metrics.revenue }}</p>
+        <p><b>Driver Pay:</b> ${{ route.metrics.driver_pay }}</p>
+        <p><b>Status:</b> {{ route.metrics.status }}</p>
+        <hr>
+        <h4>Stop Order</h4>
+        {% for stop in route.stops %}
+            <p>{{ loop.index }}. {{ stop.store_name }} — {{ stop.city }}, {{ stop.state }} — BOL {{ stop.bol }}</p>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="panel">
+        <h3>No routes yet.</h3>
+        <p class="muted">Build one from Dispatch Map.</p>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

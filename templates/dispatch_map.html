@@ -3,11 +3,11 @@
 <header class="topbar">
     <div>
         <h2>Dispatch Map</h2>
-        <p>Imported RMS PDFs, hub assignment, driver assignment, and M2 weight tracking.</p>
+        <p>Select RMS PDFs, preview optimized route, assign driver, and protect M2 payload capacity.</p>
     </div>
     <div>
         <a class="link-btn" href="/rms-import">Import RMS PDF</a>
-        <a class="link-btn" href="/need-review">Need Review</a>
+        <a class="link-btn" href="/route-builder">Route Builder</a>
         <a class="link-btn" href="/driver">Driver Portal</a>
     </div>
 </header>
@@ -23,8 +23,15 @@
 <div class="dispatch-grid">
     <section class="panel">
         <h3>Available Stores</h3>
-        <p class="muted">Only unassigned imported PDFs appear here.</p>
+        <p class="muted">Unassigned imported PDFs appear here. Click store cards or map pins.</p>
         <div id="available-stores"></div>
+        <hr>
+        <label>Route Mode</label>
+        <select id="route-mode">
+            <option value="optimized">Nearest Stop From Hub</option>
+            <option value="selection">Use Selection Order</option>
+        </select>
+        <button class="secondary-btn" onclick="previewRoute()">Preview Route</button>
         <hr>
         <label>Assign Driver</label>
         <select id="driver-select">
@@ -39,8 +46,10 @@
     <section class="map-panel"><div id="map"></div></section>
 
     <section class="panel">
+        <h3>Route Preview</h3>
+        <div id="route-preview" class="muted">Select stores and click Preview Route.</div>
+        <hr>
         <h3>Assigned Queue</h3>
-        <p class="muted">Assign moves PDF to Assigned folder. Unassign returns it to Imported.</p>
         <div id="driver-results"></div>
     </section>
 </div>

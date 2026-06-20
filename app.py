@@ -25,7 +25,10 @@ AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
 MAX_PAYLOAD = 25001
+WARNING_PAYLOAD = 22000
 PIECES_PER_RACK = 19
+RATE_PER_PIECE = 0.95
+DRIVER_PAY_PER_PIECE = 0.30
 DEFAULT_RACK_WEIGHT = 200
 
 HUBS = {
@@ -112,6 +115,70 @@ def miles_between(lat1, lng1, lat2, lng2):
     dp, dl = math.radians(lat2-lat1), math.radians(lng2-lng1)
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return radius * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+
+
+def route_miles(points):
+    if len(points) < 2:
+        return 0
+    total = 0
+    for i in range(len(points) - 1):
+        total += miles_between(points[i]["lat"], points[i]["lng"], points[i+1]["lat"], points[i+1]["lng"])
+    return round(total, 1)
+
+def order_nearest_from_hub(hub_name, selected_stores):
+    hub = HUBS.get(hub_name) or HUBS["San Antonio"]
+    current = {"lat": hub["lat"], "lng": hub["lng"]}
+    remaining = selected_stores[:]
+    ordered = []
+    while remaining:
+        next_stop = min(remaining, key=lambda s: miles_between(current["lat"], current["lng"], num(s.get("lat")), num(s.get("lng"))))
+        ordered.append(next_stop)
+        remaining.remove(next_stop)
+        current = {"lat": num(next_stop.get("lat")), "lng": num(next_stop.get("lng"))}
+    return ordered
+
+def calculate_route_metrics(ordered_stores, hub_name):
+    hub = HUBS.get(hub_name) or HUBS["San Antonio"]
+    points = [{"lat": hub["lat"], "lng": hub["lng"]}]
+    for s in ordered_stores:
+        points.append({"lat": num(s.get("lat")), "lng": num(s.get("lng"))})
+    points.append({"lat": hub["lat"], "lng": hub["lng"]})
+
+    racks = sum(num(s.get("expected_racks")) for s in ordered_stores)
+    pieces = racks * PIECES_PER_RACK
+    weight = sum(num(s.get("weight")) for s in ordered_stores)
+    remaining = MAX_PAYLOAD - weight
+    status = "OVER LIMIT" if weight > MAX_PAYLOAD else ("WARNING" if weight > WARNING_PAYLOAD else "SAFE")
+
+    return {
+        "hub": hub_name,
+        "store_count": len(ordered_stores),
+        "racks": round(racks, 2),
+        "pieces": round(pieces, 2),
+        "weight": round(weight, 2),
+        "remaining_capacity": round(remaining, 2),
+        "mileage": route_miles(points),
+        "revenue": round(pieces * RATE_PER_PIECE, 2),
+        "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2),
+        "status": status
+    }
+
+def build_route_order(store_ids, mode):
+    all_stores = read_json(STORES_FILE)
+    selected = [s for s in all_stores if s.get("id") in store_ids and s.get("status") == "Unassigned"]
+    if not selected:
+        return None, [], None
+
+    hub_name = selected[0].get("hub") if selected[0].get("hub") in HUBS else "San Antonio"
+
+    if mode == "selection":
+        order = {sid: i for i, sid in enumerate(store_ids)}
+        ordered = sorted(selected, key=lambda s: order.get(s.get("id"), 999))
+    else:
+        ordered = order_nearest_from_hub(hub_name, selected)
+
+    metrics = calculate_route_metrics(ordered, hub_name)
+    return hub_name, ordered, metrics
 
 def coords_for(city, state):
     city = clean(city)
@@ -265,6 +332,11 @@ def dispatch_map():
     stores = read_json(STORES_FILE)
     return render_template("dispatch_map.html", stores=stores, hubs=HUBS, max_payload=MAX_PAYLOAD)
 
+@app.route("/route-builder")
+def route_builder():
+    routes = read_json(ROUTES_FILE)
+    return render_template("route_builder.html", routes=routes)
+
 @app.route("/rms-import", methods=["GET", "POST"])
 def rms_import():
     if request.method == "POST":
@@ -351,29 +423,72 @@ def settings():
         message = "RMS settings saved. Automatic sync will be added later."
     return render_template("settings.html", settings=settings_data, message=message)
 
+@app.route("/api/preview-route", methods=["POST"])
+def api_preview_route():
+    data = request.get_json(force=True)
+    store_ids = data.get("store_ids", [])
+    mode = data.get("mode", "optimized")
+
+    hub_name, ordered, metrics = build_route_order(store_ids, mode)
+
+    if not ordered:
+        return jsonify({"ok": False, "message": "No unassigned stores selected."})
+
+    return jsonify({
+        "ok": True,
+        "hub": hub_name,
+        "mode": mode,
+        "stores": ordered,
+        "metrics": metrics
+    })
+
 @app.route("/api/assign-route", methods=["POST"])
 def api_assign_route():
     data = request.get_json(force=True)
     driver = clean(data.get("driver"))
     store_ids = data.get("store_ids", [])
+    mode = data.get("mode", "optimized")
+
+    hub_name, ordered, metrics = build_route_order(store_ids, mode)
+
+    if not ordered:
+        return jsonify({"ok": False, "message": "No unassigned stores selected."})
+
+    if metrics["status"] == "OVER LIMIT":
+        return jsonify({"ok": False, "message": "Route is over 25,001 lbs. Remove stores before assigning."})
+
     stores = read_json(STORES_FILE)
-    assigned = []
+    assigned_ids = [s["id"] for s in ordered]
 
     for store in stores:
-        if store["id"] in store_ids and store["status"] == "Unassigned":
+        if store["id"] in assigned_ids:
             store["status"] = "Assigned"
             store["assigned_driver"] = driver
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
-            assigned.append(store)
 
-    route = {"id": str(uuid4()), "driver": driver, "store_ids": store_ids, "created_at": datetime.now().isoformat(timespec="seconds"), "status": "Assigned"}
     routes = read_json(ROUTES_FILE)
+    route_number = f"RT-{len(routes) + 1:05d}"
+
+    route = {
+        "id": str(uuid4()),
+        "route_number": route_number,
+        "driver": driver,
+        "hub": hub_name,
+        "mode": mode,
+        "store_ids": assigned_ids,
+        "stops": ordered,
+        "metrics": metrics,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "status": "Assigned"
+    }
+
     routes.append(route)
     write_json(STORES_FILE, stores)
     write_json(ROUTES_FILE, routes)
-    audit("Assign Route", {"driver": driver, "stores": len(assigned)})
-    return jsonify({"ok": True, "route": route, "assigned": assigned})
+    audit("Assign Route", {"route_number": route_number, "driver": driver, "stores": len(ordered), "mode": mode})
+
+    return jsonify({"ok": True, "route": route, "assigned": ordered, "metrics": metrics})
 
 @app.route("/api/unassign-store", methods=["POST"])
 def api_unassign_store():
