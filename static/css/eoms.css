@@ -7,23 +7,24 @@ body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#0f172a;col
 .brand h1{font-size:22px;margin:0}
 .brand p{font-size:12px;color:#94a3b8;margin:2px 0}
 nav a{display:block;color:#cbd5e1;text-decoration:none;padding:12px 14px;border-radius:12px;margin-bottom:8px}
-nav a.active,nav a:hover{background:rgba(37,99,235,.22);color:#fff}
-.main{flex:1;padding:24px}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+nav a:hover{background:rgba(37,99,235,.22);color:#fff}
+.main{flex:1;padding:24px;overflow:auto}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:15px}
 .topbar h2{font-size:32px;margin:0}
 .topbar p,.muted{color:#94a3b8;margin:6px 0}
-.status-pill{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:#86efac;padding:10px 14px;border-radius:999px;font-weight:700}
+.link-btn{display:inline-block;text-decoration:none;background:rgba(37,99,235,.22);border:1px solid rgba(96,165,250,.35);color:#bfdbfe;padding:10px 14px;border-radius:12px;font-weight:700;margin-left:8px}
 .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
 .metric,.panel,.map-panel{background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.22);box-shadow:0 20px 50px rgba(0,0,0,.25);border-radius:20px}
 .metric{padding:18px}
 .metric span{display:block;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .metric strong{font-size:24px}
-.dispatch-grid{display:grid;grid-template-columns:300px 1fr 330px;gap:18px}
+.dispatch-grid{display:grid;grid-template-columns:330px 1fr 360px;gap:18px}
 .panel{padding:18px}
 .panel h3{margin-top:0}
 .store-card{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.04);border:1px solid rgba(148,163,184,.16);border-radius:14px;padding:12px;margin-bottom:10px;cursor:pointer}
 .store-card:hover{background:rgba(37,99,235,.12)}
 .store-card span{display:block;color:#94a3b8;font-size:12px;margin-top:4px}
+.store-card small{display:block;color:#fbbf24;margin-top:3px}
 select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(148,163,184,.3);background:#020617;color:#fff;margin:8px 0 14px}
 .primary-btn,button{border:0;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;padding:11px 14px;border-radius:12px;cursor:pointer;font-weight:700}
 button:hover{filter:brightness(1.1)}
@@ -37,4 +38,7 @@ button:hover{filter:brightness(1.1)}
 .login-card h1{margin-bottom:4px}
 .login-card p{color:#94a3b8}
 .login-card button{width:100%;margin-top:8px}
-@media(max-width:1100px){.dispatch-grid{grid-template-columns:1fr}.sidebar{display:none}.metrics{grid-template-columns:repeat(2,1fr)}}
+.notice{padding:12px;border-radius:12px;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.4);color:#bbf7d0;margin-bottom:15px}
+.import-panel{max-width:720px}
+.driver-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+@media(max-width:1200px){.dispatch-grid{grid-template-columns:1fr}.sidebar{display:none}.metrics{grid-template-columns:repeat(2,1fr)}}

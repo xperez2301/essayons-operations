@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<header class="topbar">
+    <div>
+        <h2>RMS Import</h2>
+        <p>Upload RMS Excel or CSV exports. Imported unassigned stores will appear on the Dispatch Map.</p>
+    </div>
+    <a class="link-btn" href="/dispatch-map">Back to Dispatch Map</a>
+</header>
+
+<section class="panel import-panel">
+    <h3>Upload RMS Export</h3>
+
+    {% if message %}
+        <div class="notice">{{ message }}</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        <label>RMS File (.xlsx or .csv)</label>
+        <input type="file" name="rms_file" accept=".xlsx,.csv" required>
+        <button class="primary-btn" type="submit">Import RMS File</button>
+    </form>
+
+    <hr>
+
+    <p class="muted">
+        Best match is V54 tracker format with sheet <b>BOL_Intake</b>.
+        Expected columns include BOL #, Origin, City, State, Dispatch Group, Origin Address, and Est Racks.
+    </p>
+</section>
+
+{% endblock %}

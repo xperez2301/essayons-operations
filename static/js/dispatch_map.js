@@ -1,27 +1,58 @@
-const MAX_CAPACITY = 25001;
 let map;
 let markers = {};
+const stores = window.EOMS_STORES || [];
+const hubs = window.EOMS_HUBS || {};
+const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
 
-const storeLocations = {
-    "Walmart #1001": { lat: 30.0802, lng: -94.1266 },
-    "Home Depot #2001": { lat: 31.1171, lng: -97.7278 },
-    "Lowe's #3001": { lat: 29.8833, lng: -97.9414 }
-};
+function visibleUnassignedStores(){
+    return stores.filter(s => s.status === "Unassigned");
+}
+
+function renderStores(){
+    const container = document.getElementById("available-stores");
+    container.innerHTML = "";
+
+    const available = visibleUnassignedStores();
+
+    if(available.length === 0){
+        container.innerHTML = "<p class='muted'>No unassigned stores. Import RMS file or unassign a store.</p>";
+        return;
+    }
+
+    available.forEach(store => {
+        const label = document.createElement("label");
+        label.className = "store-card";
+        label.dataset.storeId = store.id;
+
+        label.innerHTML = `
+            <input type="checkbox"
+                   class="store-box"
+                   data-store-id="${store.id}"
+                   data-racks="${store.expected_racks || 0}"
+                   data-weight="${store.weight || 0}">
+            <div>
+                <strong>${store.store_name || store.origin || "Unknown Store"}</strong>
+                <span>${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
+                <small>${store.hub || "Manual Review"} — ${store.hub_reason || ""}</small>
+            </div>
+        `;
+
+        container.appendChild(label);
+    });
+}
 
 function updateTotals(){
-    let stores = 0;
+    let count = 0;
     let racks = 0;
     let weight = 0;
 
-    document.querySelectorAll(".store-box").forEach(box => {
-        if(box.checked && box.closest(".store-card").style.display !== "none"){
-            stores++;
-            racks += Number(box.dataset.racks);
-            weight += Number(box.dataset.weight);
-        }
+    document.querySelectorAll(".store-box:checked").forEach(box => {
+        count++;
+        racks += Number(box.dataset.racks || 0);
+        weight += Number(box.dataset.weight || 0);
     });
 
-    document.getElementById("store-count").innerText = stores;
+    document.getElementById("store-count").innerText = count;
     document.getElementById("rack-count").innerText = racks;
     document.getElementById("weight-count").innerText = weight;
     document.getElementById("remaining-capacity").innerText = MAX_CAPACITY - weight;
@@ -32,10 +63,10 @@ function updateTotals(){
     if(weight > MAX_CAPACITY){
         status.innerText = "OVER LIMIT";
         status.classList.add("over");
-    } else if(weight > 22000){
+    }else if(weight > 22000){
         status.innerText = "WARNING";
         status.classList.add("warning");
-    } else {
+    }else{
         status.innerText = "SAFE";
         status.classList.add("safe");
     }
@@ -43,44 +74,92 @@ function updateTotals(){
 
 document.addEventListener("change", updateTotals);
 
-function assignDriver(){
+async function assignDriver(){
     const driver = document.getElementById("driver-select").value;
     if(!driver){ alert("Select a driver"); return; }
 
-    const selected = document.querySelectorAll(".store-box:checked");
-    if(selected.length === 0){ alert("Select stores first"); return; }
+    const selectedBoxes = [...document.querySelectorAll(".store-box:checked")];
+    if(selectedBoxes.length === 0){ alert("Select stores first"); return; }
+
+    const storeIds = selectedBoxes.map(box => box.dataset.storeId);
+
+    const response = await fetch("/api/assign-route", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            driver: driver,
+            store_ids: storeIds
+        })
+    });
+
+    const data = await response.json();
+
+    if(!data.ok){
+        alert("Assignment failed");
+        return;
+    }
 
     const routeBlock = document.createElement("div");
     routeBlock.className = "route-card";
     routeBlock.innerHTML = `<h4>${driver}</h4>`;
 
-    selected.forEach(box => {
-        const card = box.closest(".store-card");
-        const store = card.querySelector("strong").innerText.trim();
-
+    data.assigned.forEach(store => {
         const row = document.createElement("div");
         row.className = "route-row";
-        row.innerHTML = `<span>${store}</span>`;
+        row.innerHTML = `<span>${store.store_name || store.origin}</span>`;
 
         const btn = document.createElement("button");
         btn.innerText = "Unassign";
-        btn.onclick = function(){
-            card.style.display = "flex";
-            if(markers[store]) markers[store].setMap(map);
-            row.remove();
-            updateTotals();
+        btn.onclick = async function(){
+            await unassignStore(store.id, row);
         };
 
         row.appendChild(btn);
         routeBlock.appendChild(row);
 
-        card.style.display = "none";
-        box.checked = false;
-        if(markers[store]) markers[store].setMap(null);
+        if(markers[store.id]){
+            markers[store.id].setMap(null);
+        }
     });
 
     document.getElementById("driver-results").appendChild(routeBlock);
+
+    data.assigned.forEach(assigned => {
+        const original = stores.find(s => s.id === assigned.id);
+        if(original){
+            original.status = "Assigned";
+            original.assigned_driver = driver;
+        }
+    });
+
+    renderStores();
     updateTotals();
+}
+
+async function unassignStore(storeId, row){
+    const response = await fetch("/api/unassign-store", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({store_id: storeId})
+    });
+
+    const data = await response.json();
+
+    if(data.ok && data.store){
+        const original = stores.find(s => s.id === storeId);
+        if(original){
+            original.status = "Unassigned";
+            original.assigned_driver = "";
+        }
+
+        if(markers[storeId]){
+            markers[storeId].setMap(map);
+        }
+
+        row.remove();
+        renderStores();
+        updateTotals();
+    }
 }
 
 function initMap(){
@@ -91,28 +170,29 @@ function initMap(){
         streetViewControl: false
     });
 
-    const hubs = [
-        { lat:29.4241, lng:-98.4936, title:"San Antonio Hub" },
-        { lat:29.7604, lng:-95.3698, title:"Houston Hub" },
-        { lat:32.7767, lng:-96.7970, title:"Dallas Hub" }
-    ];
-
-    hubs.forEach(hub => {
+    Object.keys(hubs).forEach(hubName => {
+        const hub = hubs[hubName];
         new google.maps.Marker({
-            position: { lat:hub.lat, lng:hub.lng },
+            position: { lat: hub.lat, lng: hub.lng },
             map,
-            title: hub.title,
+            title: hubName + " Hub",
             label: "H"
         });
     });
 
-    Object.keys(storeLocations).forEach(store => {
-        const loc = storeLocations[store];
-        markers[store] = new google.maps.Marker({
-            position: { lat:loc.lat, lng:loc.lng },
+    stores.forEach(store => {
+        if(store.status !== "Unassigned") return;
+
+        markers[store.id] = new google.maps.Marker({
+            position: {
+                lat: Number(store.lat),
+                lng: Number(store.lng)
+            },
             map,
-            title: store,
+            title: store.store_name || store.origin || "Store",
             label: "S"
         });
     });
+
+    renderStores();
 }

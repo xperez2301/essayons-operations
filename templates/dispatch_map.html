@@ -5,65 +5,29 @@
 <header class="topbar">
     <div>
         <h2>Dispatch Map</h2>
-        <p>Live store selection, driver assignment, rack totals, and M2 weight tracking.</p>
+        <p>Real imported RMS stores, hub assignment, driver assignment, and M2 weight tracking.</p>
     </div>
-    <div class="status-pill">M2 Max Payload: 25,001 lbs</div>
+    <div>
+        <a class="link-btn" href="/rms-import">Import RMS File</a>
+        <a class="link-btn" href="/driver">Driver Portal</a>
+    </div>
 </header>
 
 <section class="metrics">
-    <div class="metric">
-        <span>Selected Stores</span>
-        <strong id="store-count">0</strong>
-    </div>
-    <div class="metric">
-        <span>Racks</span>
-        <strong id="rack-count">0</strong>
-    </div>
-    <div class="metric">
-        <span>Weight</span>
-        <strong><span id="weight-count">0</span> lbs</strong>
-    </div>
-    <div class="metric">
-        <span>Remaining</span>
-        <strong><span id="remaining-capacity">25001</span> lbs</strong>
-    </div>
-    <div class="metric">
-        <span>Status</span>
-        <strong id="capacity-status" class="safe">SAFE</strong>
-    </div>
+    <div class="metric"><span>Selected Stores</span><strong id="store-count">0</strong></div>
+    <div class="metric"><span>Racks</span><strong id="rack-count">0</strong></div>
+    <div class="metric"><span>Weight</span><strong><span id="weight-count">0</span> lbs</strong></div>
+    <div class="metric"><span>Remaining</span><strong><span id="remaining-capacity">{{ max_payload }}</span> lbs</strong></div>
+    <div class="metric"><span>Status</span><strong id="capacity-status" class="safe">SAFE</strong></div>
 </section>
 
 <div class="dispatch-grid">
 
     <section class="panel">
         <h3>Available Stores</h3>
-        <p class="muted">Unassigned RMS work appears here.</p>
+        <p class="muted">Only unassigned RMS work appears here.</p>
 
-        <div id="available-stores">
-            <label class="store-card">
-                <input type="checkbox" class="store-box" data-racks="12" data-weight="2400">
-                <div>
-                    <strong>Walmart #1001</strong>
-                    <span>Beaumont, TX • 12 racks</span>
-                </div>
-            </label>
-
-            <label class="store-card">
-                <input type="checkbox" class="store-box" data-racks="18" data-weight="3600">
-                <div>
-                    <strong>Home Depot #2001</strong>
-                    <span>Killeen, TX • 18 racks</span>
-                </div>
-            </label>
-
-            <label class="store-card">
-                <input type="checkbox" class="store-box" data-racks="9" data-weight="1800">
-                <div>
-                    <strong>Lowe's #3001</strong>
-                    <span>San Marcos, TX • 9 racks</span>
-                </div>
-            </label>
-        </div>
+        <div id="available-stores"></div>
 
         <hr>
 
@@ -89,6 +53,12 @@
     </section>
 
 </div>
+
+<script>
+window.EOMS_STORES = {{ stores | tojson }};
+window.EOMS_HUBS = {{ hubs | tojson }};
+window.MAX_PAYLOAD = {{ max_payload }};
+</script>
 
 <script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
 
