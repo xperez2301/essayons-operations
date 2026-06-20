@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Route Builder</h2>
+        <p>Assign drivers, send routes, print BOLs, and unassign stops or full routes.</p>
+    </div>
+    <a class="link-btn" href="/dispatch-map">Back to Dispatch Map</a>
+</header>
+
+{% if not routes %}
+<section class="panel">
+    <h3>No routes yet.</h3>
+    <p class="muted">Build one from Dispatch Map.</p>
+</section>
+{% endif %}
+
+{% for route in routes|reverse %}
+<section class="panel route-card" id="route-{{ route.id }}">
+    <div class="route-card-header">
+        <div>
+            <h3>{{ route.route_number }} — {{ route.driver or "No Driver Selected" }}</h3>
+            <p class="muted">{{ route.mode_label or route.mode }} • Hub: {{ route.hub }} • {{ route.created_at }}</p>
+        </div>
+        <div class="route-actions-inline">
+            <span class="status-pill {{ route.metrics.status|lower|replace(' ', '-') }}">{{ route.metrics.status }}</span>
+            <button type="button" class="danger-btn small-btn" onclick="unassignRoute('{{ route.id }}')">Unassign Entire Route</button>
+        </div>
+    </div>
+
+    <div class="driver-box">
+        <h4>Driver Assignment</h4>
+        <div class="driver-grid">
+            <input id="driver-name-{{ route.id }}" type="text" value="{{ route.driver or '' }}" placeholder="Driver Name">
+            <input id="driver-phone-{{ route.id }}" type="text" value="{{ route.driver_phone or '' }}" placeholder="Driver Phone">
+            <button type="button" class="primary-btn small-btn" onclick="saveDriver('{{ route.id }}')">Save Driver</button>
+            <button type="button" class="secondary-btn small-btn" onclick="sendRoute('{{ route.id }}', '{{ route.route_number }}')">Send Route</button>
+        </div>
+        <p class="muted">Send Route opens an SMS message with the route link. Telnyx direct-send can be connected next.</p>
+    </div>
+
+    <div class="metrics route-metrics">
+        <div class="metric"><span>Stores</span><strong>{{ route.metrics.store_count }}</strong></div>
+        <div class="metric"><span>Racks</span><strong>{{ route.metrics.racks }}</strong></div>
+        <div class="metric"><span>Weight</span><strong>{{ route.metrics.weight }} lbs</strong></div>
+        <div class="metric"><span>Remaining</span><strong>{{ route.metrics.remaining_capacity }} lbs</strong></div>
+        <div class="metric"><span>Miles</span><strong>{{ route.metrics.mileage }}</strong></div>
+        <div class="metric"><span>Revenue</span><strong>${{ route.metrics.revenue }}</strong></div>
+        <div class="metric"><span>Driver Pay</span><strong>${{ route.metrics.driver_pay }}</strong></div>
+    </div>
+
+    <table class="queue-table route-table">
+        <thead>
+            <tr>
+                <th>Stop</th>
+                <th>BOL</th>
+                <th>Origin</th>
+                <th>Store</th>
+                <th>Address</th>
+                <th>City</th>
+                <th>Racks</th>
+                <th>Weight</th>
+                <th>Due</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stop in route.stops %}
+            <tr>
+                <td><b>{{ loop.index }}</b></td>
+                <td>{{ stop.bol }}</td>
+                <td>{{ stop.origin }}</td>
+                <td>{{ stop.store_name }}</td>
+                <td>{{ stop.address }}</td>
+                <td>{{ stop.city }}, {{ stop.state }}</td>
+                <td>{{ stop.expected_racks }}</td>
+                <td>{{ stop.weight }} lbs</td>
+                <td><span class="due-chip" data-due="{{ stop.due_date or '' }}">{{ stop.due_date or 'Not captured' }}</span></td>
+                <td class="action-cell">
+                    <a class="mini-link" href="/bol-live/{{ stop.bol }}" target="_blank">Live</a>
+                    <a class="mini-link" href="/bol-view/{{ stop.id }}" target="_blank">Saved</a>
+                    <a class="mini-link" href="/bol-print/{{ stop.id }}" target="_blank">Print</a>
+                    <button type="button" class="tiny-btn" onclick="unassignStop('{{ stop.id }}')">Unassign</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endfor %}
+
+<script>
+async function unassignStop(storeId){
+    if(!confirm("Unassign this stop and return it to Dispatch Map?")) return;
+
+    const response = await fetch("/api/unassign-store", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({store_id:storeId})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to unassign stop.");
+        return;
+    }
+
+    alert("Stop returned to Dispatch Map.");
+    location.reload();
+}
+
+async function unassignRoute(routeId){
+    if(!confirm("Unassign the entire route and return all stops to Dispatch Map?")) return;
+
+    const response = await fetch("/api/unassign-route", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({route_id:routeId})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to unassign route.");
+        return;
+    }
+
+    alert(data.message || "Route unassigned.");
+    location.reload();
+}
+
+async function saveDriver(routeId){
+    const driver = document.getElementById("driver-name-" + routeId).value;
+    const driverPhone = document.getElementById("driver-phone-" + routeId).value;
+
+    const response = await fetch("/api/update-route-driver", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({route_id:routeId, driver:driver, driver_phone:driverPhone})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to save driver.");
+        return;
+    }
+
+    alert("Driver saved.");
+    location.reload();
+}
+
+function sendRoute(routeId, routeNumber){
+    const phone = document.getElementById("driver-phone-" + routeId).value.trim();
+    if(!phone){
+        alert("Add driver phone number first.");
+        return;
+    }
+
+    const routeLink = window.location.origin + "/route-view/" + routeId;
+    const msg = "Route " + routeNumber + " assigned. Open route: " + routeLink;
+    const smsUrl = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
+
+    window.location.href = smsUrl;
+}
+
+function dueColor(dueValue){
+    if(!dueValue) return "green";
+    const parts = dueValue.split("/");
+    let due = null;
+    if(parts.length === 3){
+        due = new Date(Number(parts[2]), Number(parts[0])-1, Number(parts[1]));
+    }else{
+        due = new Date(dueValue);
+    }
+    if(!due || isNaN(due.getTime())) return "green";
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const diff = Math.ceil((due - today) / (1000*60*60*24));
+    if(diff < 0) return "red";
+    if(diff <= 4) return "amber";
+    return "green";
+}
+
+function applyDueColors(){
+    document.querySelectorAll(".due-chip").forEach(chip => {
+        const color = dueColor(chip.dataset.due || "");
+        chip.classList.add("due-" + color);
+    });
+}
+applyDueColors();
+</script>
+{% endblock %}

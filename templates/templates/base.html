@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOMS | Essayons Operations</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo">E</div>
+                <div>
+                    <h1>EOMS</h1>
+                    <p>Essayons Operations</p>
+                </div>
+            </div>
+            <nav>
+                <a href="/dispatch-board">Dispatch Board</a>
+        <a href="/dispatch-map">Dispatch Map</a>
+                <a href="/route-builder">Route Builder</a>
+                <a href="/rms-sync">RMS Sync</a>
+                <a href="/rms-queue">RMS Queue</a>
+                <a href="/rms-import">RMS Import</a>
+                <a href="/need-review">Need Review</a>
+                <a href="/driver">Driver Portal</a>
+                <a href="/settings">Settings</a>
+                <a href="#">Route Builder</a>
+                <a href="#">P&L</a>
+            </nav>
+        </aside>
+        <main class="main">{% block content %}{% endblock %}</main>
+    </div>
+</body>
+</html>
