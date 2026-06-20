@@ -6,86 +6,91 @@
 
 <div style="display:flex; gap:20px;">
 
-    <!-- LEFT PANEL -->
-    <div style="width:250px;">
+    <div style="width:260px;">
         <h3>Available Stores</h3>
 
-        <input type="checkbox"> Walmart #1001<br>
-        <input type="checkbox"> Home Depot #2001<br>
-        <input type="checkbox"> Lowe's #3001<br><br>
+        <label><input type="checkbox" class="store-box" data-racks="12" data-weight="2400"> Walmart #1001</label><br>
+        <label><input type="checkbox" class="store-box" data-racks="18" data-weight="3600"> Home Depot #2001</label><br>
+        <label><input type="checkbox" class="store-box" data-racks="9" data-weight="1800"> Lowe's #3001</label><br><br>
 
-        <button>Assign Driver</button>
+        <button>Build Route</button>
     </div>
 
-    <!-- MAP -->
     <div style="flex:1;">
         <div id="map" style="height:600px; border:1px solid black;"></div>
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div style="width:250px;">
+    <div style="width:260px;">
         <h3>Selected Stores</h3>
 
         <p>Stores: <span id="store-count">0</span></p>
         <p>Racks: <span id="rack-count">0</span></p>
         <p>Weight: <span id="weight-count">0</span> lbs</p>
+        <p>Remaining Capacity: <span id="remaining-capacity">25001</span> lbs</p>
+        <p>Status: <b id="capacity-status">SAFE</b></p>
 
         <hr>
-
         <p><b>Max Capacity:</b> 25,001 lbs</p>
     </div>
 
 </div>
 
 <script>
-function initMap() {
+const MAX_CAPACITY = 25001;
 
+function updateTotals() {
+    let stores = 0;
+    let racks = 0;
+    let weight = 0;
+
+    document.querySelectorAll(".store-box").forEach(box => {
+        if (box.checked) {
+            stores += 1;
+            racks += Number(box.dataset.racks);
+            weight += Number(box.dataset.weight);
+        }
+    });
+
+    document.getElementById("store-count").innerText = stores;
+    document.getElementById("rack-count").innerText = racks;
+    document.getElementById("weight-count").innerText = weight;
+    document.getElementById("remaining-capacity").innerText = MAX_CAPACITY - weight;
+
+    const status = document.getElementById("capacity-status");
+
+    if (weight > MAX_CAPACITY) {
+        status.innerText = "OVER LIMIT";
+    } else if (weight > 22000) {
+        status.innerText = "WARNING";
+    } else {
+        status.innerText = "SAFE";
+    }
+}
+
+document.addEventListener("change", updateTotals);
+
+function initMap() {
     const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 6,
         center: { lat: 30.2672, lng: -97.7431 }
     });
 
-    // SAN ANTONIO HUB
-    new google.maps.Marker({
-        position: { lat: 29.4241, lng: -98.4936 },
-        map: map,
-        title: "San Antonio Hub"
+    const locations = [
+        { lat: 29.4241, lng: -98.4936, title: "San Antonio Hub" },
+        { lat: 29.7604, lng: -95.3698, title: "Houston Hub" },
+        { lat: 32.7767, lng: -96.7970, title: "Dallas Hub" },
+        { lat: 30.0802, lng: -94.1266, title: "Walmart #1001" },
+        { lat: 31.1171, lng: -97.7278, title: "Home Depot #2001" },
+        { lat: 29.8833, lng: -97.9414, title: "Lowe's #3001" }
+    ];
+
+    locations.forEach(loc => {
+        new google.maps.Marker({
+            position: { lat: loc.lat, lng: loc.lng },
+            map: map,
+            title: loc.title
+        });
     });
-
-    // HOUSTON HUB
-    new google.maps.Marker({
-        position: { lat: 29.7604, lng: -95.3698 },
-        map: map,
-        title: "Houston Hub"
-    });
-
-    // DALLAS HUB
-    new google.maps.Marker({
-        position: { lat: 32.7767, lng: -96.7970 },
-        map: map,
-        title: "Dallas Hub"
-    });
-
-    // SAMPLE STORES
-
-    new google.maps.Marker({
-        position: { lat: 30.0802, lng: -94.1266 },
-        map: map,
-        title: "Store A"
-    });
-
-    new google.maps.Marker({
-        position: { lat: 31.1171, lng: -97.7278 },
-        map: map,
-        title: "Store B"
-    });
-
-    new google.maps.Marker({
-        position: { lat: 29.8833, lng: -97.9414 },
-        map: map,
-        title: "Store C"
-    });
-
 }
 </script>
 
