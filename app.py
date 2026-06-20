@@ -5,8 +5,6 @@ import math
 import re
 import shutil
 import requests
-import secrets
-from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -19,11 +17,10 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 app = Flask(__name__)
 
-# EOMS Authentication
+# EOMS Admin Login
 app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_SET_SECRET_KEY_IN_AZURE")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
-SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "720"))
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -71,7 +68,7 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": "", "telnyx_api_key": "", "telnyx_from_number": "+12103529669", "public_eoms_url": ""}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, [])
     ]:
@@ -380,52 +377,53 @@ def parse_csv(path):
             rows.append(normalize_row(row))
     return rows
 
+def is_public_path(path):
+    return (
+        path == "/login"
+        or path == "/logout"
+        or path.startswith("/static/")
+        or path == "/favicon.ico"
+    )
+
+@app.before_request
+def require_admin_login():
+    if is_public_path(request.path):
+        return None
+    if session.get("logged_in"):
+        return None
+    return redirect(url_for("login", next=request.path))
+
+
 @app.route("/")
 def home():
-    return render_template("login.html")
+    if session.get("logged_in"):
+        return redirect("/dispatch-map")
+    return redirect("/login")
 
-@app.route("/login")
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        next_url = request.form.get("next") or request.args.get("next") or "/dispatch-map"
+
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session.clear()
+            session["logged_in"] = True
+            session["username"] = username
+            return redirect(next_url)
+
+        return render_template("login.html", error="Invalid username or password", next=next_url)
+
+    return render_template("login.html", error=None, next=request.args.get("next") or "/dispatch-map")
 
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
-@app.route("/api/dispatch-board-live")
-def api_dispatch_board_live():
-    stores = read_json(STORES_FILE)
-    routes = read_json(ROUTES_FILE)
-
-    counts = {
-        "Need Review": 0,
-        "Unassigned": 0,
-        "Assigned": 0,
-        "Dispatched": 0,
-        "Completed": 0
-    }
-
-    for s in stores:
-        status = clean(s.get("status")) or "Unassigned"
-        if status not in counts:
-            status = "Unassigned"
-        counts[status] += 1
-
-    active = [s for s in stores if (clean(s.get("status")) or "Unassigned") in ["Need Review", "Unassigned", "Assigned", "Dispatched"]]
-    racks = sum(num(s.get("expected_racks")) for s in active)
-    weight = sum(num(s.get("weight")) for s in active)
-    pieces = racks * PIECES_PER_RACK
-
-    return jsonify({
-        "ok": True,
-        "stores": stores,
-        "routes": routes,
-        "counts": counts,
-        "metrics": {
-            "racks": round(racks, 2),
-            "weight": round(weight, 2),
-            "revenue": round(pieces * RATE_PER_PIECE, 2),
-            "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2)
-        }
-    })
 
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
@@ -573,7 +571,7 @@ def api_approve_review():
 
 
 
-def rms_login_with_playwright(headless=False):
+def rms_login_with_playwright(headless=True):
     settings_data = read_json(SETTINGS_FILE)
 
     username = clean(settings_data.get("rms_username"))
@@ -1005,7 +1003,7 @@ def open_printable_and_extract(page, bol_link):
     return item
 
 
-def scan_rms_queue_with_playwright(headless=False):
+def scan_rms_queue_with_playwright(headless=True):
     settings_data = read_json(SETTINGS_FILE)
 
     username = clean(settings_data.get("rms_username"))
@@ -1160,7 +1158,7 @@ def update_queue_from_item(item):
             break
     write_json(RMS_QUEUE_FILE, queue)
 
-def import_selected_queue_bols(bol_numbers, headless=False):
+def import_selected_queue_bols(bol_numbers, headless=True):
     settings_data = read_json(SETTINGS_FILE)
 
     username = clean(settings_data.get("rms_username"))
@@ -1281,7 +1279,7 @@ def import_selected_queue_bols(bol_numbers, headless=False):
                 "errors": errors[:10]
             }
 
-def rms_full_import_with_playwright(headless=False, max_bols=0):
+def rms_full_import_with_playwright(headless=True, max_bols=0):
     settings_data = read_json(SETTINGS_FILE)
 
     username = clean(settings_data.get("rms_username"))
@@ -1411,7 +1409,7 @@ def bol_live_printable(bol_number):
     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         try:
@@ -1593,7 +1591,7 @@ def api_rms_repair_bol(bol_number):
         return jsonify({"ok": False, "message": "Save RMS credentials first."})
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         try:
             page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
@@ -1649,7 +1647,7 @@ def rms_queue():
 
 @app.route("/api/rms/queue-refresh", methods=["POST"])
 def api_rms_queue_refresh():
-    result = scan_rms_queue_with_playwright(headless=False)
+    result = scan_rms_queue_with_playwright(headless=True)
 
     history = read_json(SYNC_HISTORY_FILE)
     result.update({
@@ -1671,7 +1669,7 @@ def api_rms_queue_import_selected():
     if not bol_numbers:
         return jsonify({"ok": False, "result": {"message": "Select at least one BOL."}})
 
-    result = import_selected_queue_bols(bol_numbers, headless=False)
+    result = import_selected_queue_bols(bol_numbers, headless=True)
 
     history = read_json(SYNC_HISTORY_FILE)
     result.update({
@@ -1714,7 +1712,7 @@ def rms_sync():
 def api_rms_test_connection():
     history = read_json(SYNC_HISTORY_FILE)
 
-    result = rms_login_with_playwright(headless=False)
+    result = rms_login_with_playwright(headless=True)
     result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
@@ -1741,7 +1739,7 @@ def api_rms_sync_open_bols():
     payload = request.get_json(silent=True) or {}
     max_bols = int(payload.get("max_bols") or 0)
 
-    result = rms_full_import_with_playwright(headless=False, max_bols=max_bols)
+    result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
     result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
@@ -1763,9 +1761,6 @@ def settings():
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
-        settings_data["telnyx_api_key"] = clean(request.form.get("telnyx_api_key")) or settings_data.get("telnyx_api_key", "")
-        settings_data["telnyx_from_number"] = clean(request.form.get("telnyx_from_number")) or settings_data.get("telnyx_from_number", "+12103529669")
-        settings_data["public_eoms_url"] = clean(request.form.get("public_eoms_url")) or settings_data.get("public_eoms_url", "")
         settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
 
         rms_password = clean(request.form.get("rms_password"))
@@ -1995,94 +1990,6 @@ def route_view(route_id):
         return "Route not found", 404
 
     return render_template("route_view.html", route=route)
-
-
-@app.route("/api/send-route-sms", methods=["POST"])
-def api_send_route_sms():
-    data = request.get_json(force=True)
-    route_id = data.get("route_id")
-
-    settings_data = read_json(SETTINGS_FILE)
-    telnyx_api_key = clean(settings_data.get("telnyx_api_key"))
-    telnyx_from_number = clean(settings_data.get("telnyx_from_number")) or "+12103529669"
-    public_eoms_url = clean(settings_data.get("public_eoms_url"))
-
-    routes = read_json(ROUTES_FILE)
-    route = None
-    for r in routes:
-        if r.get("id") == route_id or r.get("route_number") == route_id:
-            route = r
-            break
-
-    if not route:
-        return jsonify({"ok": False, "message": "Route not found."})
-
-    driver_phone = clean(route.get("driver_phone"))
-    if not driver_phone:
-        return jsonify({"ok": False, "message": "Driver phone number is missing. Save driver phone first."})
-
-    if not telnyx_api_key:
-        return jsonify({"ok": False, "message": "Telnyx API key missing. Save it in Settings first."})
-
-    if public_eoms_url:
-        route_link = public_eoms_url.rstrip("/") + f"/route-view/{route.get('id')}"
-    else:
-        route_link = request.host_url.rstrip("/") + f"/route-view/{route.get('id')}"
-
-    metrics = route.get("metrics", {})
-    message = (
-        f"EOMS Route {route.get('route_number')} assigned.\n"
-        f"Driver: {route.get('driver') or ''}\n"
-        f"Truck: {route.get('truck') or ''}\n"
-        f"Helper: {route.get('helper') or ''}\n"
-        f"Stops: {metrics.get('store_count', len(route.get('stops', [])))}\n"
-        f"Racks: {metrics.get('racks', 0)}\n"
-        f"Weight: {metrics.get('weight', 0)} lbs\n"
-        f"Open route: {route_link}"
-    )
-
-    try:
-        response = requests.post(
-            "https://api.telnyx.com/v2/messages",
-            headers={
-                "Authorization": f"Bearer {telnyx_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "from": telnyx_from_number,
-                "to": driver_phone,
-                "text": message
-            },
-            timeout=20
-        )
-
-        ok = 200 <= response.status_code < 300
-        try:
-            payload = response.json()
-        except Exception:
-            payload = {"raw": response.text[:500]}
-
-        route["last_sms_status"] = "Sent" if ok else "Failed"
-        route["last_sms_time"] = datetime.now().isoformat(timespec="seconds")
-        route["last_sms_to"] = driver_phone
-        route["last_sms_response"] = payload
-
-        write_json(ROUTES_FILE, routes)
-        audit("Send Route SMS", {
-            "route_id": route_id,
-            "route_number": route.get("route_number"),
-            "to": driver_phone,
-            "ok": ok,
-            "status_code": response.status_code
-        })
-
-        if ok:
-            return jsonify({"ok": True, "message": "Route SMS sent.", "route_link": route_link, "telnyx": payload})
-        return jsonify({"ok": False, "message": f"Telnyx send failed: HTTP {response.status_code}", "telnyx": payload})
-
-    except Exception as e:
-        audit("Send Route SMS Error", {"route_id": route_id, "error": str(e)[:300]})
-        return jsonify({"ok": False, "message": f"Telnyx error: {str(e)[:300]}"})
 
 @app.route("/api/unassign-route", methods=["POST"])
 def api_unassign_route():
