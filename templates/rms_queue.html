@@ -52,7 +52,6 @@
                 <th>Hub</th>
                 <th>Racks</th>
                 <th>Weight</th>
-                <th>Due</th>
                 <th>Last Seen</th>
                 <th>View</th>
             </tr>
@@ -71,7 +70,6 @@
                 <td>{{ q.hub }}</td>
                 <td>{{ q.expected_racks }}</td>
                 <td>{{ q.weight }}</td>
-                <td>{{ q.due_date }}</td>
                 <td>{{ q.last_seen }}</td>
                 <td><a class="mini-link" href="/bol-live/{{ q.bol }}" target="_blank">Live Printable</a><br><a class="mini-link" href="/bol-view/{{ q.bol }}" target="_blank">Saved Copy</a><br><button class="tiny-btn" onclick="repairBol('{{ q.bol }}')">Repair/Parse</button></td>
             </tr>

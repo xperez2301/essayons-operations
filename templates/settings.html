@@ -42,6 +42,9 @@
         <label>RMS Bills of Lading URL</label>
         <input type="text" name="rms_bol_url" value="{{ settings.rms_bol_url or 'https://rms.reusability.com/bills-of-lading' }}">
 
+        <label>Google Maps API Key</label>
+        <input type="password" name="google_maps_api_key" value="{{ settings.google_maps_api_key or '' }}" placeholder="Used to place pins at exact street address">
+
         <button class="primary-btn" type="submit">Save RMS Settings</button>
     </form>
 
@@ -51,8 +54,12 @@
     </div>
 
     <p class="muted">
-        Username and password are stored locally in data/settings.json for your EOMS automation.
+        Username, password, and Google Maps key are stored locally in data/settings.json for your EOMS automation.
         The password field stays hidden and shows as saved after you enter it once.
+    </p>
+
+    <p class="muted">
+        Auto-geocoding requires the Google Maps API key. After saving it, Import/Re-import Selected will automatically place pins at the actual street address.
     </p>
 </section>
 

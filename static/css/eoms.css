@@ -106,7 +106,7 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     font-size:10px!important;
 }
 
-/* v1.3.9 due-date colored pins and smaller available list */
+/* EOMS v1.4 Dispatch Control Center */
 .dispatch-grid{
     grid-template-columns:245px minmax(560px,1fr) 320px!important;
     gap:12px!important;
@@ -120,22 +120,11 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     margin-bottom:5px!important;
     border-radius:10px!important;
 }
-.store-card strong{
-    font-size:12px!important;
-}
-.store-card span{
-    font-size:10px!important;
-    line-height:1.2!important;
-}
-.store-card small{
-    font-size:9px!important;
-}
-.panel{
-    padding:10px!important;
-}
-.panel h3{
-    font-size:15px!important;
-}
+.store-card strong{font-size:12px!important}
+.store-card span{font-size:10px!important;line-height:1.2!important}
+.store-card small{font-size:9px!important}
+.panel{padding:10px!important}
+.panel h3{font-size:15px!important}
 .due-green{color:#22c55e}
 .due-amber{color:#f59e0b}
 .due-red{color:#ef4444}
@@ -144,6 +133,4 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     background:rgba(37,99,235,.22)!important;
     box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
 }
-#map{
-    height:720px!important;
-}
+#map{height:720px!important}

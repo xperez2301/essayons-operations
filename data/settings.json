@@ -3,6 +3,7 @@
   "rms_password_saved": true,
   "rms_login_url": "https://rms.reusability.com/login",
   "rms_bol_url": "https://rms.reusability.com/bills-of-lading",
+  "google_maps_api_key": "AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk",
   "remember_rms_credentials": true,
   "rms_password": "Flag1010!"
 }

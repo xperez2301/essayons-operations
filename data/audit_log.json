@@ -1,7 +1,7 @@
 [
   {
-    "id": "20b74680-d3bd-4b94-b55c-655f2b22e9d2",
-    "time": "2026-06-20T00:28:31",
+    "id": "86d16db8-f00c-4870-bc81-d2f4c351f200",
+    "time": "2026-06-20T01:02:56",
     "action": "Update RMS Settings",
     "details": {
       "username": "jperez+Texas@lkotrucking.com",
@@ -9,35 +9,61 @@
     }
   },
   {
-    "id": "707a84ef-28ab-4a5c-8e0b-fd2099eb2068",
-    "time": "2026-06-20T00:29:15",
+    "id": "d8971742-2f66-4168-818a-568cfd24ffee",
+    "time": "2026-06-20T01:03:55",
     "action": "Refresh RMS Queue",
     "details": {
-      "ok": true,
-      "status": "QUEUE UPDATED",
-      "message": "RMS queue updated. Found 116 BOLs. New 116. Already imported 0.",
-      "found": 116,
-      "new": 116,
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS queue scan error: Page.screenshot: Timeout 30000ms exceeded.\nCall log:\ntaking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n",
+      "found": 0,
+      "new": 0,
       "existing": 0,
-      "id": "e342bce3-fe45-42c3-9df2-7d4a5e6609b9",
-      "time": "2026-06-20T00:29:15",
+      "id": "dcdf3f5f-0b52-48c0-911c-3b8a0128ed81",
+      "time": "2026-06-20T01:03:55",
       "action": "Refresh RMS Queue"
     }
   },
   {
-    "id": "bcb34be3-2f75-42be-a4c6-3813052c5f8d",
-    "time": "2026-06-20T00:29:31",
+    "id": "fad8159a-96af-4ca8-85bc-d42fe82cf0bb",
+    "time": "2026-06-20T01:05:03",
     "action": "Import Selected RMS Queue",
     "details": {
       "ok": true,
       "status": "IMPORT SELECTED COMPLETE",
-      "message": "Import/Re-import complete. Processed 3. Need Review 0.",
-      "imported": 3,
+      "message": "Import/Re-import complete. Processed 4. Need Review 2.",
+      "imported": 4,
+      "skipped": 0,
+      "need_review": 2,
+      "errors": [],
+      "id": "9eddbd6b-c097-4e20-b9a2-afe865a4c6d6",
+      "time": "2026-06-20T01:05:03",
+      "action": "Import Selected RMS Queue"
+    }
+  },
+  {
+    "id": "caf0a13f-5a93-41e2-be16-73c0a6c1ccab",
+    "time": "2026-06-20T01:05:23",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "e7168e09-fccf-4d18-b62d-755adbdf2e23",
+    "time": "2026-06-20T01:06:06",
+    "action": "Import Selected RMS Queue",
+    "details": {
+      "ok": true,
+      "status": "IMPORT SELECTED COMPLETE",
+      "message": "Import/Re-import complete. Processed 5. Need Review 0.",
+      "imported": 5,
       "skipped": 0,
       "need_review": 0,
       "errors": [],
-      "id": "0b934d8b-dd63-491e-9af3-0c9bb1389f04",
-      "time": "2026-06-20T00:29:31",
+      "id": "a50dcfa1-97d9-48c7-bda8-b9ed1fc6632b",
+      "time": "2026-06-20T01:06:06",
       "action": "Import Selected RMS Queue"
     }
   }

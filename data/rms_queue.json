@@ -1,6 +1,6 @@
 [
   {
-    "id": "51f06b32-9815-4659-8cf4-f501acca98b8",
+    "id": "2e3241cc-e84e-4d09-b03c-98ace8ff3708",
     "bol": "945537",
     "href": "/bills-of-lading/945537",
     "queue_status": "Imported",
@@ -11,8 +11,8 @@
     "hub": "San Antonio",
     "expected_racks": 10.0,
     "weight": 1081.0,
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10",
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
     "address": "2607 Texas 1604 Loop",
     "contact": "+1(726)262-7400",
     "origin_name": "Home Depot",
@@ -21,10 +21,12 @@
     "due_date": "",
     "assigned_date": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945537_HD6847_HomeDepot_SanAntonio_TX.html",
-    "imported_at": "2026-06-20T00:29:28"
+    "geocode_status": "Google geocoded: 2607 TX-1604 Loop, San Antonio, TX 78245, USA",
+    "full_address": "2607 Texas 1604 Loop, San Antonio, TX, 78245",
+    "imported_at": "2026-06-20T01:05:58"
   },
   {
-    "id": "51935fbf-627a-4749-81d1-7ab26f04cd64",
+    "id": "bb293094-1e6b-4479-97bb-60780ddee998",
     "bol": "945513",
     "href": "/bills-of-lading/945513",
     "queue_status": "Imported",
@@ -35,8 +37,8 @@
     "hub": "San Antonio",
     "expected_racks": 8.0,
     "weight": 865.0,
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10",
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
     "address": "5638 West Loop 1604 North",
     "contact": "+1(210)520-4198",
     "origin_name": "Home Depot",
@@ -45,10 +47,12 @@
     "due_date": "",
     "assigned_date": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945513_HD6818_HomeDepot_SanAntonio_TX.html",
-    "imported_at": "2026-06-20T00:29:29"
+    "geocode_status": "Google geocoded: 5638 W Loop 1604 N, San Antonio, TX 78251, USA",
+    "full_address": "5638 West Loop 1604 North, San Antonio, TX, 78251",
+    "imported_at": "2026-06-20T01:05:59"
   },
   {
-    "id": "0379687a-dc54-4763-b2d2-06f473a43c39",
+    "id": "3fea7616-df02-4f84-9f1f-15edc1b1a247",
     "bol": "945509",
     "href": "/bills-of-lading/945509",
     "queue_status": "Imported",
@@ -59,8 +63,8 @@
     "hub": "San Antonio",
     "expected_racks": 9.0,
     "weight": 973.0,
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10",
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
     "address": "5101 Cambray Drive",
     "contact": "+1(210)520-0630",
     "origin_name": "Home Depot",
@@ -69,40 +73,64 @@
     "due_date": "",
     "assigned_date": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945509_HD581_HomeDepot_SanAntonio_TX.html",
-    "imported_at": "2026-06-20T00:29:31"
+    "geocode_status": "Google geocoded: 5101 Cambray Dr, San Antonio, TX 78229, USA",
+    "full_address": "5101 Cambray Drive, San Antonio, TX, 78229",
+    "imported_at": "2026-06-20T01:06:01"
   },
   {
-    "id": "1e2ebb3a-1a7f-4c39-a108-4c5edf5a0b81",
+    "id": "c825d69d-267a-4d08-8bdf-f2f1b47c35fa",
     "bol": "945508",
     "href": "/bills-of-lading/945508",
-    "queue_status": "New",
-    "store_name": "",
-    "origin": "",
-    "city": "",
-    "state": "",
-    "hub": "",
-    "expected_racks": "",
-    "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "queue_status": "Imported",
+    "store_name": "Home Depot",
+    "origin": "HD8519",
+    "city": "Mission",
+    "state": "TX",
+    "hub": "San Antonio",
+    "expected_racks": 9.0,
+    "weight": 973.0,
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
+    "address": "120 South Shary Road",
+    "contact": "+1(956)583-4194",
+    "origin_name": "Home Depot",
+    "origin_address": "120 South Shary Road",
+    "origin_contact": "+1(956)583-4194",
+    "due_date": "",
+    "assigned_date": "",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945508_HD8519_HomeDepot_Mission_TX.html",
+    "geocode_status": "Google geocoded: 120 S Shary Rd, Mission, TX 78572, USA",
+    "full_address": "120 South Shary Road, Mission, TX, 78572",
+    "imported_at": "2026-06-20T01:06:03"
   },
   {
-    "id": "918a1f41-9ab1-4b4a-b99c-8a29691881be",
+    "id": "3f30822c-4186-4a55-b8d1-c7c6d51f56ef",
     "bol": "945507",
     "href": "/bills-of-lading/945507",
-    "queue_status": "New",
-    "store_name": "",
-    "origin": "",
-    "city": "",
-    "state": "",
-    "hub": "",
-    "expected_racks": "",
-    "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "queue_status": "Imported",
+    "store_name": "Home Depot",
+    "origin": "HD516",
+    "city": "McAllen",
+    "state": "TX",
+    "hub": "San Antonio",
+    "expected_racks": 10.0,
+    "weight": 1081.0,
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
+    "address": "801 Trenton Road",
+    "contact": "+1(956)668-8783, adrianac594.ac@gmail.com",
+    "origin_name": "Home Depot",
+    "origin_address": "801 Trenton Road",
+    "origin_contact": "+1(956)668-8783, adrianac594.ac@gmail.com",
+    "due_date": "",
+    "assigned_date": "",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945507_HD516_HomeDepot_McAllen_TX.html",
+    "geocode_status": "Google geocoded: 801 W Trenton Rd, McAllen, TX 78504, USA",
+    "full_address": "801 Trenton Road, McAllen, TX, 78504",
+    "imported_at": "2026-06-20T01:06:05"
   },
   {
-    "id": "705821dd-52a4-4432-ac43-7af050e3ae1d",
+    "id": "0f4843b3-7dfb-4818-8fa9-5760e49e3126",
     "bol": "945506",
     "href": "/bills-of-lading/945506",
     "queue_status": "New",
@@ -113,11 +141,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "fd183cb3-f97a-4aef-8a13-96ea55c5a65a",
+    "id": "0c9bbed3-cd94-413d-bd91-e3381fe979a4",
     "bol": "945504",
     "href": "/bills-of-lading/945504",
     "queue_status": "New",
@@ -128,11 +156,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "708809b3-2ee6-4281-a97f-5227408dfef0",
+    "id": "e3ec6caf-e7ba-4a7a-9090-2ea832922539",
     "bol": "945502",
     "href": "/bills-of-lading/945502",
     "queue_status": "New",
@@ -143,11 +171,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "e842bd02-68d6-4aa0-a4d5-928451e6e543",
+    "id": "c582b4f9-17ad-4bc1-a208-21c076a35ba3",
     "bol": "945487",
     "href": "/bills-of-lading/945487",
     "queue_status": "New",
@@ -158,11 +186,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "f5858408-2ba7-4ab4-a9f8-03fb3ed30f2f",
+    "id": "57e61426-e14b-4b9e-ab23-1763ce70fdc9",
     "bol": "945486",
     "href": "/bills-of-lading/945486",
     "queue_status": "New",
@@ -173,11 +201,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "39b0f5fe-b8f9-4ce5-a8a7-6418eff9d5cd",
+    "id": "e57c4cbb-3647-43d4-a5d6-464acc507e60",
     "bol": "945485",
     "href": "/bills-of-lading/945485",
     "queue_status": "New",
@@ -188,11 +216,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "fc3ca42e-2b9d-416d-a706-e819d52f7740",
+    "id": "2ac40ca2-e6a8-4ee8-bf6d-435f56aadf83",
     "bol": "945475",
     "href": "/bills-of-lading/945475",
     "queue_status": "New",
@@ -203,11 +231,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c5126304-244b-478e-9997-6be94482bc8a",
+    "id": "a0403521-2f4b-4adb-87c6-ff71d0f813f6",
     "bol": "945474",
     "href": "/bills-of-lading/945474",
     "queue_status": "New",
@@ -218,11 +246,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "bb17f4f5-ba91-409e-a004-e10955ede676",
+    "id": "8e93b520-22d8-4bc5-973d-7ebdaf1df126",
     "bol": "945472",
     "href": "/bills-of-lading/945472",
     "queue_status": "New",
@@ -233,11 +261,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "1dda5b9b-26bd-461e-8a4d-3bc4a65f1e07",
+    "id": "08951c1c-936e-46df-8ee9-89ac0b9b2481",
     "bol": "945470",
     "href": "/bills-of-lading/945470",
     "queue_status": "New",
@@ -248,11 +276,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b38fd75e-b847-422a-9394-d022c4a807ec",
+    "id": "2b1a37ed-abaa-455d-8bd0-6e3ad722bfd1",
     "bol": "945439",
     "href": "/bills-of-lading/945439",
     "queue_status": "New",
@@ -263,11 +291,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "acd74059-fef2-455b-bed1-3bdff98cd987",
+    "id": "4494d5a1-58f4-4a8d-9ec3-7a058abe7c6d",
     "bol": "945269",
     "href": "/bills-of-lading/945269",
     "queue_status": "New",
@@ -278,11 +306,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "22d3b0bc-4dc3-4bb2-897a-b4f7afa0d468",
+    "id": "c1b3a068-1426-4a89-85af-bc5db2f47379",
     "bol": "945268",
     "href": "/bills-of-lading/945268",
     "queue_status": "New",
@@ -293,11 +321,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "1fcadc32-dc99-4394-a68f-c02a1010c256",
+    "id": "a3e09615-774a-46bd-b97b-b5db7ad3e0ef",
     "bol": "945267",
     "href": "/bills-of-lading/945267",
     "queue_status": "New",
@@ -308,11 +336,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "1f4b9ce3-4647-4889-9e03-badd9d15c031",
+    "id": "d6d4fa90-2e0b-4c6c-8993-0e5ff8f80d0d",
     "bol": "945266",
     "href": "/bills-of-lading/945266",
     "queue_status": "New",
@@ -323,11 +351,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "551605b4-0849-4c9e-be6a-b661163df584",
+    "id": "1906e711-232c-4cfe-8401-9f46ae3ae344",
     "bol": "945026",
     "href": "/bills-of-lading/945026",
     "queue_status": "New",
@@ -338,11 +366,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "30cf0dac-15d5-4430-bbd7-e90b3972da84",
+    "id": "876e9790-484b-424a-8735-eab5083a1eae",
     "bol": "945025",
     "href": "/bills-of-lading/945025",
     "queue_status": "New",
@@ -353,11 +381,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c58b5ec8-d6df-49be-b626-6c40810e35f8",
+    "id": "92ccbef0-e3aa-4f2d-9851-54796003440e",
     "bol": "945022",
     "href": "/bills-of-lading/945022",
     "queue_status": "New",
@@ -368,11 +396,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "67c1ef4f-29eb-4d98-a027-6cf7ec53aba6",
+    "id": "550db7e9-3b23-423f-abfc-4e6edf2eddee",
     "bol": "945021",
     "href": "/bills-of-lading/945021",
     "queue_status": "New",
@@ -383,11 +411,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "d8bdcf4a-03db-44b5-9ef4-fbd33bb26c75",
+    "id": "3b3c6354-9067-44a8-9f1b-96ed8bf0f3f3",
     "bol": "944685",
     "href": "/bills-of-lading/944685",
     "queue_status": "New",
@@ -398,11 +426,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "865cb07f-8bd7-468e-86cc-e87475a5d533",
+    "id": "815d678a-217c-4aec-8842-3c18d744b504",
     "bol": "944682",
     "href": "/bills-of-lading/944682",
     "queue_status": "New",
@@ -413,11 +441,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "9f77647d-0838-48c8-bc3e-aca51bcdffd1",
+    "id": "ca176a53-028a-45f9-a8ba-1507fb55fa1e",
     "bol": "944681",
     "href": "/bills-of-lading/944681",
     "queue_status": "New",
@@ -428,11 +456,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ce6f56e4-1604-4e62-9812-0407eafd6a11",
+    "id": "7ddb6b81-8980-4b1b-a489-a3bde80d611f",
     "bol": "944680",
     "href": "/bills-of-lading/944680",
     "queue_status": "New",
@@ -443,11 +471,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "016f28dc-45c8-4cf8-9321-2a562d175303",
+    "id": "dd908fd8-fcd3-4d86-b0ef-55b971076a94",
     "bol": "944679",
     "href": "/bills-of-lading/944679",
     "queue_status": "New",
@@ -458,11 +486,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "add60a80-cdac-4204-bf82-c4d844d8cb5b",
+    "id": "f2ca6c26-9d28-47ff-b883-a6f70bd3f734",
     "bol": "944678",
     "href": "/bills-of-lading/944678",
     "queue_status": "New",
@@ -473,11 +501,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ccd948f7-b06d-42c7-8fd1-1908c37b8271",
+    "id": "b1c3e5d1-1e56-42bc-b3d4-5d10acbd2ed7",
     "bol": "944677",
     "href": "/bills-of-lading/944677",
     "queue_status": "New",
@@ -488,11 +516,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "7ea3ffd8-9ee1-45a7-bea1-5c12108fc2ca",
+    "id": "8c83f5d4-0da1-4c35-8421-b8899b7968a1",
     "bol": "944676",
     "href": "/bills-of-lading/944676",
     "queue_status": "New",
@@ -503,11 +531,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "47819d62-03a5-4471-b320-bff454eb1644",
+    "id": "5bd8db98-aac2-480e-a3e3-33415b8217b3",
     "bol": "944675",
     "href": "/bills-of-lading/944675",
     "queue_status": "New",
@@ -518,11 +546,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "50e30abd-e55b-4d5b-952c-b2aa625869f2",
+    "id": "a832e4d1-e4ee-4e14-a5cf-73a6bb1d5103",
     "bol": "944674",
     "href": "/bills-of-lading/944674",
     "queue_status": "New",
@@ -533,11 +561,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "17e409da-a117-4c3b-8b86-bae117a7773d",
+    "id": "e6f74ed5-cb2e-45f1-bead-60c75543bfea",
     "bol": "944672",
     "href": "/bills-of-lading/944672",
     "queue_status": "New",
@@ -548,11 +576,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "e80b0973-bbd3-408c-bfc2-03dc161af5ba",
+    "id": "4e43b77a-9bec-4c6a-81f4-9e52ec2b6256",
     "bol": "944670",
     "href": "/bills-of-lading/944670",
     "queue_status": "New",
@@ -563,11 +591,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c926752c-b121-480b-997b-0aff7f4b72c6",
+    "id": "82ea77e3-4ba2-4999-9c3d-aa6e5f23cace",
     "bol": "942871",
     "href": "/bills-of-lading/942871",
     "queue_status": "New",
@@ -578,11 +606,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "3b3f88c7-2eb6-48dc-9bbe-3d65c512fb1e",
+    "id": "05112ebb-98c0-494d-b7bf-b2682dd31381",
     "bol": "942870",
     "href": "/bills-of-lading/942870",
     "queue_status": "New",
@@ -593,11 +621,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "01dee403-ec25-479b-9bfc-37f10362ec50",
+    "id": "87a754cc-ffa7-41a0-81b4-39c20b4df447",
     "bol": "942862",
     "href": "/bills-of-lading/942862",
     "queue_status": "New",
@@ -608,11 +636,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "268fc83a-9f70-4283-bf97-cd12d47e98e9",
+    "id": "55dfa984-55f2-473a-860c-c783a234e5c7",
     "bol": "942860",
     "href": "/bills-of-lading/942860",
     "queue_status": "New",
@@ -623,11 +651,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c1ea9b52-f8af-49ff-a1ff-7c467b4683d6",
+    "id": "22d09433-0c34-48e2-9c60-0cca260ecc9d",
     "bol": "942858",
     "href": "/bills-of-lading/942858",
     "queue_status": "New",
@@ -638,11 +666,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "e67159c7-555b-4fc8-8ac2-24d09eb1088a",
+    "id": "9f28e675-11ee-4b53-a067-48c4de4f019e",
     "bol": "942857",
     "href": "/bills-of-lading/942857",
     "queue_status": "New",
@@ -653,11 +681,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "96dcc278-bb1f-4354-b4a0-17b8452d909c",
+    "id": "08e494e9-75a4-481a-abce-f4148a904602",
     "bol": "940903",
     "href": "/bills-of-lading/940903",
     "queue_status": "New",
@@ -668,11 +696,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "6a41bddf-b3b9-4883-811a-546fcd30d825",
+    "id": "90281dbb-e2f8-485d-a5c8-05052e54b27b",
     "bol": "940902",
     "href": "/bills-of-lading/940902",
     "queue_status": "New",
@@ -683,11 +711,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "65e6cc53-65cc-4f2f-b859-8209823dc476",
+    "id": "09710293-0673-4ea1-9213-04d69f0b26d1",
     "bol": "940901",
     "href": "/bills-of-lading/940901",
     "queue_status": "New",
@@ -698,11 +726,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "6b2cf17b-7dd8-4f50-9bcb-5b4b8566e05b",
+    "id": "3befcd04-6ebd-4f65-9ae9-fd497315d585",
     "bol": "940900",
     "href": "/bills-of-lading/940900",
     "queue_status": "New",
@@ -713,11 +741,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "09cfdace-7783-41bf-8889-3fffbae6c3e4",
+    "id": "7dab3d01-b61b-47a9-a0d7-6fae2605118c",
     "bol": "940100",
     "href": "/bills-of-lading/940100",
     "queue_status": "New",
@@ -728,11 +756,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "4289b0d0-22a0-4794-9a25-b4dbdc046a82",
+    "id": "1a6be8d1-0fc8-4bfe-9c18-216387b088ed",
     "bol": "940099",
     "href": "/bills-of-lading/940099",
     "queue_status": "New",
@@ -743,11 +771,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "0a7f9eaf-a174-427b-9688-26687ecd19cd",
+    "id": "e7a5b349-9058-48ae-b532-bba7ae1b91bd",
     "bol": "939774",
     "href": "/bills-of-lading/939774",
     "queue_status": "New",
@@ -758,11 +786,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "d87dc353-9809-4eb1-b26a-c646e3a5a36f",
+    "id": "76c8c0c9-4563-4d44-8143-976561b59bf4",
     "bol": "939773",
     "href": "/bills-of-lading/939773",
     "queue_status": "New",
@@ -773,11 +801,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "46f01734-696c-410f-babb-5fea4408ae76",
+    "id": "e0b71482-29ff-41ac-8d50-c3dbc8a6a835",
     "bol": "939772",
     "href": "/bills-of-lading/939772",
     "queue_status": "New",
@@ -788,11 +816,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "a088cc88-bdf1-4202-af3e-1b287cd893cb",
+    "id": "58adc143-046e-4ff3-ab11-13a7c56f744a",
     "bol": "939771",
     "href": "/bills-of-lading/939771",
     "queue_status": "New",
@@ -803,11 +831,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "dd316bdf-26f6-426f-b78d-49f52264b978",
+    "id": "454d65ff-abc5-445b-91e3-1f7a4ef66a2e",
     "bol": "939770",
     "href": "/bills-of-lading/939770",
     "queue_status": "New",
@@ -818,11 +846,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "78b3da79-9f35-4169-b999-735f86f9386a",
+    "id": "3fea2142-c834-41f9-a720-82f2444d4625",
     "bol": "939769",
     "href": "/bills-of-lading/939769",
     "queue_status": "New",
@@ -833,11 +861,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "964398a4-5bab-4d08-a6cd-9bbc0d5ba0a3",
+    "id": "ea800156-bd2d-476b-bb5e-0f0d5561e057",
     "bol": "939575",
     "href": "/bills-of-lading/939575",
     "queue_status": "New",
@@ -848,11 +876,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "f592032b-bb63-45e0-8440-7ce6eb632f09",
+    "id": "39a7e83c-222f-47db-8d2b-9f0a6387ddd4",
     "bol": "939572",
     "href": "/bills-of-lading/939572",
     "queue_status": "New",
@@ -863,11 +891,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b2fb7277-4f54-45d8-ab64-83510823a025",
+    "id": "3f54cb8b-ae37-4ae0-aac0-f3615f2e7ee7",
     "bol": "939571",
     "href": "/bills-of-lading/939571",
     "queue_status": "New",
@@ -878,11 +906,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c4e2ec76-7ca0-465d-8c91-d9cabd804e51",
+    "id": "c21c68df-a8d3-46a4-9fa1-09d5a1151dab",
     "bol": "939565",
     "href": "/bills-of-lading/939565",
     "queue_status": "New",
@@ -893,11 +921,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ea834e23-c84a-4733-b11d-6fd784f15d51",
+    "id": "32938a0a-9654-4fa9-8fe0-24441086d45e",
     "bol": "939563",
     "href": "/bills-of-lading/939563",
     "queue_status": "New",
@@ -908,11 +936,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "30c03872-9c02-4257-b570-96eba8fe4e2e",
+    "id": "6ad1ee0c-5e81-4121-ae4b-113899589d0c",
     "bol": "939562",
     "href": "/bills-of-lading/939562",
     "queue_status": "New",
@@ -923,11 +951,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "30062920-ae79-4649-8dc8-e6d2dd97af90",
+    "id": "45795c51-37ec-454c-85de-89e11e18e72d",
     "bol": "939546",
     "href": "/bills-of-lading/939546",
     "queue_status": "New",
@@ -938,11 +966,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ae554551-88c4-4315-890d-759bb8782f6f",
+    "id": "b8804ea8-7f2f-4448-a77d-ca60911d52ca",
     "bol": "939015",
     "href": "/bills-of-lading/939015",
     "queue_status": "New",
@@ -953,11 +981,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "4bd29734-04a7-4d9d-9b90-7d4eb6bb441c",
+    "id": "a0c0ce19-1e4e-49c0-b151-69f2aa5ce23e",
     "bol": "939013",
     "href": "/bills-of-lading/939013",
     "queue_status": "New",
@@ -968,11 +996,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b018e0d4-7e27-4493-b2ba-d3e2ec7850e7",
+    "id": "dd567a2a-63a3-4d95-958a-ba143e005686",
     "bol": "938928",
     "href": "/bills-of-lading/938928",
     "queue_status": "New",
@@ -983,11 +1011,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "413c0985-a1eb-404f-aaa6-8db715495661",
+    "id": "f188ad54-6a0a-488e-9f99-1c53b2c94745",
     "bol": "938918",
     "href": "/bills-of-lading/938918",
     "queue_status": "New",
@@ -998,11 +1026,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "31100d61-ee38-47a8-83fa-218469f1e441",
+    "id": "d3806fb5-69a9-4d72-8514-67b5e1eb132c",
     "bol": "935881",
     "href": "/bills-of-lading/935881",
     "queue_status": "New",
@@ -1013,11 +1041,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "60c17c18-dff6-41a8-a740-bdc990a7bd72",
+    "id": "b46c297a-c38f-4ac2-aa02-2c6c7e105412",
     "bol": "934751",
     "href": "/bills-of-lading/934751",
     "queue_status": "New",
@@ -1028,11 +1056,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "96a87aba-b045-4f48-99cd-eaa5dd950031",
+    "id": "1a385160-26fd-4c16-91c0-5f81d6cf6380",
     "bol": "933479",
     "href": "/bills-of-lading/933479",
     "queue_status": "New",
@@ -1043,11 +1071,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b95ee019-181f-405f-a9f2-80ca760043aa",
+    "id": "e4865628-ee99-4a9c-b798-586ade5f1dfe",
     "bol": "933338",
     "href": "/bills-of-lading/933338",
     "queue_status": "New",
@@ -1058,11 +1086,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "d8bbf373-9548-4957-8f43-954317ec81c4",
+    "id": "7e12a6b4-3935-4e12-9f47-e2942dfc8e1c",
     "bol": "933333",
     "href": "/bills-of-lading/933333",
     "queue_status": "New",
@@ -1073,11 +1101,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "2ac20bc1-aaa4-486c-9dd2-c0672984ea46",
+    "id": "2fa418f7-441e-47e0-994e-9c4f8b7c4446",
     "bol": "933147",
     "href": "/bills-of-lading/933147",
     "queue_status": "New",
@@ -1088,11 +1116,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "54040899-010f-4e8b-93c3-0875887d0705",
+    "id": "19e4ef56-db4e-46e4-8e47-2b0937518f5e",
     "bol": "932805",
     "href": "/bills-of-lading/932805",
     "queue_status": "New",
@@ -1103,11 +1131,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "a3b62f48-100d-4228-868f-aca5d9a36018",
+    "id": "c9d7a059-ef29-4e23-b6d3-5e826598574d",
     "bol": "932741",
     "href": "/bills-of-lading/932741",
     "queue_status": "New",
@@ -1118,11 +1146,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "8500267a-c27f-42f0-8aba-a32c1643c9a4",
+    "id": "c36abb22-9852-462b-ad69-d45918a562fa",
     "bol": "932734",
     "href": "/bills-of-lading/932734",
     "queue_status": "New",
@@ -1133,11 +1161,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "beaef5d0-7809-48c8-b865-9e3f095c29e0",
+    "id": "d3c5b67a-3a5f-4a2a-b3dd-ab31d5f4bd9b",
     "bol": "932566",
     "href": "/bills-of-lading/932566",
     "queue_status": "New",
@@ -1148,11 +1176,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b2ce0a5b-24f5-4339-8eab-951cb4e31a11",
+    "id": "279dfa4d-da89-48ae-aa31-e2829da8b2a5",
     "bol": "932565",
     "href": "/bills-of-lading/932565",
     "queue_status": "New",
@@ -1163,11 +1191,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "9838a580-2dbf-4a35-8fbf-dd53f697ee17",
+    "id": "07892a80-f236-48a7-ab9a-d938088725d2",
     "bol": "931316",
     "href": "/bills-of-lading/931316",
     "queue_status": "New",
@@ -1178,11 +1206,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ab1bf4fb-ae87-4dab-a7d6-02675b80ef66",
+    "id": "a0d8b101-a8d6-4e79-a905-982b9ec963af",
     "bol": "930606",
     "href": "/bills-of-lading/930606",
     "queue_status": "New",
@@ -1193,11 +1221,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "6b711f25-9a54-4515-806d-7dfe73a0d5fd",
+    "id": "2df9f0b1-18ee-4243-83e9-ba86c3302405",
     "bol": "930604",
     "href": "/bills-of-lading/930604",
     "queue_status": "New",
@@ -1208,11 +1236,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "130adcec-9967-4bb2-a93d-6f0a6e399df0",
+    "id": "44de03b8-056c-4b5a-b0de-6c1114004745",
     "bol": "930590",
     "href": "/bills-of-lading/930590",
     "queue_status": "New",
@@ -1223,11 +1251,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "a340ccae-c30e-4d7a-ad15-1fa2010d5124",
+    "id": "96be9b00-6ba4-45e0-b8d9-4e3ebc7a4f8c",
     "bol": "930585",
     "href": "/bills-of-lading/930585",
     "queue_status": "New",
@@ -1238,11 +1266,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "877e3312-2374-4fbb-9478-a3ee60f51e62",
+    "id": "aea9d518-a82e-41ce-9901-e0555d76d981",
     "bol": "930522",
     "href": "/bills-of-lading/930522",
     "queue_status": "New",
@@ -1253,11 +1281,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "ae729dd0-ffff-46ff-a1d9-8ef5689420ef",
+    "id": "9412e982-beb7-4df6-8dfb-b06cc706c6d9",
     "bol": "930512",
     "href": "/bills-of-lading/930512",
     "queue_status": "New",
@@ -1268,11 +1296,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "bd437549-d0d1-4fea-b1de-1f303e386fad",
+    "id": "dece61fa-b80e-45ba-80d0-a5039789aea3",
     "bol": "928210",
     "href": "/bills-of-lading/928210",
     "queue_status": "New",
@@ -1283,11 +1311,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "6f2917dd-8756-4a32-9fa2-7702049c2f5c",
+    "id": "4ad3fe2e-c4c1-4b65-af93-bc3d1fd20252",
     "bol": "928208",
     "href": "/bills-of-lading/928208",
     "queue_status": "New",
@@ -1298,11 +1326,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "8cd2213c-a0d1-4e4f-b288-7f087c10bd21",
+    "id": "c29611be-53f2-4648-8025-e52c692ac709",
     "bol": "928207",
     "href": "/bills-of-lading/928207",
     "queue_status": "New",
@@ -1313,11 +1341,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "79e3a5ec-6b4c-4864-9608-cf10b4e2725d",
+    "id": "a92ae624-a0f5-4614-a14b-58f1d9b78d8d",
     "bol": "928206",
     "href": "/bills-of-lading/928206",
     "queue_status": "New",
@@ -1328,11 +1356,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b1b97aaa-1444-477c-b415-88ac7f2752f0",
+    "id": "ad5d61b5-63fe-44d9-97f9-3befd81d17ec",
     "bol": "925347",
     "href": "/bills-of-lading/925347",
     "queue_status": "New",
@@ -1343,11 +1371,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "81e75abb-782d-490d-9c40-1adc4fded880",
+    "id": "f132067b-9748-4c98-b836-fea5d7a6890e",
     "bol": "907985",
     "href": "/bills-of-lading/907985",
     "queue_status": "New",
@@ -1358,11 +1386,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "95e936c8-4ec8-47c0-bc25-45c03ff6fe74",
+    "id": "7ff9ad77-b53b-4525-950b-8a5962441301",
     "bol": "907163",
     "href": "/bills-of-lading/907163",
     "queue_status": "New",
@@ -1373,11 +1401,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "205476db-dffc-44c1-9553-ef2216995bd8",
+    "id": "a928614b-ba65-478f-b5f9-f5775e72dadd",
     "bol": "907156",
     "href": "/bills-of-lading/907156",
     "queue_status": "New",
@@ -1388,11 +1416,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "1ab32fea-9826-40ce-b0b3-05c068aa87ee",
+    "id": "297426d1-d451-445b-8371-eb07d11caa79",
     "bol": "907155",
     "href": "/bills-of-lading/907155",
     "queue_status": "New",
@@ -1403,11 +1431,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "4cc20dfc-ca04-4895-bdeb-872121149718",
+    "id": "e0d7f369-adcc-4539-ae35-c0bbbd33e0e0",
     "bol": "906523",
     "href": "/bills-of-lading/906523",
     "queue_status": "New",
@@ -1418,11 +1446,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "f7e4b5d6-a9ee-4ecf-9b62-5ce2a678ed4d",
+    "id": "abcfe428-ac66-4358-a9a5-f523c99b14b4",
     "bol": "905427",
     "href": "/bills-of-lading/receive/905427",
     "queue_status": "New",
@@ -1433,11 +1461,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "fa4d01fd-b39a-4757-8b54-387f2b4fb8b9",
+    "id": "fbb48133-c21d-4c0c-809b-d4d777afccef",
     "bol": "903561",
     "href": "/bills-of-lading/903561",
     "queue_status": "New",
@@ -1448,11 +1476,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "f9a8fd53-d228-49f0-8cb7-05a5f631585a",
+    "id": "8d19e6c4-2db5-45d3-bd19-40cacceda81e",
     "bol": "903013",
     "href": "/bills-of-lading/903013",
     "queue_status": "New",
@@ -1463,11 +1491,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "5f3d1da8-cca7-4239-bb8b-65f90cff456f",
+    "id": "55d3eb48-478d-4af3-a56c-27649a9584e8",
     "bol": "903007",
     "href": "/bills-of-lading/903007",
     "queue_status": "New",
@@ -1478,11 +1506,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c7586dc1-5676-49b2-91fd-af7cadf71a7c",
+    "id": "dceb5aac-60d8-43dc-924b-98bf4886e8bf",
     "bol": "903006",
     "href": "/bills-of-lading/903006",
     "queue_status": "New",
@@ -1493,11 +1521,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "b4ef4a9e-cbc8-454d-9069-061beef7ba4d",
+    "id": "ff23b4af-426f-4944-a6cf-21418aea4c44",
     "bol": "903005",
     "href": "/bills-of-lading/903005",
     "queue_status": "New",
@@ -1508,11 +1536,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "9f420300-a22d-4e1c-8d01-97ce512a52a1",
+    "id": "ae312f7d-880d-4d8f-9c3a-59f48df64b04",
     "bol": "901419",
     "href": "/bills-of-lading/901419",
     "queue_status": "New",
@@ -1523,11 +1551,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c124732c-29f3-452f-8520-a5434e818108",
+    "id": "f1e4c4a0-39bd-4a71-b123-b304ab2d9bef",
     "bol": "899690",
     "href": "/bills-of-lading/899690",
     "queue_status": "New",
@@ -1538,11 +1566,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "91eabca0-121b-47d2-8805-1f1b88d16aca",
+    "id": "ea38ad4d-9950-415c-a857-90c0b8d34792",
     "bol": "899452",
     "href": "/bills-of-lading/899452",
     "queue_status": "New",
@@ -1553,11 +1581,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "df18fa80-5507-4dc1-a680-f2ab12092d7a",
+    "id": "b9e22e97-b10e-498e-810a-16e2709ba71a",
     "bol": "899370",
     "href": "/bills-of-lading/899370",
     "queue_status": "New",
@@ -1568,11 +1596,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "56d2ceee-8e35-4455-86f5-16b199bcfc7d",
+    "id": "3891dbc0-f1e6-4595-a0f7-60da75c3c8b3",
     "bol": "899366",
     "href": "/bills-of-lading/899366",
     "queue_status": "New",
@@ -1583,11 +1611,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "00ad0f0d-8945-44a3-a8bf-1933e6407d7d",
+    "id": "655b33d7-1007-4c13-a415-9fab7c04a9d6",
     "bol": "896322",
     "href": "/bills-of-lading/896322",
     "queue_status": "New",
@@ -1598,11 +1626,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "15752101-41e6-4d73-b3a3-3fe8b7ef4fdd",
+    "id": "4ab8bf36-a16d-4651-9d43-b233a7791640",
     "bol": "885046",
     "href": "/bills-of-lading/885046",
     "queue_status": "New",
@@ -1613,11 +1641,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "2584d65d-3dfc-4ede-bd7d-f3a9c8c1581d",
+    "id": "9a012049-469c-4280-83bb-b703d17e1748",
     "bol": "866887",
     "href": "/bills-of-lading/866887",
     "queue_status": "New",
@@ -1628,11 +1656,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "fe50e1f3-7a9c-400f-b398-eef987fd9912",
+    "id": "6c3bbbaf-7927-48d8-abb8-9abf94392a8f",
     "bol": "861132",
     "href": "/bills-of-lading/861132",
     "queue_status": "New",
@@ -1643,11 +1671,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c7214564-0738-4f7b-8168-975e042b19f6",
+    "id": "acdfc5df-0d11-4edd-813e-385c8141820c",
     "bol": "856724",
     "href": "/bills-of-lading/856724",
     "queue_status": "New",
@@ -1658,11 +1686,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "3a05ae5e-0feb-4c70-8ccd-67c5a0db97c7",
+    "id": "c117edf1-6ca2-487b-802a-f63219744698",
     "bol": "856723",
     "href": "/bills-of-lading/856723",
     "queue_status": "New",
@@ -1673,11 +1701,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "c82c0979-f1db-4667-a210-b43bc7df69ac",
+    "id": "d4bc5161-3c75-4b2c-b3dc-1ec341202f69",
     "bol": "849312",
     "href": "/bills-of-lading/849312",
     "queue_status": "New",
@@ -1688,11 +1716,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "58750c8c-2459-4b70-b4e5-b4ecf9c339af",
+    "id": "be798015-69fb-44be-9b40-7c1c0305e740",
     "bol": "832134",
     "href": "/bills-of-lading/832134",
     "queue_status": "New",
@@ -1703,11 +1731,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "02610497-3cab-446b-bab4-c1e80a88258b",
+    "id": "19ade399-fe3d-4169-b41b-a19ebd12a62a",
     "bol": "827259",
     "href": "/bills-of-lading/827259",
     "queue_status": "New",
@@ -1718,11 +1746,11 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "fb912a80-e533-4f86-8ee1-b7708cd6b37d",
+    "id": "6b62e841-b38c-41ca-a263-5ad60ce6e240",
     "bol": "811306",
     "href": "/bills-of-lading/811306",
     "queue_status": "New",
@@ -1733,37 +1761,59 @@
     "hub": "",
     "expected_racks": "",
     "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25"
   },
   {
-    "id": "115ec39a-c4dc-4fd2-aa54-c63bbc4a4194",
+    "id": "4d92b3cb-da59-48fb-8b15-28437ccea147",
     "bol": "793239",
     "href": "/bills-of-lading/793239",
-    "queue_status": "New",
-    "store_name": "",
-    "origin": "",
-    "city": "",
-    "state": "",
-    "hub": "",
-    "expected_racks": "",
-    "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "queue_status": "Imported",
+    "store_name": "Willow Creek Gardens",
+    "origin": "WILABTX1",
+    "city": "Abilene",
+    "state": "TX",
+    "hub": "Manual Review",
+    "expected_racks": 55.0,
+    "weight": 5946.0,
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
+    "address": "1820 South Treadaway Boulevard",
+    "contact": "Adam Andrews",
+    "origin_name": "Willow Creek Gardens",
+    "origin_address": "1820 South Treadaway Boulevard",
+    "origin_contact": "Adam Andrews",
+    "due_date": "",
+    "assigned_date": "",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_793239_WILABTX1_WillowCreekGardens_Abilene_TX.html",
+    "geocode_status": "City fallback: No Google API key or address",
+    "full_address": "1820 South Treadaway Boulevard, Abilene, TX, 79602",
+    "imported_at": "2026-06-20T01:05:00"
   },
   {
-    "id": "0124497d-5242-46b7-b6a8-e29ad37ea8c2",
+    "id": "62767e28-126c-4d90-b1ce-314ed63847ad",
     "bol": "793237",
     "href": "/bills-of-lading/793237",
-    "queue_status": "New",
-    "store_name": "",
-    "origin": "",
-    "city": "",
-    "state": "",
-    "hub": "",
-    "expected_racks": "",
-    "weight": "",
-    "last_seen": "2026-06-20T00:29:10",
-    "created_at": "2026-06-20T00:29:10"
+    "queue_status": "Imported",
+    "store_name": "Garden World",
+    "origin": "GARABTX1",
+    "city": "Abilene",
+    "state": "TX",
+    "hub": "Manual Review",
+    "expected_racks": 51.0,
+    "weight": 5514.0,
+    "last_seen": "2026-06-20T01:03:25",
+    "created_at": "2026-06-20T01:03:25",
+    "address": "2850 South Clack Street",
+    "contact": "Todd Hooper",
+    "origin_name": "Garden World",
+    "origin_address": "2850 South Clack Street",
+    "origin_contact": "Todd Hooper",
+    "due_date": "",
+    "assigned_date": "",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_793237_GARABTX1_GardenWorld_Abilene_TX.html",
+    "geocode_status": "City fallback: No Google API key or address",
+    "full_address": "2850 South Clack Street, Abilene, TX, 79606",
+    "imported_at": "2026-06-20T01:05:02"
   }
 ]

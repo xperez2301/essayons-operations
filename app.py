@@ -3,6 +3,7 @@ import json
 import math
 import re
 import shutil
+import requests
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -60,7 +61,7 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, [])
     ]:
@@ -189,6 +190,44 @@ def coords_for(city, state):
     city = clean(city)
     return CITY_COORDS.get(city, (30.2672, -97.7431))
 
+
+def full_address_for_item(address, city, state, zip_code):
+    parts = [clean(address), clean(city), clean(state), clean(zip_code)]
+    return ", ".join([p for p in parts if p])
+
+def geocode_address_google(address):
+    settings_data = read_json(SETTINGS_FILE)
+    api_key = clean(settings_data.get("google_maps_api_key"))
+    address = clean(address)
+
+    if not api_key or not address:
+        return None, None, "No Google API key or address"
+
+    try:
+        response = requests.get(
+            "https://maps.googleapis.com/maps/api/geocode/json",
+            params={"address": address, "key": api_key},
+            timeout=12
+        )
+        data = response.json()
+        if data.get("status") == "OK" and data.get("results"):
+            loc = data["results"][0]["geometry"]["location"]
+            return loc["lat"], loc["lng"], data["results"][0].get("formatted_address", address)
+        return None, None, f"Geocode failed: {data.get('status')}"
+    except Exception as e:
+        return None, None, f"Geocode error: {str(e)[:120]}"
+
+def resolve_store_coordinates(address, city, state, zip_code):
+    full_address = full_address_for_item(address, city, state, zip_code)
+    lat, lng, note = geocode_address_google(full_address)
+
+    if lat and lng:
+        return lat, lng, f"Google geocoded: {note}", full_address
+
+    # Fallback only when geocoding is unavailable.
+    lat, lng = coords_for(city, state)
+    return lat, lng, f"City fallback: {note}", full_address
+
 def assign_hub(lat, lng, dispatch_group=""):
     group = clean(dispatch_group).lower()
     if "houston" in group: return "Houston", "Dispatch Group"
@@ -246,12 +285,12 @@ def parse_rms_pdf(path):
     drb40 = num(find_match(r'40"\s*DRB\s+R-DRB40\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     drb48 = num(find_match(r'48"\s*DRB\s+R-DRB48\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     wood_shelf = num(find_match(r'Wood Shelf\s+R-W4048\s+\d+\s+[\d,]+\s+([\d,]+)', text))
-    assigned_date = ""
-    due_date = ""
+    assigned_date = find_match(r"Assigned Date\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    due_date = find_match(r"Due Date(?: \(PDT\))?\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     bol_weight = num(find_match(r"Bill of Lading Total Weight:\s*([\d,]+)", text) or find_match(r"Order Total Weight:\s*([\d,]+)", text))
 
     expected_racks = round(corner_posts / 4, 2) if corner_posts else 0
-    lat, lng = coords_for(city, state)
+    lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
     hub, hub_reason = assign_hub(lat, lng, destination)
 
     review_reasons = []
@@ -269,6 +308,8 @@ def parse_rms_pdf(path):
         "origin": origin,
         "store_name": store_name,
         "address": address,
+        "full_address": full_address,
+        "geocode_status": geocode_status,
         "city": city,
         "state": state,
         "zip": zip_code,
@@ -302,9 +343,10 @@ def normalize_row(row):
     dispatch_group = clean(row.get("Dispatch Group") or row.get("Route"))
     racks = num(row.get("Est Racks") or row.get("Expected Racks") or row.get("Racks"))
 
-    lat, lng = coords_for(city, state)
+    zip_code = clean(row.get("Zip") or row.get("ZIP") or row.get("Origin Zip"))
+    lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
     hub, hub_reason = assign_hub(lat, lng, dispatch_group)
-    return {"id": str(uuid4()), "bol": bol, "origin": origin, "store_name": store_name, "address": address, "city": city, "state": state, "lat": lat, "lng": lng, "hub": hub, "hub_reason": hub_reason, "dispatch_group": dispatch_group, "expected_racks": racks, "weight": round(racks * DEFAULT_RACK_WEIGHT, 2), "status": "Unassigned", "assigned_driver": "", "pdf_path": "", "created_at": datetime.now().isoformat(timespec="seconds")}
+    return {"id": str(uuid4()), "bol": bol, "origin": origin, "store_name": store_name, "address": address, "full_address": full_address, "geocode_status": geocode_status, "city": city, "state": state, "zip": zip_code, "lat": lat, "lng": lng, "hub": hub, "hub_reason": hub_reason, "dispatch_group": dispatch_group, "expected_racks": racks, "weight": round(racks * DEFAULT_RACK_WEIGHT, 2), "status": "Unassigned", "assigned_driver": "", "pdf_path": "", "created_at": datetime.now().isoformat(timespec="seconds")}
 
 def parse_xlsx(path):
     wb = load_workbook(path, read_only=True, data_only=True)
@@ -354,11 +396,48 @@ def api_dispatch_map_debug():
                 "lng": s.get("lng"),
                 "city": s.get("city"),
                 "store_name": s.get("store_name"),
-                "racks": s.get("expected_racks")
+                "racks": s.get("expected_racks"),
+                "address": s.get("address"),
+                "full_address": s.get("full_address"),
+                "geocode_status": s.get("geocode_status")
             }
             for s in stores if s.get("status") == "Unassigned"
         ]
     })
+
+
+@app.route("/api/geocode-stores", methods=["POST"])
+def api_geocode_stores():
+    stores = read_json(STORES_FILE)
+    updated = 0
+    failed = 0
+
+    for store in stores:
+        address = store.get("address") or store.get("origin_address") or ""
+        city = store.get("city") or store.get("origin_city") or ""
+        state = store.get("state") or store.get("origin_state") or "TX"
+        zip_code = store.get("zip") or store.get("origin_zip") or ""
+
+        if not address or not city:
+            failed += 1
+            store["geocode_status"] = "Missing address or city"
+            continue
+
+        lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
+        store["lat"] = lat
+        store["lng"] = lng
+        store["full_address"] = full_address
+        store["geocode_status"] = geocode_status
+
+        if "Google geocoded" in geocode_status:
+            updated += 1
+        else:
+            failed += 1
+
+    write_json(STORES_FILE, stores)
+    audit("Geocode Stores", {"updated": updated, "failed": failed})
+
+    return jsonify({"ok": True, "updated": updated, "failed": failed})
 
 @app.route("/dispatch-map")
 def dispatch_map():
@@ -627,7 +706,7 @@ def extract_printable_bol_from_text(text, source_url=""):
     )
 
     expected_racks = round(corner_posts / 4, 2) if corner_posts else 0
-    lat, lng = coords_for(city, state)
+    lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
     hub, hub_reason = assign_hub(lat, lng, destination)
 
     review_reasons = []
@@ -645,6 +724,8 @@ def extract_printable_bol_from_text(text, source_url=""):
         "origin": origin,
         "store_name": store_name,
         "address": address,
+        "full_address": full_address,
+        "geocode_status": geocode_status,
         "city": city,
         "state": state,
         "zip": zip_code,
@@ -929,6 +1010,47 @@ def scan_rms_queue_with_playwright(headless=False):
                 "existing": 0
             }
 
+
+def upsert_store_by_bol(item):
+    stores = read_json(STORES_FILE)
+    replaced = False
+    for idx, existing in enumerate(stores):
+        if clean(existing.get("bol")) == clean(item.get("bol")):
+            item["id"] = existing.get("id", item.get("id"))
+            stores[idx] = item
+            replaced = True
+            break
+    if not replaced:
+        stores.append(item)
+    write_json(STORES_FILE, stores)
+    return item
+
+def update_queue_from_item(item):
+    queue = read_json(RMS_QUEUE_FILE)
+    for q in queue:
+        if clean(q.get("bol")) == clean(item.get("bol")):
+            q["queue_status"] = "Imported" if item.get("status") == "Unassigned" else "Need Review"
+            q["store_name"] = item.get("store_name", "")
+            q["origin"] = item.get("origin", "")
+            q["city"] = item.get("city", "")
+            q["state"] = item.get("state", "")
+            q["address"] = item.get("address", "")
+            q["contact"] = item.get("contact", "")
+            q["origin_name"] = item.get("origin_name", "")
+            q["origin_address"] = item.get("origin_address", "")
+            q["origin_contact"] = item.get("origin_contact", "")
+            q["hub"] = item.get("hub", "")
+            q["expected_racks"] = item.get("expected_racks", "")
+            q["weight"] = item.get("weight", "")
+            q["due_date"] = item.get("due_date", "")
+            q["assigned_date"] = item.get("assigned_date", "")
+            q["pdf_path"] = item.get("pdf_path", "")
+            q["geocode_status"] = item.get("geocode_status", "")
+            q["full_address"] = item.get("full_address", "")
+            q["imported_at"] = datetime.now().isoformat(timespec="seconds")
+            break
+    write_json(RMS_QUEUE_FILE, queue)
+
 def import_selected_queue_bols(bol_numbers, headless=False):
     settings_data = read_json(SETTINGS_FILE)
 
@@ -947,10 +1069,7 @@ def import_selected_queue_bols(bol_numbers, headless=False):
             "errors": []
         }
 
-    queue = read_json(RMS_QUEUE_FILE)
-    stores = read_json(STORES_FILE)
     imported = 0
-    skipped = 0
     need_review = 0
     errors = []
 
@@ -976,62 +1095,46 @@ def import_selected_queue_bols(bol_numbers, headless=False):
 
                     body_text = page.locator("body").inner_text(timeout=60000)
                     html = page.content()
+
                     item = extract_printable_bol_from_text(body_text, page.url)
 
                     if not item.get("bol"):
                         item["bol"] = bol
-                    if item.get("bol") != bol:
+                    if clean(item.get("bol")) != bol:
                         item["bol"] = bol
 
                     item["pdf_path"] = save_printable_snapshot(item, html)
 
-                    # Replace any existing store record for this BOL so bad Need Review imports get fixed.
-                    replaced = False
-                    for idx, existing_store in enumerate(stores):
-                        if clean(existing_store.get("bol")) == bol:
-                            item["id"] = existing_store.get("id", item["id"])
-                            stores[idx] = item
-                            replaced = True
-                            break
-                    if not replaced:
-                        stores.append(item)
+                    # Force automatic geocoding during every Import/Re-import.
+                    # This replaces city-center fallback coordinates when a Google Maps API key is saved.
+                    lat, lng, geocode_status, full_address = resolve_store_coordinates(
+                        item.get("address") or item.get("origin_address") or "",
+                        item.get("city") or item.get("origin_city") or "",
+                        item.get("state") or item.get("origin_state") or "TX",
+                        item.get("zip") or item.get("origin_zip") or ""
+                    )
+                    item["lat"] = lat
+                    item["lng"] = lng
+                    item["full_address"] = full_address
+                    item["geocode_status"] = geocode_status
 
-                    # Update RMS Queue display fields from the parsed item.
-                    for q in queue:
-                        if clean(q.get("bol")) == bol:
-                            q["queue_status"] = "Imported" if item.get("status") == "Unassigned" else "Need Review"
-                            q["store_name"] = item.get("store_name", "")
-                            q["origin"] = item.get("origin", "")
-                            q["city"] = item.get("city", "")
-                            q["state"] = item.get("state", "")
-                            q["address"] = item.get("address", "")
-                            q["contact"] = item.get("contact", "")
-                            q["origin_name"] = item.get("origin_name", "")
-                            q["origin_address"] = item.get("origin_address", "")
-                            q["origin_contact"] = item.get("origin_contact", "")
-                            q["hub"] = item.get("hub", "")
-                            q["expected_racks"] = item.get("expected_racks", "")
-                            q["weight"] = item.get("weight", "")
-                            q["due_date"] = item.get("due_date", "")
-                            q["assigned_date"] = item.get("assigned_date", "")
-                            q["pdf_path"] = item.get("pdf_path", "")
-                            q["imported_at"] = datetime.now().isoformat(timespec="seconds")
-                            break
+                    upsert_store_by_bol(item)
+                    update_queue_from_item(item)
 
                     imported += 1
                     if item.get("status") == "Need Review":
                         need_review += 1
 
                 except Exception as e:
-                    errors.append(f"BOL {bol}: {str(e)[:160]}")
+                    errors.append(f"BOL {bol}: {str(e)[:180]}")
+                    queue = read_json(RMS_QUEUE_FILE)
                     for q in queue:
                         if clean(q.get("bol")) == bol:
                             q["queue_status"] = "Need Review"
                             q["updated_at"] = datetime.now().isoformat(timespec="seconds")
                             break
+                    write_json(RMS_QUEUE_FILE, queue)
 
-            write_json(STORES_FILE, stores)
-            write_json(RMS_QUEUE_FILE, queue)
             browser.close()
 
             return {
@@ -1039,7 +1142,7 @@ def import_selected_queue_bols(bol_numbers, headless=False):
                 "status": "IMPORT SELECTED COMPLETE",
                 "message": f"Import/Re-import complete. Processed {imported}. Need Review {need_review}.",
                 "imported": imported,
-                "skipped": skipped,
+                "skipped": 0,
                 "need_review": need_review,
                 "errors": errors[:10]
             }
@@ -1049,12 +1152,13 @@ def import_selected_queue_bols(bol_numbers, headless=False):
                 browser.close()
             except Exception:
                 pass
+
             return {
                 "ok": False,
                 "status": "ERROR",
                 "message": f"Import/Re-import selected error: {str(e)[:300]}",
                 "imported": imported,
-                "skipped": skipped,
+                "skipped": 0,
                 "need_review": need_review,
                 "errors": errors[:10]
             }
@@ -1322,29 +1426,10 @@ def api_rms_repair_bol(bol_number):
                     break
             if not replaced:
                 stores.append(item)
+
             write_json(STORES_FILE, stores)
 
-            queue = read_json(RMS_QUEUE_FILE)
-            for q in queue:
-                if clean(q.get("bol")) == clean(bol_number):
-                    q["queue_status"] = "Imported" if item.get("status") == "Unassigned" else "Need Review"
-                    q["store_name"] = item.get("store_name", "")
-                    q["origin"] = item.get("origin", "")
-                    q["city"] = item.get("city", "")
-                    q["state"] = item.get("state", "")
-                    q["address"] = item.get("address", "")
-                    q["contact"] = item.get("contact", "")
-                    q["origin_name"] = item.get("origin_name", "")
-                    q["origin_address"] = item.get("origin_address", "")
-                    q["origin_contact"] = item.get("origin_contact", "")
-                    q["hub"] = item.get("hub", "")
-                    q["expected_racks"] = item.get("expected_racks", "")
-                    q["weight"] = item.get("weight", "")
-                    q["due_date"] = item.get("due_date", "")
-                    q["assigned_date"] = item.get("assigned_date", "")
-                    q["pdf_path"] = item.get("pdf_path", "")
-                    break
-            write_json(RMS_QUEUE_FILE, queue)
+            update_queue_from_item(item)
 
             browser.close()
             return jsonify({"ok": True, "item": item, "message": f"BOL {bol_number} repaired. Status: {item.get('status')}. Racks: {item.get('expected_racks')}"})
@@ -1483,6 +1568,7 @@ def settings():
         settings_data["rms_username"] = clean(request.form.get("rms_username"))
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
+        settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
         settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
 
         rms_password = clean(request.form.get("rms_password"))

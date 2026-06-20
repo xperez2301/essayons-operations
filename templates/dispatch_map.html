@@ -58,7 +58,31 @@
 window.EOMS_STORES = {{ stores | tojson }};
 window.EOMS_HUBS = {{ hubs | tojson }};
 window.MAX_PAYLOAD = {{ max_payload }};
+
+async function geocodeStores(){
+    alert("Fixing existing store pin locations. This may take a minute.");
+    const response = await fetch("/api/geocode-stores", {method:"POST"});
+    const data = await response.json();
+    alert("Geocode complete. Updated: " + data.updated + " Failed/Fallback: " + data.failed);
+    location.reload();
+}
 </script>
-<script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap"></script>
+<script src="{{ url_for('static', filename='js/dispatch_map.js') }}">
+async function geocodeStores(){
+    alert("Fixing existing store pin locations. This may take a minute.");
+    const response = await fetch("/api/geocode-stores", {method:"POST"});
+    const data = await response.json();
+    alert("Geocode complete. Updated: " + data.updated + " Failed/Fallback: " + data.failed);
+    location.reload();
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk&callback=initMap">
+async function geocodeStores(){
+    alert("Fixing existing store pin locations. This may take a minute.");
+    const response = await fetch("/api/geocode-stores", {method:"POST"});
+    const data = await response.json();
+    alert("Geocode complete. Updated: " + data.updated + " Failed/Fallback: " + data.failed);
+    location.reload();
+}
+</script>
 {% endblock %}

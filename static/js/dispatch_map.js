@@ -28,16 +28,11 @@ function dueStatus(store){
 }
 
 function pinIcon(number, color){
-    const colors = {
-        green: "#22c55e",
-        amber: "#f59e0b",
-        red: "#ef4444"
-    };
+    const colors = {green:"#22c55e", amber:"#f59e0b", red:"#ef4444"};
     const fill = colors[color] || colors.green;
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46">
       <path d="M19 45C19 45 36 27 36 17C36 7.6 28.4 0 19 0C9.6 0 2 7.6 2 17C2 27 19 45 19 45Z" fill="${fill}" stroke="white" stroke-width="3"/>
-      <circle cx="19" cy="17" r="11" fill="rgba(0,0,0,.22)"/>
+      <circle cx="19" cy="17" r="11" fill="rgba(0,0,0,.25)"/>
       <text x="19" y="22" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="white">${number}</text>
     </svg>`;
     return {
@@ -52,6 +47,9 @@ function focusStoreCard(storeId){
     const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
     if(box){
         box.checked = true;
+        if(!selectedOrder.includes(storeId)){
+            selectedOrder.push(storeId);
+        }
         updateTotals();
         const card = box.closest(".store-card");
         if(card){
@@ -268,7 +266,8 @@ function initMap(){
         zoom: 6,
         center: {lat: 30.2672, lng: -97.7431},
         mapTypeControl: false,
-        streetViewControl: false
+        streetViewControl: false,
+        gestureHandling: "greedy"
     });
 
     const bounds = new google.maps.LatLngBounds();
@@ -293,20 +292,13 @@ function initMap(){
 
         let lat = Number(store.lat);
         let lng = Number(store.lng);
-
         if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
         const key = lat.toFixed(4) + "," + lng.toFixed(4);
         coordCount[key] = (coordCount[key] || 0) + 1;
 
-        const offsetIndex = coordCount[key] - 1;
-        const offset = offsetIndex * 0.018;
-
-        const pos = {
-            lat: lat + offset,
-            lng: lng + offset
-        };
-
+        // Use the true stored location. Do not offset pins.
+        const pos = {lat: lat, lng: lng};
         const thisPinNumber = pinNumber++;
         const color = dueStatus(store);
 
@@ -318,10 +310,7 @@ function initMap(){
         });
 
         bounds.extend(pos);
-
-        markers[store.id].addListener("click", () => {
-            focusStoreCard(store.id);
-        });
+        markers[store.id].addListener("click", () => focusStoreCard(store.id));
     });
 
     renderStores();
@@ -329,8 +318,6 @@ function initMap(){
     const visibleMarkers = Object.keys(markers).length;
     if(visibleMarkers > 0){
         map.fitBounds(bounds);
-        if(visibleMarkers === 1){
-            map.setZoom(8);
-        }
+        if(visibleMarkers === 1){ map.setZoom(8); }
     }
 }
