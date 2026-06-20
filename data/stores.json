@@ -339,11 +339,16 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945487_HD8437_HomeDepot_Seguin_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945487_HD8437_HomeDepot_Seguin_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945487/print",
     "created_at": "2026-06-20T11:16:31",
     "collected_racks": 0.0,
-    "variance": -5.0
+    "variance": -5.0,
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "c41b7355-972a-4794-b01b-f7159ed2a9f1",
@@ -384,9 +389,14 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945486_HD6892_HomeDepot_Austin_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945486_HD6892_HomeDepot_Austin_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945486/print",
-    "created_at": "2026-06-20T11:16:33"
+    "created_at": "2026-06-20T11:16:33",
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "a0a82b87-b768-444c-8e71-baf0180edcaf",
@@ -470,11 +480,16 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945475_HD6575_HomeDepot_Bastrop_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945475_HD6575_HomeDepot_Bastrop_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945475/print",
     "created_at": "2026-06-20T11:16:37",
     "collected_racks": 0,
-    "variance": -5.0
+    "variance": -5.0,
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "333a2103-36d1-4c75-a53c-b3a01ed4c674",
@@ -601,11 +616,16 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945470_COPAUTX1_CopperRockNursery_Austin_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945470_COPAUTX1_CopperRockNursery_Austin_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945470/print",
     "created_at": "2026-06-20T11:16:42",
     "collected_racks": 0,
-    "variance": -8.0
+    "variance": -8.0,
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "1ff2c1a7-0ee1-41c0-bbfb-d87def49792a",
@@ -822,9 +842,14 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945026_LO90_Lowes_SanAngelo_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945026_LO90_Lowes_SanAngelo_TX_131112_131122.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945026/print",
-    "created_at": "2026-06-20T11:16:52"
+    "created_at": "2026-06-20T11:16:52",
+    "driver_phone": "7194325860",
+    "truck": "11",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:11:22",
+    "completed_at": "2026-06-20T13:11:28"
   },
   {
     "id": "74514e29-b5ac-4c1c-b3f7-d47ca1944eea",
@@ -865,9 +890,14 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945025_OLISATX1_OliveNurseryInc_SanAngelo_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_945025_OLISATX1_OliveNurseryInc_SanAngelo_TX_131112_131122.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/945025/print",
-    "created_at": "2026-06-20T11:16:54"
+    "created_at": "2026-06-20T11:16:54",
+    "driver_phone": "7194325860",
+    "truck": "11",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:11:22",
+    "completed_at": "2026-06-20T13:11:28"
   },
   {
     "id": "9090a48c-d6a6-4723-842f-566ffa7aa8c3",
@@ -1066,7 +1096,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.5439038,
     "lng": -94.73227999999999,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (130.3 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -1077,10 +1107,8 @@
     "drb48": 84.0,
     "wood_shelf": 42.0,
     "weight": 1514.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_944680_LO519_Lowes_Longview_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/944680/print",
@@ -1326,7 +1354,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.4529888,
     "lng": -93.7084502,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (190.2 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -1337,10 +1365,8 @@
     "drb48": 60.0,
     "wood_shelf": 30.0,
     "weight": 1081.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_944674_AKISHLA1_AkinsNursery_Shreveport_Louisiana.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/944674/print",
@@ -1543,7 +1569,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 31.6535012,
     "lng": -94.65962689999999,
-    "hub": "Manual Review",
+    "hub": "Houston",
     "hub_reason": "Outside 100 mi (137.4 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -1554,10 +1580,8 @@
     "drb48": 90.0,
     "wood_shelf": 45.0,
     "weight": 1622.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_942862_LO1772_Lowes_Nacogdoches_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/942862/print",
@@ -1631,7 +1655,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 30.9061286,
     "lng": -94.0189168,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (112.9 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -1642,10 +1666,8 @@
     "drb48": 30.0,
     "wood_shelf": 15.0,
     "weight": 541.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_942858_LO1769_Lowes_Jasper_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/942858/print",
@@ -2106,7 +2128,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 33.1732918,
     "lng": -94.9993313,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (115.7 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -2117,10 +2139,8 @@
     "drb48": 42.0,
     "wood_shelf": 21.0,
     "weight": 757.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_939770_LO1802_Lowes_MountPleasant_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/939770/print",
@@ -2538,7 +2558,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.4402811,
     "lng": -93.7830681,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (186.0 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -2549,10 +2569,8 @@
     "drb48": 60.0,
     "wood_shelf": 30.0,
     "weight": 1081.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_938928_SU3218_Sutherlands_Shreveport_Louisiana.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/938928/print",
@@ -3142,7 +3160,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.5535036,
     "lng": -94.3481638,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (152.3 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -3153,10 +3171,8 @@
     "drb48": 90.0,
     "wood_shelf": 45.0,
     "weight": 1622.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_928210_LO1762_Lowes_Marshall_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/928210/print",
@@ -3402,7 +3418,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.2858051,
     "lng": -95.3014293,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (102.7 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -3413,10 +3429,8 @@
     "drb48": 120.0,
     "wood_shelf": 60.0,
     "weight": 2162.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_907156_LO463_Lowes_Tyler_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/907156/print",
@@ -3447,7 +3461,7 @@
     "destination_contact": "Jessica Perez; Juan Gonzalez",
     "lat": 32.05452620000001,
     "lng": -94.6645892,
-    "hub": "Manual Review",
+    "hub": "Dallas",
     "hub_reason": "Outside 100 mi (143.2 mi)",
     "dispatch_group": "SUHOTXUS",
     "assigned_date": "",
@@ -3458,10 +3472,8 @@
     "drb48": 60.0,
     "wood_shelf": 30.0,
     "weight": 1081.0,
-    "status": "Need Review",
-    "review_reasons": [
-      "Hub outside 100 miles"
-    ],
+    "status": "Unassigned",
+    "review_reasons": [],
     "assigned_driver": "",
     "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_907155_LO2559_Lowes_Henderson_TX.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/907155/print",
@@ -3936,9 +3948,14 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Need_Review\\2026\\06_June\\BOL_896322_SU3217_Sutherlands_WichitaFalls_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_896322_SU3217_Sutherlands_WichitaFalls_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/896322/print",
-    "created_at": "2026-06-20T11:19:14"
+    "created_at": "2026-06-20T11:19:14",
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "baf8c784-6ed4-4459-8834-46709b641d1c",
@@ -4151,9 +4168,14 @@
     "status": "Unassigned",
     "review_reasons": [],
     "assigned_driver": "",
-    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_827259_BARHETX1_BarerrasNursery_Hewitt_TX.html",
+    "pdf_path": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\bol_files\\Imported\\2026\\06_June\\BOL_827259_BARHETX1_BarerrasNursery_Hewitt_TX_130206_130309.html",
     "rms_url": "https://rms.reusability.com/bills-of-lading/827259/print",
-    "created_at": "2026-06-20T11:19:23"
+    "created_at": "2026-06-20T11:19:23",
+    "driver_phone": "7194325860",
+    "truck": "1021",
+    "helper": "me",
+    "dispatched_at": "2026-06-20T13:03:09",
+    "completed_at": "2026-06-20T13:03:28"
   },
   {
     "id": "e7b6044f-946c-41a5-b019-e56206e6cf53",

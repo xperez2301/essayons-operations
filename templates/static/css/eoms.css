@@ -282,89 +282,188 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
 }
 
-/* EOMS v1.6 Dispatch Board */
-.topbar-actions{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-}
-.board-metrics{
-    display:grid;
-    grid-template-columns:repeat(9,minmax(110px,1fr));
-    gap:10px;
-    margin-bottom:14px;
-}
-.dispatch-board-grid{
-    display:grid;
-    grid-template-columns:repeat(5,minmax(220px,1fr));
-    gap:12px;
-    align-items:start;
-}
-.board-column{
-    background:rgba(15,23,42,.78);
+/* EOMS v1.6.1 Dispatch Board Inside Dispatch Map */
+.map-board-panel{
+    background:rgba(15,23,42,.86);
     border:1px solid rgba(148,163,184,.22);
     border-radius:16px;
-    padding:10px;
-    min-height:500px;
+    padding:12px;
+    margin-bottom:14px;
 }
-.board-column h3{
+.map-board-header{
     display:flex;
     justify-content:space-between;
-    align-items:center;
-    margin:0 0 10px;
-    font-size:15px;
+    gap:12px;
+    align-items:flex-start;
 }
-.board-column h3 span{
-    background:rgba(96,165,250,.18);
-    border:1px solid rgba(96,165,250,.35);
-    border-radius:999px;
-    padding:3px 8px;
+.map-board-header h3{
+    margin:0;
 }
-.board-card{
-    background:rgba(30,41,59,.8);
-    border:1px solid rgba(148,163,184,.20);
+.map-board-metrics{
+    display:grid;
+    grid-template-columns:repeat(9,minmax(90px,1fr));
+    gap:8px;
+    margin:10px 0;
+}
+.map-board-metrics div{
+    background:rgba(30,41,59,.85);
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:12px;
+    padding:8px;
+}
+.map-board-metrics span{
+    display:block;
+    font-size:10px;
+    color:#94a3b8;
+    text-transform:uppercase;
+}
+.map-board-metrics strong{
+    font-size:16px;
+    color:white;
+}
+.map-board-grid{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(180px,1fr));
+    gap:10px;
+}
+.map-board-column{
+    background:rgba(2,6,23,.35);
+    border:1px solid rgba(148,163,184,.16);
     border-radius:14px;
-    padding:9px;
-    margin-bottom:9px;
+    padding:8px;
+    max-height:360px;
+    overflow-y:auto;
 }
-.card-head{
+.map-board-column h4{
     display:flex;
     justify-content:space-between;
+    margin:0 0 8px;
+    font-size:13px;
+}
+.map-board-card{
+    background:rgba(30,41,59,.86);
+    border:1px solid rgba(148,163,184,.16);
+    border-radius:12px;
+    padding:7px;
+    margin-bottom:7px;
+}
+.map-board-card-head{
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+    align-items:center;
+}
+.map-board-store{
+    font-size:11px;
+    font-weight:800;
+    margin-top:4px;
+}
+.map-board-sub,.map-board-driver{
+    font-size:10px;
+    color:#cbd5e1;
+    margin-top:3px;
+}
+.map-board-actions{
+    display:flex;
+    gap:4px;
+    flex-wrap:wrap;
+    margin-top:6px;
+}
+.hidden{
+    display:none!important;
+}
+@media(max-width:1400px){
+    .map-board-grid{grid-template-columns:repeat(2,1fr)}
+    .map-board-metrics{grid-template-columns:repeat(3,1fr)}
+}
+
+/* EOMS v1.7 Driver Dispatch Workflow */
+.driver-box{
+    margin:12px 0;
+    padding:12px;
+    border:1px solid rgba(96,165,250,.25);
+    border-radius:14px;
+    background:rgba(37,99,235,.10);
+}
+.driver-box h4{margin:0 0 8px}
+.driver-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr 1fr auto auto auto auto;
     gap:8px;
     align-items:center;
 }
-.store-line{
-    font-weight:800;
-    margin:6px 0 3px;
+.driver-grid input{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid rgba(148,163,184,.35);
+    background:#0f172a;
+    color:white;
 }
-.driver-line{
-    margin:5px 0;
-    color:#93c5fd;
-}
-.review-line{
-    color:#f59e0b;
-    font-size:11px;
-    margin:5px 0;
-}
-.board-actions{
+.action-cell{
     display:flex;
     flex-wrap:wrap;
     gap:5px;
-    margin-top:8px;
 }
-.small-muted{
-    font-size:12px;
+.route-actions-inline{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
 }
-.board-need_review{border-top:4px solid #f59e0b}
-.board-unassigned{border-top:4px solid #60a5fa}
-.board-assigned{border-top:4px solid #8b5cf6}
-.board-dispatched{border-top:4px solid #22c55e}
-.board-completed{border-top:4px solid #64748b}
-@media(max-width:1400px){
-    .dispatch-board-grid{grid-template-columns:repeat(2,minmax(260px,1fr))}
-    .board-metrics{grid-template-columns:repeat(3,1fr)}
+.danger-btn{
+    background:linear-gradient(135deg,#7f1d1d,#dc2626)!important;
+    color:white!important;
+    border:none!important;
+    border-radius:10px;
+    padding:8px 10px;
+    font-weight:900;
+    cursor:pointer;
+}
+.small-btn{width:auto!important}
+@media(max-width:1300px){
+    .driver-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:800px){
-    .dispatch-board-grid{grid-template-columns:1fr}
-    .board-metrics{grid-template-columns:repeat(2,1fr)}
+    .driver-grid{grid-template-columns:1fr}
+}
+
+/* EOMS v1.7.1 Route Send Fallback */
+.route-send-box{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(2,6,23,.75);
+    z-index:99999;
+    padding:20px;
+}
+.route-send-modal{
+    width:min(680px,95vw);
+    background:#0f172a;
+    border:1px solid rgba(96,165,250,.35);
+    border-radius:18px;
+    padding:16px;
+    box-shadow:0 20px 80px rgba(0,0,0,.55);
+}
+.route-send-modal h3{
+    margin:0 0 8px;
+}
+.route-send-modal textarea{
+    width:100%;
+    min-height:150px;
+    background:#020617;
+    color:#e5e7eb;
+    border:1px solid rgba(148,163,184,.35);
+    border-radius:12px;
+    padding:10px;
+    resize:vertical;
+    box-sizing:border-box;
+}
+.route-send-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
 }

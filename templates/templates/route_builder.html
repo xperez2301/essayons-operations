@@ -3,7 +3,7 @@
 <header class="topbar">
     <div>
         <h2>Route Builder</h2>
-        <p>Assign drivers, send routes, print BOLs, and unassign stops or full routes.</p>
+        <p>Assign drivers, send routes, dispatch, complete, print BOLs, and manage route status.</p>
     </div>
     <a class="link-btn" href="/dispatch-map">Back to Dispatch Map</a>
 </header>
@@ -20,7 +20,10 @@
     <div class="route-card-header">
         <div>
             <h3>{{ route.route_number }} — {{ route.driver or "No Driver Selected" }}</h3>
-            <p class="muted">{{ route.mode_label or route.mode }} • Hub: {{ route.hub }} • {{ route.created_at }}</p>
+            <p class="muted">
+                {{ route.mode_label or route.mode }} • Hub: {{ route.hub }} •
+                Route Status: {{ route.status or "Assigned" }} • {{ route.created_at }}
+            </p>
         </div>
         <div class="route-actions-inline">
             <span class="status-pill {{ route.metrics.status|lower|replace(' ', '-') }}">{{ route.metrics.status }}</span>
@@ -29,14 +32,18 @@
     </div>
 
     <div class="driver-box">
-        <h4>Driver Assignment</h4>
+        <h4>Driver Dispatch</h4>
         <div class="driver-grid">
             <input id="driver-name-{{ route.id }}" type="text" value="{{ route.driver or '' }}" placeholder="Driver Name">
             <input id="driver-phone-{{ route.id }}" type="text" value="{{ route.driver_phone or '' }}" placeholder="Driver Phone">
+            <input id="truck-{{ route.id }}" type="text" value="{{ route.truck or '' }}" placeholder="Truck # / M2">
+            <input id="helper-{{ route.id }}" type="text" value="{{ route.helper or '' }}" placeholder="Helper">
             <button type="button" class="primary-btn small-btn" onclick="saveDriver('{{ route.id }}')">Save Driver</button>
             <button type="button" class="secondary-btn small-btn" onclick="sendRoute('{{ route.id }}', '{{ route.route_number }}')">Send Route</button>
+            <button type="button" class="primary-btn small-btn" onclick="dispatchRoute('{{ route.id }}')">Mark Dispatched</button>
+            <button type="button" class="secondary-btn small-btn" onclick="completeRoute('{{ route.id }}')">Mark Completed</button>
         </div>
-        <p class="muted">Send Route opens an SMS message with the route link. Telnyx direct-send can be connected next.</p>
+        <p class="muted">Send Route opens an SMS draft with the mobile route link. Direct Telnyx sending can be wired next.</p>
     </div>
 
     <div class="metrics route-metrics">
@@ -75,7 +82,7 @@
                 <td>{{ stop.city }}, {{ stop.state }}</td>
                 <td>{{ stop.expected_racks }}</td>
                 <td>{{ stop.weight }} lbs</td>
-                <td><span class="due-chip" data-due="{{ stop.due_date or '' }}">{{ stop.due_date or 'Not captured' }}</span></td>
+                <td><span class="due-chip" data-due="{{ stop.due_date or '' }}">{{ stop.due_date or "No Due" }}</span></td>
                 <td class="action-cell">
                     <a class="mini-link" href="/bol-live/{{ stop.bol }}" target="_blank">Live</a>
                     <a class="mini-link" href="/bol-view/{{ stop.id }}" target="_blank">Saved</a>
@@ -90,78 +97,6 @@
 {% endfor %}
 
 <script>
-async function unassignStop(storeId){
-    if(!confirm("Unassign this stop and return it to Dispatch Map?")) return;
-
-    const response = await fetch("/api/unassign-store", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({store_id:storeId})
-    });
-
-    const data = await response.json();
-    if(!data.ok){
-        alert(data.message || "Unable to unassign stop.");
-        return;
-    }
-
-    alert("Stop returned to Dispatch Map.");
-    location.reload();
-}
-
-async function unassignRoute(routeId){
-    if(!confirm("Unassign the entire route and return all stops to Dispatch Map?")) return;
-
-    const response = await fetch("/api/unassign-route", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({route_id:routeId})
-    });
-
-    const data = await response.json();
-    if(!data.ok){
-        alert(data.message || "Unable to unassign route.");
-        return;
-    }
-
-    alert(data.message || "Route unassigned.");
-    location.reload();
-}
-
-async function saveDriver(routeId){
-    const driver = document.getElementById("driver-name-" + routeId).value;
-    const driverPhone = document.getElementById("driver-phone-" + routeId).value;
-
-    const response = await fetch("/api/update-route-driver", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({route_id:routeId, driver:driver, driver_phone:driverPhone})
-    });
-
-    const data = await response.json();
-    if(!data.ok){
-        alert(data.message || "Unable to save driver.");
-        return;
-    }
-
-    alert("Driver saved.");
-    location.reload();
-}
-
-function sendRoute(routeId, routeNumber){
-    const phone = document.getElementById("driver-phone-" + routeId).value.trim();
-    if(!phone){
-        alert("Add driver phone number first.");
-        return;
-    }
-
-    const routeLink = window.location.origin + "/route-view/" + routeId;
-    const msg = "Route " + routeNumber + " assigned. Open route: " + routeLink;
-    const smsUrl = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
-
-    window.location.href = smsUrl;
-}
-
 function dueColor(dueValue){
     if(!dueValue) return "green";
     const parts = dueValue.split("/");
@@ -180,13 +115,149 @@ function dueColor(dueValue){
     if(diff <= 4) return "amber";
     return "green";
 }
+document.querySelectorAll(".due-chip").forEach(chip => chip.classList.add("due-" + dueColor(chip.dataset.due || "")));
 
-function applyDueColors(){
-    document.querySelectorAll(".due-chip").forEach(chip => {
-        const color = dueColor(chip.dataset.due || "");
-        chip.classList.add("due-" + color);
+async function postJson(url, payload){
+    const response = await fetch(url, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
     });
+    return await response.json();
 }
-applyDueColors();
+
+async function unassignStop(storeId){
+    if(!confirm("Unassign this stop and return it to Dispatch Map?")) return;
+    const data = await postJson("/api/unassign-store", {store_id:storeId});
+    if(!data.ok){ alert(data.message || "Unable to unassign stop."); return; }
+    alert("Stop returned to Dispatch Map.");
+    location.reload();
+}
+
+async function unassignRoute(routeId){
+    if(!confirm("Unassign the entire route and return all stops to Dispatch Map?")) return;
+    const data = await postJson("/api/unassign-route", {route_id:routeId});
+    if(!data.ok){ alert(data.message || "Unable to unassign route."); return; }
+    alert(data.message || "Route unassigned.");
+    location.reload();
+}
+
+async function saveDriver(routeId){
+    const driver = document.getElementById("driver-name-" + routeId).value;
+    const driverPhone = document.getElementById("driver-phone-" + routeId).value;
+    const truck = document.getElementById("truck-" + routeId).value;
+    const helper = document.getElementById("helper-" + routeId).value;
+
+    const data = await postJson("/api/update-route-driver", {
+        route_id:routeId,
+        driver:driver,
+        driver_phone:driverPhone,
+        truck:truck,
+        helper:helper
+    });
+
+    if(!data.ok){ alert(data.message || "Unable to save driver."); return; }
+    alert("Driver assignment saved.");
+    location.reload();
+}
+
+function sendRoute(routeId, routeNumber){
+    const phone = document.getElementById("driver-phone-" + routeId).value.trim();
+    if(!phone){
+        alert("Add driver phone number first.");
+        return;
+    }
+
+    const routeLink = window.location.origin + "/route-view/" + routeId;
+    const driver = document.getElementById("driver-name-" + routeId).value.trim();
+    const truck = document.getElementById("truck-" + routeId).value.trim();
+    const helper = document.getElementById("helper-" + routeId).value.trim();
+
+    const msg =
+        "EOMS Route " + routeNumber + (driver ? " for " + driver : "") + "\\n" +
+        (truck ? "Truck: " + truck + "\\n" : "") +
+        (helper ? "Helper: " + helper + "\\n" : "") +
+        "Open route: " + routeLink;
+
+    showRouteSendBox(phone, msg);
+}
+
+function showRouteSendBox(phone, msg){
+    let box = document.getElementById("route-send-box");
+    if(!box){
+        box = document.createElement("div");
+        box.id = "route-send-box";
+        box.className = "route-send-box";
+        document.body.appendChild(box);
+    }
+
+    const smsUrl1 = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
+    const smsUrl2 = "sms:" + encodeURIComponent(phone) + "?body=" + encodeURIComponent(msg);
+
+    box.innerHTML = `
+        <div class="route-send-modal">
+            <h3>Send Route</h3>
+            <p><b>Driver Phone:</b> ${phone}</p>
+            <textarea id="route-send-message" readonly>${msg}</textarea>
+            <div class="route-send-actions">
+                <button type="button" class="primary-btn small-btn" onclick="copyRouteMessage()">Copy Message</button>
+                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl1}')">Open SMS App</button>
+                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl2}')">Try SMS Backup</button>
+                <button type="button" class="danger-btn small-btn" onclick="closeRouteSendBox()">Close</button>
+            </div>
+            <p class="muted">If Windows does not open SMS, copy the message and send it manually. Direct Telnyx sending is the next upgrade.</p>
+        </div>
+    `;
+
+    box.style.display = "flex";
+
+    copyRouteMessage();
+}
+
+function copyRouteMessage(){
+    const text = document.getElementById("route-send-message").value;
+    if(navigator.clipboard){
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Route message copied.");
+        }).catch(() => {
+            fallbackCopyRouteMessage(text);
+        });
+    }else{
+        fallbackCopyRouteMessage(text);
+    }
+}
+
+function fallbackCopyRouteMessage(text){
+    const area = document.getElementById("route-send-message");
+    area.focus();
+    area.select();
+    document.execCommand("copy");
+    alert("Route message copied.");
+}
+
+function openSmsLink(url){
+    window.location.href = url;
+}
+
+function closeRouteSendBox(){
+    const box = document.getElementById("route-send-box");
+    if(box) box.style.display = "none";
+}
+
+async function dispatchRoute(routeId){
+    if(!confirm("Mark this route as DISPATCHED?")) return;
+    const data = await postJson("/api/dispatch-route", {route_id:routeId});
+    if(!data.ok){ alert(data.message || "Unable to dispatch route."); return; }
+    alert("Route marked dispatched.");
+    location.reload();
+}
+
+async function completeRoute(routeId){
+    if(!confirm("Mark this route as COMPLETED?")) return;
+    const data = await postJson("/api/complete-route", {route_id:routeId});
+    if(!data.ok){ alert(data.message || "Unable to complete route."); return; }
+    alert("Route completed.");
+    location.reload();
+}
 </script>
 {% endblock %}

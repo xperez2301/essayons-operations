@@ -397,5 +397,186 @@
       "route_id": "66a12ee3-7f80-4b7c-846c-b8dd047f806b",
       "restored": 4
     }
+  },
+  {
+    "id": "a5d9a6c4-9011-49fe-bfe6-0865a369fe25",
+    "time": "2026-06-20T13:00:58",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "Driver 1",
+      "stores": 6,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "bf119d89-ef23-4113-8b87-a3670adb53ae",
+    "time": "2026-06-20T13:02:06",
+    "action": "Update Route Driver",
+    "details": {
+      "route_id": "e404ec93-7f68-43cc-9090-90afa3b05f6c",
+      "driver": "Driver 1",
+      "driver_phone": "7194325860",
+      "truck": "1021",
+      "helper": "me"
+    }
+  },
+  {
+    "id": "88ad6a52-a42e-4fc7-a12c-b7147c576647",
+    "time": "2026-06-20T13:03:09",
+    "action": "Dispatch Route",
+    "details": {
+      "route_id": "e404ec93-7f68-43cc-9090-90afa3b05f6c",
+      "route_number": "RT-00001"
+    }
+  },
+  {
+    "id": "108bec14-5484-4d02-8c82-a04fb03cbd12",
+    "time": "2026-06-20T13:03:28",
+    "action": "Complete Route",
+    "details": {
+      "route_id": "e404ec93-7f68-43cc-9090-90afa3b05f6c",
+      "route_number": "RT-00001"
+    }
+  },
+  {
+    "id": "5dc85b1c-0d06-4050-bc06-254a0d66ec57",
+    "time": "2026-06-20T13:04:38",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "e404ec93-7f68-43cc-9090-90afa3b05f6c",
+      "restored": 6
+    }
+  },
+  {
+    "id": "5d22efde-6bce-4fbc-9ada-9135ac988a04",
+    "time": "2026-06-20T13:10:59",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "Driver 1",
+      "stores": 2,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "1931c057-f05d-4d4b-b2bd-8c8b9c1a5044",
+    "time": "2026-06-20T13:11:13",
+    "action": "Update Route Driver",
+    "details": {
+      "route_id": "1b401f76-89ca-4a37-b933-2fa4bb35d0ea",
+      "driver": "Driver 1",
+      "driver_phone": "7194325860",
+      "truck": "11",
+      "helper": "me"
+    }
+  },
+  {
+    "id": "0a4f2d74-cadd-4843-91bd-423d16d5ce76",
+    "time": "2026-06-20T13:11:22",
+    "action": "Dispatch Route",
+    "details": {
+      "route_id": "1b401f76-89ca-4a37-b933-2fa4bb35d0ea",
+      "route_number": "RT-00001"
+    }
+  },
+  {
+    "id": "75bb8905-0251-4680-9511-156c4b6f8a90",
+    "time": "2026-06-20T13:11:28",
+    "action": "Complete Route",
+    "details": {
+      "route_id": "1b401f76-89ca-4a37-b933-2fa4bb35d0ea",
+      "route_number": "RT-00001"
+    }
+  },
+  {
+    "id": "01948de0-f2c8-4883-ae04-be69f7c120b7",
+    "time": "2026-06-20T13:15:37",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "1b401f76-89ca-4a37-b933-2fa4bb35d0ea",
+      "restored": 2
+    }
+  },
+  {
+    "id": "0a2d577f-4ea1-47af-a62d-e072d994c415",
+    "time": "2026-06-20T13:16:30",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "97c90e34-95c1-4d75-bed7-d76c66f90ea0",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "8db8356c-4898-4c00-8321-210a41da453b",
+    "time": "2026-06-20T13:16:37",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "952e070f-a1ad-4a80-8b8a-be82cfeafe1c",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "fa23dc14-c16d-406f-be16-2239f7096f2c",
+    "time": "2026-06-20T13:16:42",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "0cd06752-040c-472a-9f08-70808d3717f9",
+      "hub": "Houston"
+    }
+  },
+  {
+    "id": "05d20b34-f123-4f77-9a43-1fe97fa0addc",
+    "time": "2026-06-20T13:16:48",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "83c0ec92-8604-4978-8a9f-97103de7cebf",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "89db9067-a26e-4e52-8954-47a4d0bc4ba0",
+    "time": "2026-06-20T13:16:54",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "a7ac1d10-a776-4ecf-8bf0-1df524d1e00a",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "b8a4796b-c017-4068-89b1-24312ddb2a18",
+    "time": "2026-06-20T13:16:59",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "5a3a9167-c1a0-4837-b809-8b5155abcb13",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "4a14d342-9107-401e-bd35-b9a56b32bb44",
+    "time": "2026-06-20T13:17:03",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "2e71b3ea-c407-46da-85eb-bb63db03781a",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "74bb9389-eabe-4edc-8036-5e903d06b17d",
+    "time": "2026-06-20T13:17:12",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "0270015d-7fca-4a1f-89b4-fa3482c28902",
+      "hub": "Dallas"
+    }
+  },
+  {
+    "id": "25aa74ac-ab57-4f18-9019-09abe6311e23",
+    "time": "2026-06-20T13:17:15",
+    "action": "Force Approve Need Review",
+    "details": {
+      "store_id": "1ec38b74-8b03-457e-bce3-c0d0e597887d",
+      "hub": "Dallas"
+    }
   }
 ]

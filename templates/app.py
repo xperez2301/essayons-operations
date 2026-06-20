@@ -439,107 +439,6 @@ def api_geocode_stores():
 
     return jsonify({"ok": True, "updated": updated, "failed": failed})
 
-
-def dispatch_board_summary():
-    stores = read_json(STORES_FILE)
-    routes = read_json(ROUTES_FILE)
-    queue = read_json(RMS_QUEUE_FILE)
-
-    def status_count(status):
-        return len([s for s in stores if clean(s.get("status")) == status])
-
-    need_review_stores = [s for s in stores if clean(s.get("status")) == "Need Review"]
-    unassigned_stores = [s for s in stores if clean(s.get("status")) == "Unassigned"]
-    assigned_stores = [s for s in stores if clean(s.get("status")) == "Assigned"]
-    dispatched_stores = [s for s in stores if clean(s.get("status")) == "Dispatched"]
-    completed_stores = [s for s in stores if clean(s.get("status")) == "Completed"]
-
-    all_active = need_review_stores + unassigned_stores + assigned_stores + dispatched_stores
-
-    total_racks = sum(float(s.get("expected_racks") or 0) for s in all_active)
-    total_weight = sum(float(s.get("weight") or 0) for s in all_active)
-    total_revenue = round(total_racks * PIECES_PER_RACK * RATE_PER_PIECE, 2)
-    driver_pay = round(total_racks * PIECES_PER_RACK * DRIVER_PAY_PER_PIECE, 2)
-
-    assigned_drivers = sorted(list(set([clean(s.get("assigned_driver")) for s in assigned_stores + dispatched_stores if clean(s.get("assigned_driver"))])))
-
-    return {
-        "counts": {
-            "need_review": len(need_review_stores),
-            "unassigned": len(unassigned_stores),
-            "assigned": len(assigned_stores),
-            "dispatched": len(dispatched_stores),
-            "completed": len(completed_stores),
-            "rms_queue": len(queue),
-            "routes": len(routes),
-        },
-        "metrics": {
-            "total_racks": round(total_racks, 2),
-            "total_weight": round(total_weight, 2),
-            "total_revenue": total_revenue,
-            "driver_pay": driver_pay,
-            "assigned_drivers": len(assigned_drivers),
-        },
-        "columns": {
-            "need_review": need_review_stores,
-            "unassigned": unassigned_stores,
-            "assigned": assigned_stores,
-            "dispatched": dispatched_stores,
-            "completed": completed_stores,
-        },
-        "routes": routes,
-        "assigned_drivers": assigned_drivers,
-    }
-
-@app.route("/dispatch-board")
-def dispatch_board():
-    board = dispatch_board_summary()
-    return render_template("dispatch_board.html", board=board)
-
-@app.route("/api/dispatch-board")
-def api_dispatch_board():
-    return jsonify({"ok": True, "board": dispatch_board_summary()})
-
-@app.route("/api/store-status", methods=["POST"])
-def api_store_status():
-    data = request.get_json(force=True)
-    store_id = data.get("store_id")
-    new_status = clean(data.get("status"))
-
-    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"}
-    if new_status not in allowed:
-        return jsonify({"ok": False, "message": "Invalid status."})
-
-    stores = read_json(STORES_FILE)
-    updated = None
-
-    for store in stores:
-        if store.get("id") == store_id:
-            store["status"] = new_status
-            store["updated_at"] = datetime.now().isoformat(timespec="seconds")
-
-            if new_status == "Unassigned":
-                store["assigned_driver"] = ""
-                if store.get("pdf_path"):
-                    store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
-            elif new_status == "Completed":
-                if store.get("pdf_path"):
-                    store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
-            elif new_status == "Assigned":
-                if store.get("pdf_path"):
-                    store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
-
-            updated = store
-            break
-
-    if not updated:
-        return jsonify({"ok": False, "message": "Store not found."})
-
-    write_json(STORES_FILE, stores)
-    audit("Update Store Status", {"store_id": store_id, "status": new_status})
-
-    return jsonify({"ok": True, "store": updated})
-
 @app.route("/dispatch-map")
 def dispatch_map():
     stores = read_json(STORES_FILE)
@@ -1920,12 +1819,15 @@ def api_assign_route():
 
 
 
-@app.route("/api/update-route-driver", methods=["POST"], endpoint="api_update_route_driver_v170")
+
+@app.route("/api/update-route-driver", methods=["POST"])
 def api_update_route_driver():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
     driver = clean(data.get("driver"))
     driver_phone = clean(data.get("driver_phone"))
+    truck = clean(data.get("truck"))
+    helper = clean(data.get("helper"))
 
     routes = read_json(ROUTES_FILE)
     stores = read_json(STORES_FILE)
@@ -1935,6 +1837,8 @@ def api_update_route_driver():
         if route.get("id") == route_id or route.get("route_number") == route_id:
             route["driver"] = driver
             route["driver_phone"] = driver_phone
+            route["truck"] = truck
+            route["helper"] = helper
             route["updated_at"] = datetime.now().isoformat(timespec="seconds")
             updated = route
 
@@ -1943,6 +1847,11 @@ def api_update_route_driver():
                 if store.get("id") in route_store_ids:
                     store["assigned_driver"] = driver
                     store["driver_phone"] = driver_phone
+                    store["truck"] = truck
+                    store["helper"] = helper
+                    store["status"] = "Assigned"
+                    if store.get("pdf_path"):
+                        store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
             break
 
     if not updated:
@@ -1950,9 +1859,77 @@ def api_update_route_driver():
 
     write_json(ROUTES_FILE, routes)
     write_json(STORES_FILE, stores)
-    audit("Update Route Driver", {"route_id": route_id, "driver": driver, "driver_phone": driver_phone})
+    audit("Update Route Driver", {"route_id": route_id, "driver": driver, "driver_phone": driver_phone, "truck": truck, "helper": helper})
 
     return jsonify({"ok": True, "route": updated})
+
+@app.route("/api/dispatch-route", methods=["POST"])
+def api_dispatch_route():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+
+    routes = read_json(ROUTES_FILE)
+    stores = read_json(STORES_FILE)
+
+    route = None
+    for r in routes:
+        if r.get("id") == route_id or r.get("route_number") == route_id:
+            r["status"] = "Dispatched"
+            r["dispatched_at"] = datetime.now().isoformat(timespec="seconds")
+            route = r
+            break
+
+    if not route:
+        return jsonify({"ok": False, "message": "Route not found."})
+
+    route_store_ids = set(route.get("store_ids", []))
+    for store in stores:
+        if store.get("id") in route_store_ids:
+            store["status"] = "Dispatched"
+            store["assigned_driver"] = route.get("driver", "")
+            store["driver_phone"] = route.get("driver_phone", "")
+            store["dispatched_at"] = route.get("dispatched_at")
+            if store.get("pdf_path"):
+                store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
+
+    write_json(ROUTES_FILE, routes)
+    write_json(STORES_FILE, stores)
+    audit("Dispatch Route", {"route_id": route_id, "route_number": route.get("route_number")})
+
+    return jsonify({"ok": True, "route": route})
+
+@app.route("/api/complete-route", methods=["POST"])
+def api_complete_route():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+
+    routes = read_json(ROUTES_FILE)
+    stores = read_json(STORES_FILE)
+
+    route = None
+    for r in routes:
+        if r.get("id") == route_id or r.get("route_number") == route_id:
+            r["status"] = "Completed"
+            r["completed_at"] = datetime.now().isoformat(timespec="seconds")
+            route = r
+            break
+
+    if not route:
+        return jsonify({"ok": False, "message": "Route not found."})
+
+    route_store_ids = set(route.get("store_ids", []))
+    for store in stores:
+        if store.get("id") in route_store_ids:
+            store["status"] = "Completed"
+            store["completed_at"] = route.get("completed_at")
+            if store.get("pdf_path"):
+                store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
+
+    write_json(ROUTES_FILE, routes)
+    write_json(STORES_FILE, stores)
+    audit("Complete Route", {"route_id": route_id, "route_number": route.get("route_number")})
+
+    return jsonify({"ok": True, "route": route})
 
 @app.route("/route-view/<route_id>")
 def route_view(route_id):
@@ -2004,6 +1981,47 @@ def api_unassign_route():
     audit("Unassign Entire Route", {"route_id": route_id, "restored": restored})
 
     return jsonify({"ok": True, "message": f"Route unassigned. {restored} stores returned to Dispatch Map."})
+
+
+@app.route("/api/store-status", methods=["POST"])
+def api_store_status():
+    data = request.get_json(force=True)
+    store_id = data.get("store_id")
+    new_status = clean(data.get("status"))
+
+    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"}
+    if new_status not in allowed:
+        return jsonify({"ok": False, "message": "Invalid status."})
+
+    stores = read_json(STORES_FILE)
+    updated = None
+
+    for store in stores:
+        if store.get("id") == store_id:
+            store["status"] = new_status
+            store["updated_at"] = datetime.now().isoformat(timespec="seconds")
+
+            if new_status == "Unassigned":
+                store["assigned_driver"] = ""
+                if store.get("pdf_path"):
+                    store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
+            elif new_status == "Completed":
+                if store.get("pdf_path"):
+                    store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
+            elif new_status == "Assigned":
+                if store.get("pdf_path"):
+                    store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
+
+            updated = store
+            break
+
+    if not updated:
+        return jsonify({"ok": False, "message": "Store not found."})
+
+    write_json(STORES_FILE, stores)
+    audit("Update Store Status", {"store_id": store_id, "status": new_status})
+
+    return jsonify({"ok": True, "store": updated})
 
 @app.route("/api/unassign-store", methods=["POST"])
 def api_unassign_store():

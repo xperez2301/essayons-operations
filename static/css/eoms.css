@@ -427,3 +427,43 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
 @media(max-width:800px){
     .driver-grid{grid-template-columns:1fr}
 }
+
+/* EOMS v1.7.1 Route Send Fallback */
+.route-send-box{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(2,6,23,.75);
+    z-index:99999;
+    padding:20px;
+}
+.route-send-modal{
+    width:min(680px,95vw);
+    background:#0f172a;
+    border:1px solid rgba(96,165,250,.35);
+    border-radius:18px;
+    padding:16px;
+    box-shadow:0 20px 80px rgba(0,0,0,.55);
+}
+.route-send-modal h3{
+    margin:0 0 8px;
+}
+.route-send-modal textarea{
+    width:100%;
+    min-height:150px;
+    background:#020617;
+    color:#e5e7eb;
+    border:1px solid rgba(148,163,184,.35);
+    border-radius:12px;
+    padding:10px;
+    resize:vertical;
+    box-sizing:border-box;
+}
+.route-send-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+}

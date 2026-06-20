@@ -379,6 +379,44 @@ def login():
     return render_template("login.html")
 
 
+
+@app.route("/api/dispatch-board-live")
+def api_dispatch_board_live():
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+
+    counts = {
+        "Need Review": 0,
+        "Unassigned": 0,
+        "Assigned": 0,
+        "Dispatched": 0,
+        "Completed": 0
+    }
+
+    for s in stores:
+        status = clean(s.get("status")) or "Unassigned"
+        if status not in counts:
+            status = "Unassigned"
+        counts[status] += 1
+
+    active = [s for s in stores if (clean(s.get("status")) or "Unassigned") in ["Need Review", "Unassigned", "Assigned", "Dispatched"]]
+    racks = sum(num(s.get("expected_racks")) for s in active)
+    weight = sum(num(s.get("weight")) for s in active)
+    pieces = racks * PIECES_PER_RACK
+
+    return jsonify({
+        "ok": True,
+        "stores": stores,
+        "routes": routes,
+        "counts": counts,
+        "metrics": {
+            "racks": round(racks, 2),
+            "weight": round(weight, 2),
+            "revenue": round(pieces * RATE_PER_PIECE, 2),
+            "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2)
+        }
+    })
+
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
     stores = read_json(STORES_FILE)

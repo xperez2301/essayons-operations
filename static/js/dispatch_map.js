@@ -233,7 +233,7 @@ async function assignDriver(){
     document.getElementById("driver-results").appendChild(routeBlock);
     selectedOrder = [];
     renderStores();
-    renderMapDispatchBoard();
+    renderMapDispatchBoardLive();
     updateTotals();
     document.getElementById("route-preview").innerHTML = "<p class='muted'>Route assigned. View full route in Route Builder.</p>";
 }
@@ -501,4 +501,85 @@ function toggleMapBoard(){
     if(grid) grid.classList.toggle("hidden");
     if(metrics) metrics.classList.toggle("hidden");
 }
+
+
+
+
+async function renderMapDispatchBoardLive(){
+    const board = document.getElementById("map-dispatch-board");
+    if(!board) return;
+
+    try{
+        const response = await fetch("/api/dispatch-board-live");
+        const data = await response.json();
+        if(!data.ok){
+            console.warn("Dispatch board live API failed", data);
+            return;
+        }
+
+        const liveStores = data.stores || [];
+        const statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"];
+        const byStatus = {};
+        statuses.forEach(s => byStatus[s] = []);
+
+        liveStores.forEach(store => {
+            let status = store.status || "Unassigned";
+            if(!byStatus[status]) status = "Unassigned";
+            byStatus[status].push(store);
+        });
+
+        const metrics = document.getElementById("map-board-metrics");
+        if(metrics){
+            metrics.innerHTML = `
+                <div><span>Need Review</span><strong>${byStatus["Need Review"].length}</strong></div>
+                <div><span>Unassigned</span><strong>${byStatus["Unassigned"].length}</strong></div>
+                <div><span>Assigned</span><strong>${byStatus["Assigned"].length}</strong></div>
+                <div><span>Dispatched</span><strong>${byStatus["Dispatched"].length}</strong></div>
+                <div><span>Completed</span><strong>${byStatus["Completed"].length}</strong></div>
+                <div><span>Racks</span><strong>${Number(data.metrics.racks || 0).toFixed(1)}</strong></div>
+                <div><span>Weight</span><strong>${Number(data.metrics.weight || 0).toFixed(0)} lbs</strong></div>
+                <div><span>Revenue</span><strong>$${Number(data.metrics.revenue || 0).toFixed(2)}</strong></div>
+                <div><span>Driver Pay</span><strong>$${Number(data.metrics.driver_pay || 0).toFixed(2)}</strong></div>
+            `;
+        }
+
+        statuses.forEach(status => {
+            const col = document.querySelector(`.map-board-column[data-status="${status}"]`);
+            if(!col) return;
+
+            const list = col.querySelector(".map-board-list");
+            const count = col.querySelector("h4 span");
+            const items = byStatus[status] || [];
+            if(count) count.textContent = items.length;
+
+            list.innerHTML = items.slice(0, 50).map(store => {
+                const color = typeof dueStatus === "function" ? dueStatus(store) : "green";
+                const actions = typeof mapBoardActions === "function" ? mapBoardActions(store, status) : "";
+                return `
+                    <div class="map-board-card">
+                        <div class="map-board-card-head">
+                            <b>BOL ${store.bol || ""}</b>
+                            <span class="due-chip due-${color}">${store.due_date || "No Due"}</span>
+                        </div>
+                        <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
+                        <div class="map-board-sub">${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks • ${store.weight || 0} lbs</div>
+                        ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
+                        <div class="map-board-actions">
+                            <a class="mini-link" href="/bol-live/${store.bol}" target="_blank">Live</a>
+                            <a class="mini-link" href="/bol-view/${store.id}" target="_blank">Saved</a>
+                            <a class="mini-link" href="/bol-print/${store.id}" target="_blank">Print</a>
+                            ${actions}
+                        </div>
+                    </div>
+                `;
+            }).join("") || `<p class="muted small-muted">No items.</p>`;
+        });
+    }catch(err){
+        console.error("Dispatch Board live render error", err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    setTimeout(renderMapDispatchBoardLive, 500);
+});
 

@@ -163,13 +163,85 @@ async function saveDriver(routeId){
 
 function sendRoute(routeId, routeNumber){
     const phone = document.getElementById("driver-phone-" + routeId).value.trim();
-    if(!phone){ alert("Add driver phone number first."); return; }
+    if(!phone){
+        alert("Add driver phone number first.");
+        return;
+    }
 
     const routeLink = window.location.origin + "/route-view/" + routeId;
     const driver = document.getElementById("driver-name-" + routeId).value.trim();
-    const msg = "EOMS Route " + routeNumber + (driver ? " for " + driver : "") + ". Open route: " + routeLink;
-    const smsUrl = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
-    window.location.href = smsUrl;
+    const truck = document.getElementById("truck-" + routeId).value.trim();
+    const helper = document.getElementById("helper-" + routeId).value.trim();
+
+    const msg =
+        "EOMS Route " + routeNumber + (driver ? " for " + driver : "") + "\\n" +
+        (truck ? "Truck: " + truck + "\\n" : "") +
+        (helper ? "Helper: " + helper + "\\n" : "") +
+        "Open route: " + routeLink;
+
+    showRouteSendBox(phone, msg);
+}
+
+function showRouteSendBox(phone, msg){
+    let box = document.getElementById("route-send-box");
+    if(!box){
+        box = document.createElement("div");
+        box.id = "route-send-box";
+        box.className = "route-send-box";
+        document.body.appendChild(box);
+    }
+
+    const smsUrl1 = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
+    const smsUrl2 = "sms:" + encodeURIComponent(phone) + "?body=" + encodeURIComponent(msg);
+
+    box.innerHTML = `
+        <div class="route-send-modal">
+            <h3>Send Route</h3>
+            <p><b>Driver Phone:</b> ${phone}</p>
+            <textarea id="route-send-message" readonly>${msg}</textarea>
+            <div class="route-send-actions">
+                <button type="button" class="primary-btn small-btn" onclick="copyRouteMessage()">Copy Message</button>
+                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl1}')">Open SMS App</button>
+                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl2}')">Try SMS Backup</button>
+                <button type="button" class="danger-btn small-btn" onclick="closeRouteSendBox()">Close</button>
+            </div>
+            <p class="muted">If Windows does not open SMS, copy the message and send it manually. Direct Telnyx sending is the next upgrade.</p>
+        </div>
+    `;
+
+    box.style.display = "flex";
+
+    copyRouteMessage();
+}
+
+function copyRouteMessage(){
+    const text = document.getElementById("route-send-message").value;
+    if(navigator.clipboard){
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Route message copied.");
+        }).catch(() => {
+            fallbackCopyRouteMessage(text);
+        });
+    }else{
+        fallbackCopyRouteMessage(text);
+    }
+}
+
+function fallbackCopyRouteMessage(text){
+    const area = document.getElementById("route-send-message");
+    area.focus();
+    area.select();
+    document.execCommand("copy");
+    alert("Route message copied.");
+}
+
+function openSmsLink(url){
+    window.location.href = url;
+}
+
+function closeRouteSendBox(){
+    const box = document.getElementById("route-send-box");
+    if(box) box.style.display = "none";
 }
 
 async function dispatchRoute(routeId){
