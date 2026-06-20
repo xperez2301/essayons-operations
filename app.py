@@ -23,6 +23,7 @@ STORES_FILE = DATA_DIR / "stores.json"
 ROUTES_FILE = DATA_DIR / "routes.json"
 AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
+SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
 
 MAX_PAYLOAD = 25001
 WARNING_PAYLOAD = 22000
@@ -57,7 +58,8 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password_saved": False})
+        (SETTINGS_FILE, {"rms_username": "", "rms_password_saved": False, "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
+        (SYNC_HISTORY_FILE, [])
     ]:
         if not path.exists():
             path.write_text(json.dumps(default, indent=2), encoding="utf-8")
@@ -411,12 +413,64 @@ def api_approve_review():
     audit("Approve Need Review", {"store_id": store_id, "hub": hub})
     return jsonify({"ok": True, "store": updated})
 
+
+@app.route("/rms-sync")
+def rms_sync():
+    settings_data = read_json(SETTINGS_FILE)
+    history = read_json(SYNC_HISTORY_FILE)
+    return render_template("rms_sync.html", settings=settings_data, history=history)
+
+@app.route("/api/rms/test-connection", methods=["POST"])
+def api_rms_test_connection():
+    settings_data = read_json(SETTINGS_FILE)
+    history = read_json(SYNC_HISTORY_FILE)
+
+    result = {
+        "id": str(uuid4()),
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "action": "Test RMS Connection",
+        "status": "READY",
+        "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
+        "login_url": settings_data.get("rms_login_url", "https://rms.reusability.com/login"),
+        "bol_url": settings_data.get("rms_bol_url", "https://rms.reusability.com/bills-of-lading")
+    }
+
+    history.append(result)
+    write_json(SYNC_HISTORY_FILE, history)
+    audit("RMS Test Connection", result)
+
+    return jsonify({"ok": True, "result": result})
+
+@app.route("/api/rms/sync-open-bols", methods=["POST"])
+def api_rms_sync_open_bols():
+    settings_data = read_json(SETTINGS_FILE)
+    history = read_json(SYNC_HISTORY_FILE)
+
+    result = {
+        "id": str(uuid4()),
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "action": "Sync Open BOLs",
+        "status": "FOUNDATION ONLY",
+        "imported": 0,
+        "skipped": 0,
+        "need_review": 0,
+        "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
+    }
+
+    history.append(result)
+    write_json(SYNC_HISTORY_FILE, history)
+    audit("RMS Sync Foundation", result)
+
+    return jsonify({"ok": True, "result": result})
+
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
     settings_data = read_json(SETTINGS_FILE)
     message = ""
     if request.method == "POST":
         settings_data["rms_username"] = clean(request.form.get("rms_username"))
+        settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
+        settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["rms_password_saved"] = bool(request.form.get("rms_password"))
         write_json(SETTINGS_FILE, settings_data)
         audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"]})

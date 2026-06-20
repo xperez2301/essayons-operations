@@ -1,1 +1,60 @@
-[]
+[
+  {
+    "id": "05f5492e-02fb-4b0d-936b-709cfabb9116",
+    "time": "2026-06-19T22:16:31",
+    "action": "RMS Test Connection",
+    "details": {
+      "id": "dadfa5ec-b619-4da8-882d-93e5c426c712",
+      "time": "2026-06-19T22:16:31",
+      "action": "Test RMS Connection",
+      "status": "READY",
+      "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
+      "login_url": "https://rms.reusability.com/login",
+      "bol_url": "https://rms.reusability.com/bills-of-lading"
+    }
+  },
+  {
+    "id": "a76555ba-3664-4d5d-9874-060d9163cc4f",
+    "time": "2026-06-19T22:16:39",
+    "action": "RMS Sync Foundation",
+    "details": {
+      "id": "880df8ca-bf0a-4efa-863f-6cfb9345bb15",
+      "time": "2026-06-19T22:16:39",
+      "action": "Sync Open BOLs",
+      "status": "FOUNDATION ONLY",
+      "imported": 0,
+      "skipped": 0,
+      "need_review": 0,
+      "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
+    }
+  },
+  {
+    "id": "ba18837f-fc25-4c68-9470-2bb54b56e8d5",
+    "time": "2026-06-19T22:17:09",
+    "action": "RMS Sync Foundation",
+    "details": {
+      "id": "62ffa7c0-de87-4bf8-824d-30cfec91214e",
+      "time": "2026-06-19T22:17:09",
+      "action": "Sync Open BOLs",
+      "status": "FOUNDATION ONLY",
+      "imported": 0,
+      "skipped": 0,
+      "need_review": 0,
+      "message": "Sync dashboard is ready. Next package will add Playwright browser automation to log in, open BOLs, read printable BOL pages, and import them."
+    }
+  },
+  {
+    "id": "01fa3259-fbf6-49d5-ab5f-8cb600ed7601",
+    "time": "2026-06-19T22:17:22",
+    "action": "RMS Test Connection",
+    "details": {
+      "id": "c0c60165-afc8-45eb-8468-2179c52ad3ea",
+      "time": "2026-06-19T22:17:22",
+      "action": "Test RMS Connection",
+      "status": "READY",
+      "message": "RMS sync foundation is installed. Full browser login automation is the next step after Playwright setup.",
+      "login_url": "https://rms.reusability.com/login",
+      "bol_url": "https://rms.reusability.com/bills-of-lading"
+    }
+  }
+]

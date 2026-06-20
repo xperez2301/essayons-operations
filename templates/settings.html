@@ -3,20 +3,36 @@
 <header class="topbar">
     <div>
         <h2>Settings</h2>
-        <p>RMS login foundation. Automatic RMS sync will be added later.</p>
+        <p>RMS login foundation. Keep credentials out of app.py.</p>
     </div>
+    <a class="link-btn" href="/rms-sync">RMS Sync</a>
 </header>
 
 <section class="panel import-panel">
     <h3>RMS Login Settings</h3>
-    {% if message %}<div class="notice">{{ message }}</div>{% endif %}
+
+    {% if message %}
+        <div class="notice">{{ message }}</div>
+    {% endif %}
+
     <form method="post">
         <label>RMS Username</label>
         <input type="text" name="rms_username" value="{{ settings.rms_username }}">
+
         <label>RMS Password</label>
         <input type="password" name="rms_password" placeholder="Enter RMS password">
+
+        <label>RMS Login URL</label>
+        <input type="text" name="rms_login_url" value="{{ settings.rms_login_url or 'https://rms.reusability.com/login' }}">
+
+        <label>RMS Bills of Lading URL</label>
+        <input type="text" name="rms_bol_url" value="{{ settings.rms_bol_url or 'https://rms.reusability.com/bills-of-lading' }}">
+
         <button class="primary-btn" type="submit">Save RMS Settings</button>
     </form>
-    <p class="muted">Do not hardcode RMS passwords in app.py. This screen prepares the future secure sync workflow.</p>
+
+    <p class="muted">
+        Next build will use Playwright browser automation to log in, open BOLs, open printable BOLs, and import data automatically.
+    </p>
 </section>
 {% endblock %}
