@@ -1,0 +1,100 @@
+<!DOCTYPE html><html class="w-full h-screen pb-24 overflow-visible" lang="en"><head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="jr5Fj73lBBAMKjUin4088rf6CtVbzONlV43YWRoU">
+    <title>RMS - LoginPage</title>
+    <!-- Styles -->
+    <link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/app-rweeJo89.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/fortawesome-A2qYgHCJ.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/lodash-1qI-k1uP.js"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><script type="text/javascript" async="" src="https://www.googletagmanager.com/gtag/js?id=G-V1LEVKMM8Y&amp;cx=c&amp;gtm=4e66h0"></script><script async="" src="https://www.googletagmanager.com/gtm.js?id=GTM-MHTSPMN"></script><script type="module" src="https://rms.reusability.com/build/assets/app-rweeJo89.js"></script>        <!-- Google Tag Manager -->
+    <script type="text/javascript">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-MHTSPMN');</script>
+    <!-- End Google Tag Manager -->
+    <style type="text/css">
+.mapdiv[data-v-177d06e3] {
+  width: 100%;
+  height: 100%;
+}
+</style><style type="text/css">
+.info-window-content[data-v-5b373d6e] {
+  display: none;
+}
+.mapdiv .info-window-content[data-v-5b373d6e] {
+  display: block;
+}
+</style><style type="text/css" data-primevue-style-id="base">
+.p-hidden-accessible {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.p-hidden-accessible input,
+.p-hidden-accessible select {
+    transform: scale(0);
+}
+
+.p-overflow-hidden {
+    overflow: hidden;
+    padding-right: var(--scrollbar-width);
+}
+</style><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/LoginPage-DQ83OZVl.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/lodash-1qI-k1uP.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/fortawesome-A2qYgHCJ.js"><style type="text/css" data-primevue-style-id="baseicon">
+.p-icon {
+    display: inline-block;
+}
+
+.p-icon-spin {
+    -webkit-animation: p-icon-spin 2s infinite linear;
+    animation: p-icon-spin 2s infinite linear;
+}
+
+@-webkit-keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+
+@keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+</style></head>
+
+<body id="docs-root" class="w-full h-screen overflow-hidden font-sans antialiased leading-none bg-gray-100">
+
+        <!-- Google Tag Manager (noscript) -->
+    <noscript>
+        <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MHTSPMN" height="0" width="0"
+                style="display:none;visibility:hidden"
+        ></iframe>
+    </noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <div class="flex flex-col">
+        <div class="h-screen">
+            <div id="vueApp" data-v-app=""><div><div class="sticky top-0 left-0 flex h-screen"><div class="flex-row flex-1 overflow-auto border-2"><div class="flex overflow-auto primary-content main-content-container login"><main class="flex-auto"><section aria-labelledby="primary-heading" class="h-full"><div class="w-full px-5 py-1"><div class="flex flex-col min-h-full sm:px-6 lg:px-8"><div class="mx-auto w-full max-w-md pt-28 mt-2"><div class="px-4 bg-white shadow sm:rounded-lg sm:px-10"><div class="py-2"><div class="py-2"><div><img class="mx-auto h-20" src="/assets/images/logos/EZRackLogo.svg" alt="EZRack Logo"></div></div><div class="p-divider p-component p-divider-horizontal p-divider-solid p-divider-left" role="separator" aria-orientation="horizontal" data-pc-name="divider" data-pc-section="root" style="justify-content: center;"><!----></div><div class="py-2 text-center text-lg font-semibold text-gray-500">Sign In</div><div class="pt-3 pb-2"><div><label for="preferred_username" class="pt-1"><span>Username</span><!----><!----><!----></label><input class="p-inputtext p-component inputfield w-full h-[2.65rem]" id="preferred_username" data-pc-name="inputtext" data-pc-section="root" value=""><!----></div></div><div class="pt-2 pb-3"><label for="password" class="pt-1"><span>Password</span><!----><!----><!----></label><div class="p-password p-component p-inputwrapper p-icon-field p-icon-field-right w-full h-[2.65rem]" id="password" data-pc-name="password" data-pc-section="root"><input class="p-inputtext p-component p-password-input w-full" type="password" aria-controls="password_panel" aria-expanded="false" aria-haspopup="true" data-pc-name="input" data-pc-extend="inputtext" data-pc-section="root"><!----><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-input-icon" aria-hidden="true" data-pc-section="showicon"><path fill-rule="evenodd" clip-rule="evenodd" d="M0.0535499 7.25213C0.208567 7.59162 2.40413 12.4 7 12.4C11.5959 12.4 13.7914 7.59162 13.9465 7.25213C13.9487 7.2471 13.9506 7.24304 13.952 7.24001C13.9837 7.16396 14 7.08239 14 7.00001C14 6.91762 13.9837 6.83605 13.952 6.76001C13.9506 6.75697 13.9487 6.75292 13.9465 6.74788C13.7914 6.4084 11.5959 1.60001 7 1.60001C2.40413 1.60001 0.208567 6.40839 0.0535499 6.74788C0.0512519 6.75292 0.0494023 6.75697 0.048 6.76001C0.0163137 6.83605 0 6.91762 0 7.00001C0 7.08239 0.0163137 7.16396 0.048 7.24001C0.0494023 7.24304 0.0512519 7.2471 0.0535499 7.25213ZM7 11.2C3.664 11.2 1.736 7.92001 1.264 7.00001C1.736 6.08001 3.664 2.80001 7 2.80001C10.336 2.80001 12.264 6.08001 12.736 7.00001C12.264 7.92001 10.336 11.2 7 11.2ZM5.55551 9.16182C5.98308 9.44751 6.48576 9.6 7 9.6C7.68891 9.59789 8.349 9.32328 8.83614 8.83614C9.32328 8.349 9.59789 7.68891 9.59999 7C9.59999 6.48576 9.44751 5.98308 9.16182 5.55551C8.87612 5.12794 8.47006 4.7947 7.99497 4.59791C7.51988 4.40112 6.99711 4.34963 6.49276 4.44995C5.98841 4.55027 5.52513 4.7979 5.16152 5.16152C4.7979 5.52513 4.55027 5.98841 4.44995 6.49276C4.34963 6.99711 4.40112 7.51988 4.59791 7.99497C4.7947 8.47006 5.12794 8.87612 5.55551 9.16182ZM6.2222 5.83594C6.45243 5.6821 6.7231 5.6 7 5.6C7.37065 5.6021 7.72553 5.75027 7.98762 6.01237C8.24972 6.27446 8.39789 6.62934 8.4 7C8.4 7.27689 8.31789 7.54756 8.16405 7.77779C8.01022 8.00802 7.79157 8.18746 7.53575 8.29343C7.27994 8.39939 6.99844 8.42711 6.72687 8.37309C6.4553 8.31908 6.20584 8.18574 6.01005 7.98994C5.81425 7.79415 5.68091 7.54469 5.6269 7.27312C5.57288 7.00155 5.6006 6.72006 5.70656 6.46424C5.81253 6.20842 5.99197 5.98977 6.2222 5.83594Z" fill="currentColor"></path></svg><span class="p-hidden-accessible" aria-live="polite" data-pc-section="hiddenaccesible" data-p-hidden-accessible="true">Enter a password</span></div></div><div class="pt-14 pb-4"><button disabled="" class="w-full sign-in-button font-medium">Sign In </button></div><div class="flex items-center text-md py-4"><a class="text-gray-500 hover:cursor-pointer"> Forgot your password? </a></div></div></div></div></div></div></section></main></div></div></div></div></div>
+        </div>
+    </div>
+
+
+
+<div class="p-toast p-component p-toast-center p-ripple-disabled" data-pc-name="toast" data-pc-section="root" style="position: fixed; top: 50%; left: 50%;"><div data-pc-section="message"></div></div><!----></body></html>

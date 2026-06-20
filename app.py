@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file, abort
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
@@ -25,6 +25,7 @@ ROUTES_FILE = DATA_DIR / "routes.json"
 AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
+RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
 
 MAX_PAYLOAD = 25001
 WARNING_PAYLOAD = 22000
@@ -59,8 +60,9 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
-        (SYNC_HISTORY_FILE, [])
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading"}),
+        (SYNC_HISTORY_FILE, []),
+        (RMS_QUEUE_FILE, [])
     ]:
         if not path.exists():
             path.write_text(json.dumps(default, indent=2), encoding="utf-8")
@@ -244,6 +246,8 @@ def parse_rms_pdf(path):
     drb40 = num(find_match(r'40"\s*DRB\s+R-DRB40\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     drb48 = num(find_match(r'48"\s*DRB\s+R-DRB48\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     wood_shelf = num(find_match(r'Wood Shelf\s+R-W4048\s+\d+\s+[\d,]+\s+([\d,]+)', text))
+    assigned_date = ""
+    due_date = ""
     bol_weight = num(find_match(r"Bill of Lading Total Weight:\s*([\d,]+)", text) or find_match(r"Order Total Weight:\s*([\d,]+)", text))
 
     expected_racks = round(corner_posts / 4, 2) if corner_posts else 0
@@ -273,6 +277,8 @@ def parse_rms_pdf(path):
         "hub": hub,
         "hub_reason": hub_reason,
         "dispatch_group": destination,
+        "assigned_date": assigned_date,
+        "due_date": due_date,
         "expected_racks": expected_racks,
         "corner_posts": corner_posts,
         "drb40": drb40,
@@ -329,6 +335,30 @@ def home():
 @app.route("/login")
 def login():
     return render_template("login.html")
+
+
+@app.route("/api/dispatch-map-debug")
+def api_dispatch_map_debug():
+    stores = read_json(STORES_FILE)
+    return jsonify({
+        "total_stores": len(stores),
+        "unassigned": len([s for s in stores if s.get("status") == "Unassigned"]),
+        "need_review": len([s for s in stores if s.get("status") == "Need Review"]),
+        "assigned": len([s for s in stores if s.get("status") == "Assigned"]),
+        "completed": len([s for s in stores if s.get("status") == "Completed"]),
+        "map_eligible": [
+            {
+                "bol": s.get("bol"),
+                "status": s.get("status"),
+                "lat": s.get("lat"),
+                "lng": s.get("lng"),
+                "city": s.get("city"),
+                "store_name": s.get("store_name"),
+                "racks": s.get("expected_racks")
+            }
+            for s in stores if s.get("status") == "Unassigned"
+        ]
+    })
 
 @app.route("/dispatch-map")
 def dispatch_map():
@@ -451,17 +481,8 @@ def rms_login_with_playwright(headless=False):
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
 
-            # Try to detect BOL links in the visible table
-            bol_links = []
-            anchors = page.locator("a").all()
-            for a in anchors:
-                try:
-                    text = clean(a.inner_text())
-                    href = a.get_attribute("href") or ""
-                    if re.fullmatch(r"\d{4,}", text):
-                        bol_links.append({"bol": text, "href": href})
-                except Exception:
-                    pass
+            # Detect BOL links across all pages
+            bol_links = collect_bol_links_from_all_pages(page)
 
             # Save diagnostic screenshot for troubleshooting
             diag_dir = BASE_DIR / "diagnostics"
@@ -499,6 +520,911 @@ def rms_login_with_playwright(headless=False):
                 "sample_bols": []
             }
 
+
+
+
+def extract_printable_bol_from_text(text, source_url=""):
+    raw = text or ""
+    lines = [clean(x) for x in raw.splitlines() if clean(x)]
+    joined = "\n".join(lines)
+
+    bol = find_match(r"Bill of Lading[:\s#-]*([0-9]+)", joined)
+    if not bol:
+        bol = find_match(r"Bill of Lading\s*-\s*([0-9]+)", joined)
+    if not bol:
+        bol = find_match(r"/bills-of-lading/([0-9]+)/print", source_url)
+
+    origin = find_match(r"Origin[:\s]+([A-Z0-9_-]+)", joined)
+    destination = find_match(r"Destination[:\s]+([A-Z0-9_-]+)", joined)
+
+    def capture_section(start_label, stop_labels):
+        start_idx = None
+        for i, line in enumerate(lines):
+            if re.search(rf"^{re.escape(start_label)}", line, re.I):
+                start_idx = i
+                break
+        if start_idx is None:
+            return ""
+
+        captured = []
+        for line in lines[start_idx:start_idx + 18]:
+            if captured and any(re.search(rf"^{re.escape(stop)}", line, re.I) for stop in stop_labels):
+                break
+            captured.append(line)
+        return "\n".join(captured)
+
+    origin_section = capture_section("Origin", ["Destination", "Carrier", "Bill of Lading", "Arrival Time"])
+    destination_section = capture_section("Destination", ["Carrier", "Bill of Lading", "Arrival Time"])
+
+    def field_from(section, label):
+        m = re.search(rf"{label}:\s*([^\n]+)", section, re.I)
+        return clean(m.group(1)) if m else ""
+
+    origin_name = field_from(origin_section, "Name")
+    origin_address = field_from(origin_section, "Address")
+    origin_city_line = field_from(origin_section, "City/State/Zip")
+    origin_contact = field_from(origin_section, "Contact")
+
+    dest_name = field_from(destination_section, "Name")
+    dest_address = field_from(destination_section, "Address")
+    dest_city_line = field_from(destination_section, "City/State/Zip")
+    dest_contact = field_from(destination_section, "Contact")
+
+    city, state, zip_code = parse_city_state_zip(origin_city_line)
+    if not city:
+        city, state, zip_code = parse_city_state_zip(dest_city_line)
+
+    # Store fields use origin/pickup side.
+    store_name = origin_name
+    address = origin_address
+    contact = origin_contact
+
+    # Fallbacks from any visible label.
+    if not store_name:
+        store_name = find_match(r"Name:\s*([^\n]+)", joined)
+    if not address:
+        address = find_match(r"Address:\s*([^\n]+)", joined)
+    if not city:
+        tx_line = ""
+        for line in lines:
+            if re.search(r",?\s*TX\s+\d{5}|Texas\s+\d{5}", line, re.I):
+                tx_line = line
+                break
+        if tx_line:
+            city, state, zip_code = parse_city_state_zip(tx_line)
+
+    def item_qty(label):
+        patterns = [
+            rf'{re.escape(label)}\s+R-[A-Z0-9]+\s+[\d,]+\s+[\d,]+\s+([\d,]+)',
+            rf'{re.escape(label)}.*?R-[A-Z0-9]+.*?(\d+)\s*$',
+            rf'{re.escape(label)}.*?Qty[:\s]+([\d,]+)'
+        ]
+        for pat in patterns:
+            m = re.search(pat, joined, re.I | re.M)
+            if m:
+                return num(m.group(1))
+
+        # Table fallback: find the item line and use the last number on the same row.
+        for line in lines:
+            if label.lower() in line.lower():
+                nums = re.findall(r"\d+", line.replace(",", ""))
+                if nums:
+                    return num(nums[-1])
+        return 0
+
+    corner_posts = item_qty('84" Corner Post Only')
+    drb40 = item_qty('40" DRB')
+    drb48 = item_qty('48" DRB')
+    wood_shelf = item_qty('Wood Shelf')
+
+
+    assigned_date = find_match(r"Assigned Date\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", joined)
+    due_date = find_match(r"Due Date(?: \(PDT\))?\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", joined)
+
+    bol_weight = num(
+        find_match(r"Bill of Lading Total Weight:\s*([\d,]+)", joined)
+        or find_match(r"Order Total Weight:\s*([\d,]+)", joined)
+    )
+
+    expected_racks = round(corner_posts / 4, 2) if corner_posts else 0
+    lat, lng = coords_for(city, state)
+    hub, hub_reason = assign_hub(lat, lng, destination)
+
+    review_reasons = []
+    if not bol: review_reasons.append("Missing BOL")
+    if not origin: review_reasons.append("Missing origin/store number")
+    if not city: review_reasons.append("Missing city")
+    if expected_racks <= 0: review_reasons.append('Missing 84" Corner Post quantity')
+    if hub == "Manual Review": review_reasons.append("Hub outside 100 miles")
+
+    status = "Need Review" if review_reasons else "Unassigned"
+
+    return {
+        "id": str(uuid4()),
+        "bol": bol,
+        "origin": origin,
+        "store_name": store_name,
+        "address": address,
+        "city": city,
+        "state": state,
+        "zip": zip_code,
+        "contact": contact,
+        "origin_name": origin_name,
+        "origin_address": origin_address,
+        "origin_city": city,
+        "origin_state": state,
+        "origin_zip": zip_code,
+        "origin_contact": origin_contact,
+        "destination": destination,
+        "destination_name": dest_name,
+        "destination_address": dest_address,
+        "destination_city_state_zip": dest_city_line,
+        "destination_contact": dest_contact,
+        "lat": lat,
+        "lng": lng,
+        "hub": hub,
+        "hub_reason": hub_reason,
+        "dispatch_group": destination,
+        "assigned_date": assigned_date,
+        "due_date": due_date,
+        "expected_racks": expected_racks,
+        "corner_posts": corner_posts,
+        "drb40": drb40,
+        "drb48": drb48,
+        "wood_shelf": wood_shelf,
+        "weight": bol_weight or round(expected_racks * DEFAULT_RACK_WEIGHT, 2),
+        "status": status,
+        "review_reasons": review_reasons,
+        "assigned_driver": "",
+        "pdf_path": "",
+        "rms_url": source_url,
+        "created_at": datetime.now().isoformat(timespec="seconds")
+    }
+
+def save_printable_snapshot(item, html):
+    root = "Need_Review" if item.get("status") == "Need Review" else "Imported"
+    filename = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.html"
+    final_path = month_folder(root) / filename
+    final_path.write_text(html, encoding="utf-8", errors="ignore")
+    return str(final_path)
+
+def collect_bol_links_from_all_pages(page, max_pages=50):
+    bol_links = []
+    seen = set()
+
+    def harvest_current_page():
+        anchors = page.locator("a").all()
+        found = []
+        for a in anchors:
+            try:
+                text = clean(a.inner_text())
+                href = a.get_attribute("href") or ""
+                if re.fullmatch(r"\d{4,}", text) and text not in seen:
+                    seen.add(text)
+                    found.append({"bol": text, "href": href})
+            except Exception:
+                pass
+        return found
+
+    # Try setting rows per page to largest available value first.
+    try:
+        selects = page.locator("select").all()
+        for sel in selects:
+            try:
+                options_text = sel.inner_text()
+                if "20" in options_text and ("50" in options_text or "100" in options_text):
+                    if "100" in options_text:
+                        sel.select_option(label="100")
+                    elif "50" in options_text:
+                        sel.select_option(label="50")
+                    page.wait_for_timeout(1500)
+                    break
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    for page_index in range(max_pages):
+        page.wait_for_timeout(800)
+        bol_links.extend(harvest_current_page())
+
+        # Find and click next page arrow. RMS uses pagination with numeric pages and arrows.
+        clicked = False
+
+        # First try button/link with text that looks like next arrow.
+        possible_next = [
+            'button:has-text("›")',
+            'button:has-text(">")',
+            'a:has-text("›")',
+            'a:has-text(">")',
+            'button[aria-label*="Next"]',
+            'a[aria-label*="Next"]'
+        ]
+
+        for selector in possible_next:
+            try:
+                loc = page.locator(selector).last
+                if loc.count() and loc.is_enabled():
+                    before = len(bol_links)
+                    loc.click()
+                    page.wait_for_timeout(1800)
+                    clicked = True
+                    break
+            except Exception:
+                pass
+
+        if clicked:
+            continue
+
+        # Fallback: click next numeric page if visible.
+        try:
+            next_number = str(page_index + 2)
+            loc = page.get_by_text(next_number, exact=True)
+            if loc.count() and loc.first.is_visible():
+                loc.first.click()
+                page.wait_for_timeout(1800)
+                clicked = True
+        except Exception:
+            pass
+
+        if not clicked:
+            break
+
+    # De-dupe just in case.
+    unique = []
+    seen2 = set()
+    for item in bol_links:
+        if item["bol"] not in seen2:
+            unique.append(item)
+            seen2.add(item["bol"])
+    return unique
+
+def open_printable_and_extract(page, bol_link):
+    bol = bol_link.get("bol")
+    href = bol_link.get("href") or ""
+
+    # Navigate to BOL detail.
+    if href.startswith("http"):
+        page.goto(href, wait_until="networkidle", timeout=60000)
+    elif href.startswith("/"):
+        page.goto("https://rms.reusability.com" + href, wait_until="networkidle", timeout=60000)
+    else:
+        # Fallback click by BOL text from list page if relative URL missing.
+        page.get_by_text(bol, exact=True).click()
+        page.wait_for_load_state("networkidle", timeout=60000)
+
+    # Click printable BOL link.
+    printable_clicked = False
+    try:
+        page.get_by_text(re.compile("View Printable Bill of Lading|Print this Bill of Lading", re.I)).first.click()
+        page.wait_for_load_state("networkidle", timeout=60000)
+        printable_clicked = True
+    except Exception:
+        pass
+
+    if not printable_clicked:
+        try:
+            page.locator('a:has-text("Printable")').first.click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+            printable_clicked = True
+        except Exception:
+            pass
+
+    text = page.locator("body").inner_text(timeout=60000)
+    html = page.content()
+    item = extract_printable_bol_from_text(text, page.url)
+    if not item.get("bol"):
+        item["bol"] = bol
+        item["review_reasons"].append("BOL fallback from list")
+        item["status"] = "Need Review"
+    item["pdf_path"] = save_printable_snapshot(item, html)
+    return item
+
+
+def scan_rms_queue_with_playwright(headless=False):
+    settings_data = read_json(SETTINGS_FILE)
+
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+
+    if not username or not password:
+        return {
+            "ok": False,
+            "status": "MISSING CREDENTIALS",
+            "message": "Save RMS username and password in Settings first.",
+            "found": 0,
+            "new": 0,
+            "existing": 0
+        }
+
+    existing_stores = read_json(STORES_FILE)
+    existing_bols = {clean(s.get("bol")) for s in existing_stores if clean(s.get("bol"))}
+    current_queue = read_json(RMS_QUEUE_FILE)
+    queue_by_bol = {clean(q.get("bol")): q for q in current_queue if clean(q.get("bol"))}
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        page = browser.new_page()
+
+        try:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+            page.locator('input[type="password"]').first.fill(password)
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            bol_links = collect_bol_links_from_all_pages(page)
+
+            new_count = 0
+            existing_count = 0
+
+            for item in bol_links:
+                bol = clean(item.get("bol"))
+                if not bol:
+                    continue
+
+                status = "Imported" if bol in existing_bols else "New"
+                if bol in existing_bols:
+                    existing_count += 1
+                else:
+                    new_count += 1
+
+                if bol in queue_by_bol:
+                    # preserve ignored/manual status unless already imported
+                    old = queue_by_bol[bol]
+                    if old.get("queue_status") in ["Ignored", "Need Review"] and status != "Imported":
+                        status = old.get("queue_status")
+                    old.update({
+                        "href": item.get("href", ""),
+                        "queue_status": status,
+                        "last_seen": datetime.now().isoformat(timespec="seconds")
+                    })
+                else:
+                    queue_by_bol[bol] = {
+                        "id": str(uuid4()),
+                        "bol": bol,
+                        "href": item.get("href", ""),
+                        "queue_status": status,
+                        "store_name": "",
+                        "origin": "",
+                        "city": "",
+                        "state": "",
+                        "hub": "",
+                        "expected_racks": "",
+                        "weight": "",
+                        "last_seen": datetime.now().isoformat(timespec="seconds"),
+                        "created_at": datetime.now().isoformat(timespec="seconds")
+                    }
+
+            queue = list(queue_by_bol.values())
+            queue.sort(key=lambda x: x.get("bol", ""), reverse=True)
+            write_json(RMS_QUEUE_FILE, queue)
+
+            diag_dir = BASE_DIR / "diagnostics"
+            diag_dir.mkdir(exist_ok=True)
+            page.screenshot(path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
+
+            browser.close()
+
+            return {
+                "ok": True,
+                "status": "QUEUE UPDATED",
+                "message": f"RMS queue updated. Found {len(bol_links)} BOLs. New {new_count}. Already imported {existing_count}.",
+                "found": len(bol_links),
+                "new": new_count,
+                "existing": existing_count
+            }
+
+        except Exception as e:
+            browser.close()
+            return {
+                "ok": False,
+                "status": "ERROR",
+                "message": f"RMS queue scan error: {str(e)[:300]}",
+                "found": 0,
+                "new": 0,
+                "existing": 0
+            }
+
+def import_selected_queue_bols(bol_numbers, headless=False):
+    settings_data = read_json(SETTINGS_FILE)
+
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+
+    if not username or not password:
+        return {
+            "ok": False,
+            "status": "MISSING CREDENTIALS",
+            "message": "Save RMS username and password in Settings first.",
+            "imported": 0,
+            "skipped": 0,
+            "need_review": 0,
+            "errors": []
+        }
+
+    queue = read_json(RMS_QUEUE_FILE)
+    stores = read_json(STORES_FILE)
+    imported = 0
+    skipped = 0
+    need_review = 0
+    errors = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        page = browser.new_page()
+
+        try:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+            page.locator('input[type="password"]').first.fill(password)
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            for bol in bol_numbers:
+                bol = clean(bol)
+                if not bol:
+                    continue
+
+                try:
+                    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{bol}/print"
+                    page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+
+                    body_text = page.locator("body").inner_text(timeout=60000)
+                    html = page.content()
+                    item = extract_printable_bol_from_text(body_text, page.url)
+
+                    if not item.get("bol"):
+                        item["bol"] = bol
+                    if item.get("bol") != bol:
+                        item["bol"] = bol
+
+                    item["pdf_path"] = save_printable_snapshot(item, html)
+
+                    # Replace any existing store record for this BOL so bad Need Review imports get fixed.
+                    replaced = False
+                    for idx, existing_store in enumerate(stores):
+                        if clean(existing_store.get("bol")) == bol:
+                            item["id"] = existing_store.get("id", item["id"])
+                            stores[idx] = item
+                            replaced = True
+                            break
+                    if not replaced:
+                        stores.append(item)
+
+                    # Update RMS Queue display fields from the parsed item.
+                    for q in queue:
+                        if clean(q.get("bol")) == bol:
+                            q["queue_status"] = "Imported" if item.get("status") == "Unassigned" else "Need Review"
+                            q["store_name"] = item.get("store_name", "")
+                            q["origin"] = item.get("origin", "")
+                            q["city"] = item.get("city", "")
+                            q["state"] = item.get("state", "")
+                            q["address"] = item.get("address", "")
+                            q["contact"] = item.get("contact", "")
+                            q["origin_name"] = item.get("origin_name", "")
+                            q["origin_address"] = item.get("origin_address", "")
+                            q["origin_contact"] = item.get("origin_contact", "")
+                            q["hub"] = item.get("hub", "")
+                            q["expected_racks"] = item.get("expected_racks", "")
+                            q["weight"] = item.get("weight", "")
+                            q["due_date"] = item.get("due_date", "")
+                            q["assigned_date"] = item.get("assigned_date", "")
+                            q["pdf_path"] = item.get("pdf_path", "")
+                            q["imported_at"] = datetime.now().isoformat(timespec="seconds")
+                            break
+
+                    imported += 1
+                    if item.get("status") == "Need Review":
+                        need_review += 1
+
+                except Exception as e:
+                    errors.append(f"BOL {bol}: {str(e)[:160]}")
+                    for q in queue:
+                        if clean(q.get("bol")) == bol:
+                            q["queue_status"] = "Need Review"
+                            q["updated_at"] = datetime.now().isoformat(timespec="seconds")
+                            break
+
+            write_json(STORES_FILE, stores)
+            write_json(RMS_QUEUE_FILE, queue)
+            browser.close()
+
+            return {
+                "ok": True,
+                "status": "IMPORT SELECTED COMPLETE",
+                "message": f"Import/Re-import complete. Processed {imported}. Need Review {need_review}.",
+                "imported": imported,
+                "skipped": skipped,
+                "need_review": need_review,
+                "errors": errors[:10]
+            }
+
+        except Exception as e:
+            try:
+                browser.close()
+            except Exception:
+                pass
+            return {
+                "ok": False,
+                "status": "ERROR",
+                "message": f"Import/Re-import selected error: {str(e)[:300]}",
+                "imported": imported,
+                "skipped": skipped,
+                "need_review": need_review,
+                "errors": errors[:10]
+            }
+
+def rms_full_import_with_playwright(headless=False, max_bols=0):
+    settings_data = read_json(SETTINGS_FILE)
+
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+
+    if not username or not password:
+        return {
+            "ok": False,
+            "status": "MISSING CREDENTIALS",
+            "message": "Save RMS username and password in Settings first.",
+            "imported": 0,
+            "skipped": 0,
+            "need_review": 0,
+            "bol_count": 0
+        }
+
+    existing = read_json(STORES_FILE)
+    existing_keys = {(s.get("bol"), s.get("origin")) for s in existing if s.get("bol") or s.get("origin")}
+
+    imported = 0
+    skipped = 0
+    need_review = 0
+    errors = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless)
+        page = browser.new_page()
+        try:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+            page.locator('input[type="password"]').first.fill(password)
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            bol_links = collect_bol_links_from_all_pages(page)
+
+            if max_bols and max_bols > 0:
+                bol_links = bol_links[:max_bols]
+
+            # Diagnostic screenshot after pagination scan.
+            diag_dir = BASE_DIR / "diagnostics"
+            diag_dir.mkdir(exist_ok=True)
+            page.screenshot(path=str(diag_dir / f"rms_pagination_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
+
+            for link in bol_links:
+                try:
+                    # Open each BOL in a fresh page to avoid losing pagination state.
+                    detail_page = browser.new_page()
+                    detail_page.goto(bol_url, wait_until="networkidle", timeout=60000)
+                    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{link['bol']}/print"
+                    detail_page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+
+                    text = detail_page.locator("body").inner_text(timeout=60000)
+                    html = detail_page.content()
+                    item = extract_printable_bol_from_text(text, detail_page.url)
+                    if not item.get("bol"):
+                        item["bol"] = link["bol"]
+                        item["review_reasons"].append("BOL fallback from list")
+                        item["status"] = "Need Review"
+
+                    key = (item.get("bol"), item.get("origin"))
+                    if key in existing_keys and any(key):
+                        skipped += 1
+                        detail_page.close()
+                        continue
+
+                    item["pdf_path"] = save_printable_snapshot(item, html)
+                    existing.append(item)
+                    existing_keys.add(key)
+                    imported += 1
+                    if item.get("status") == "Need Review":
+                        need_review += 1
+
+                    detail_page.close()
+
+                except Exception as e:
+                    errors.append(f"{link.get('bol')}: {str(e)[:120]}")
+
+            write_json(STORES_FILE, existing)
+            browser.close()
+
+            return {
+                "ok": True,
+                "status": "IMPORT COMPLETE",
+                "message": f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Skipped {skipped}. Need Review {need_review}.",
+                "bol_count": len(bol_links),
+                "imported": imported,
+                "skipped": skipped,
+                "need_review": need_review,
+                "errors": errors[:10]
+            }
+
+        except Exception as e:
+            browser.close()
+            return {
+                "ok": False,
+                "status": "ERROR",
+                "message": f"RMS full import error: {str(e)[:300]}",
+                "imported": imported,
+                "skipped": skipped,
+                "need_review": need_review,
+                "bol_count": 0,
+                "errors": errors[:10]
+            }
+
+
+
+
+@app.route("/bol-live/<bol_number>")
+def bol_live_printable(bol_number):
+    settings_data = read_json(SETTINGS_FILE)
+
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+
+    if not username or not password:
+        return render_template(
+            "bol_not_found.html",
+            bol=bol_number,
+            path="RMS username/password missing. Save RMS credentials in Settings first."
+        )
+
+    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page()
+
+        try:
+            # Login first.
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+            page.locator('input[type="password"]').first.fill(password)
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            # Go straight to the RMS printable URL.
+            page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+
+            html = page.content()
+
+            # Save backup snapshot.
+            backup_dir = month_folder("RMS_Backup")
+            backup_file = backup_dir / f"DIRECT_PRINTABLE_BOL_{safe_part(bol_number)}_{datetime.now().strftime('%H%M%S')}.html"
+            backup_file.write_text(html, encoding="utf-8", errors="ignore")
+
+            browser.close()
+
+            return html
+
+        except Exception as e:
+            try:
+                browser.close()
+            except Exception:
+                pass
+
+            return render_template(
+                "bol_not_found.html",
+                bol=bol_number,
+                path=f"Direct printable RMS error: {str(e)[:300]}"
+            )
+
+@app.route("/bol-view/<store_id>")
+def bol_view(store_id):
+    stores = read_json(STORES_FILE)
+    queue = read_json(RMS_QUEUE_FILE)
+
+    found = None
+    for s in stores:
+        if s.get("id") == store_id or clean(s.get("bol")) == store_id:
+            found = s
+            break
+
+    if not found:
+        for q in queue:
+            if q.get("id") == store_id or clean(q.get("bol")) == store_id:
+                found = q
+                break
+
+    if not found:
+        abort(404)
+
+    path = found.get("pdf_path") or found.get("printable_path") or ""
+    if not path:
+        # Try to find saved file by BOL number
+        bol = safe_part(found.get("bol"))
+        matches = list(BOL_DIR.rglob(f"*{bol}*.html")) + list(BOL_DIR.rglob(f"*{bol}*.pdf"))
+        if matches:
+            path = str(matches[0])
+
+    if not path or not Path(path).exists():
+        return render_template("bol_not_found.html", bol=found.get("bol", ""), path=path)
+
+    return send_file(Path(path), as_attachment=False)
+
+@app.route("/api/approve-review-force", methods=["POST"])
+def api_approve_review_force():
+    data = request.get_json(force=True)
+    store_id = data.get("store_id")
+    hub = data.get("hub")
+
+    stores = read_json(STORES_FILE)
+    updated = None
+
+    for store in stores:
+        if store["id"] == store_id:
+            store["hub"] = hub or store.get("hub") or "San Antonio"
+            store["status"] = "Unassigned"
+            store["review_reasons"] = []
+            if not store.get("lat") or not store.get("lng"):
+                store["lat"], store["lng"] = HUBS.get(store["hub"], HUBS["San Antonio"])["lat"], HUBS.get(store["hub"], HUBS["San Antonio"])["lng"]
+            updated = store
+            break
+
+    write_json(STORES_FILE, stores)
+    audit("Force Approve Need Review", {"store_id": store_id, "hub": hub})
+
+    return jsonify({"ok": True, "store": updated})
+
+
+@app.route("/api/rms/repair-bol/<bol_number>", methods=["POST"])
+def api_rms_repair_bol(bol_number):
+    settings_data = read_json(SETTINGS_FILE)
+    username = clean(settings_data.get("rms_username"))
+    password = clean(settings_data.get("rms_password"))
+    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+
+    if not username or not password:
+        return jsonify({"ok": False, "message": "Save RMS credentials first."})
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page()
+        try:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
+            page.locator('input[type="password"]').first.fill(password)
+            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+            direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
+            page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+
+            body_text = page.locator("body").inner_text(timeout=60000)
+            html = page.content()
+            item = extract_printable_bol_from_text(body_text, page.url)
+            item["pdf_path"] = save_printable_snapshot(item, html)
+
+            stores = read_json(STORES_FILE)
+            replaced = False
+            for idx, s in enumerate(stores):
+                if clean(s.get("bol")) == clean(bol_number):
+                    item["id"] = s.get("id", item["id"])
+                    stores[idx] = item
+                    replaced = True
+                    break
+            if not replaced:
+                stores.append(item)
+            write_json(STORES_FILE, stores)
+
+            queue = read_json(RMS_QUEUE_FILE)
+            for q in queue:
+                if clean(q.get("bol")) == clean(bol_number):
+                    q["queue_status"] = "Imported" if item.get("status") == "Unassigned" else "Need Review"
+                    q["store_name"] = item.get("store_name", "")
+                    q["origin"] = item.get("origin", "")
+                    q["city"] = item.get("city", "")
+                    q["state"] = item.get("state", "")
+                    q["address"] = item.get("address", "")
+                    q["contact"] = item.get("contact", "")
+                    q["origin_name"] = item.get("origin_name", "")
+                    q["origin_address"] = item.get("origin_address", "")
+                    q["origin_contact"] = item.get("origin_contact", "")
+                    q["hub"] = item.get("hub", "")
+                    q["expected_racks"] = item.get("expected_racks", "")
+                    q["weight"] = item.get("weight", "")
+                    q["due_date"] = item.get("due_date", "")
+                    q["assigned_date"] = item.get("assigned_date", "")
+                    q["pdf_path"] = item.get("pdf_path", "")
+                    break
+            write_json(RMS_QUEUE_FILE, queue)
+
+            browser.close()
+            return jsonify({"ok": True, "item": item, "message": f"BOL {bol_number} repaired. Status: {item.get('status')}. Racks: {item.get('expected_racks')}"})
+        except Exception as e:
+            try:
+                browser.close()
+            except Exception:
+                pass
+            return jsonify({"ok": False, "message": str(e)[:300]})
+
+@app.route("/rms-queue")
+def rms_queue():
+    queue = read_json(RMS_QUEUE_FILE)
+    stores = read_json(STORES_FILE)
+    imported_bols = {clean(s.get("bol")) for s in stores if clean(s.get("bol"))}
+
+    for q in queue:
+        if clean(q.get("bol")) in imported_bols and q.get("queue_status") != "Ignored":
+            q["queue_status"] = "Imported"
+
+    write_json(RMS_QUEUE_FILE, queue)
+    return render_template("rms_queue.html", queue=queue)
+
+@app.route("/api/rms/queue-refresh", methods=["POST"])
+def api_rms_queue_refresh():
+    result = scan_rms_queue_with_playwright(headless=False)
+
+    history = read_json(SYNC_HISTORY_FILE)
+    result.update({
+        "id": str(uuid4()),
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "action": "Refresh RMS Queue"
+    })
+    history.append(result)
+    write_json(SYNC_HISTORY_FILE, history)
+    audit("Refresh RMS Queue", result)
+
+    return jsonify({"ok": result.get("ok", False), "result": result})
+
+@app.route("/api/rms/queue-import-selected", methods=["POST"])
+def api_rms_queue_import_selected():
+    payload = request.get_json(force=True)
+    bol_numbers = [clean(x) for x in payload.get("bols", []) if clean(x)]
+
+    if not bol_numbers:
+        return jsonify({"ok": False, "result": {"message": "Select at least one BOL."}})
+
+    result = import_selected_queue_bols(bol_numbers, headless=False)
+
+    history = read_json(SYNC_HISTORY_FILE)
+    result.update({
+        "id": str(uuid4()),
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "action": "Import Selected RMS Queue"
+    })
+    history.append(result)
+    write_json(SYNC_HISTORY_FILE, history)
+    audit("Import Selected RMS Queue", result)
+
+    return jsonify({"ok": result.get("ok", False), "result": result})
+
+@app.route("/api/rms/queue-update-status", methods=["POST"])
+def api_rms_queue_update_status():
+    payload = request.get_json(force=True)
+    bol_numbers = [clean(x) for x in payload.get("bols", []) if clean(x)]
+    status = clean(payload.get("status")) or "New"
+
+    queue = read_json(RMS_QUEUE_FILE)
+    updated = 0
+    for q in queue:
+        if clean(q.get("bol")) in bol_numbers:
+            q["queue_status"] = status
+            q["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            updated += 1
+
+    write_json(RMS_QUEUE_FILE, queue)
+    audit("Update RMS Queue Status", {"status": status, "updated": updated})
+
+    return jsonify({"ok": True, "updated": updated})
+
 @app.route("/rms-sync")
 def rms_sync():
     settings_data = read_json(SETTINGS_FILE)
@@ -516,6 +1442,12 @@ def api_rms_test_connection():
         "action": "Test RMS Login"
     })
 
+    settings_data = read_json(SETTINGS_FILE)
+    settings_data["rms_connection_status"] = result.get("status", "Unknown")
+    if result.get("ok"):
+        settings_data["last_rms_login"] = datetime.now().isoformat(timespec="seconds")
+    write_json(SETTINGS_FILE, settings_data)
+
     history.append(result)
     write_json(SYNC_HISTORY_FILE, history)
     audit("RMS Login Test", result)
@@ -526,22 +1458,20 @@ def api_rms_test_connection():
 def api_rms_sync_open_bols():
     history = read_json(SYNC_HISTORY_FILE)
 
-    result = rms_login_with_playwright(headless=False)
+    # Safety default: import all found BOLs. Set max_bols in JSON for testing if needed.
+    payload = request.get_json(silent=True) or {}
+    max_bols = int(payload.get("max_bols") or 0)
+
+    result = rms_full_import_with_playwright(headless=False, max_bols=max_bols)
     result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
-        "action": "Scan RMS Open BOLs",
-        "imported": 0,
-        "skipped": 0,
-        "need_review": 0
+        "action": "Full RMS Multi-Page Import"
     })
-
-    if result.get("ok"):
-        result["message"] = result["message"] + " Next build will open each BOL, read Printable BOL, and import automatically."
 
     history.append(result)
     write_json(SYNC_HISTORY_FILE, history)
-    audit("RMS Open BOL Scan", result)
+    audit("Full RMS Multi-Page Import", result)
 
     return jsonify({"ok": result.get("ok", False), "result": result})
 
@@ -553,11 +1483,20 @@ def settings():
         settings_data["rms_username"] = clean(request.form.get("rms_username"))
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
+        settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
+
         rms_password = clean(request.form.get("rms_password"))
-        if rms_password:
-            settings_data["rms_password"] = rms_password
-            settings_data["rms_password_saved"] = True
-        elif not settings_data.get("rms_password"):
+
+        if settings_data["remember_rms_credentials"]:
+            if rms_password:
+                settings_data["rms_password"] = rms_password
+                settings_data["rms_password_saved"] = True
+            elif settings_data.get("rms_password"):
+                settings_data["rms_password_saved"] = True
+            else:
+                settings_data["rms_password_saved"] = False
+        else:
+            settings_data["rms_password"] = ""
             settings_data["rms_password_saved"] = False
         write_json(SETTINGS_FILE, settings_data)
         audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"]})

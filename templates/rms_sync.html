@@ -4,9 +4,10 @@
 <header class="topbar">
     <div>
         <h2>RMS Sync</h2>
-        <p>RMS browser automation: login, open Bills of Lading page, and scan BOL list.</p>
+        <p>RMS browser automation foundation. Use RMS Queue for safe select-and-import workflow.</p>
     </div>
     <div>
+        <a class="link-btn" href="/rms-queue">RMS Queue</a>
         <a class="link-btn" href="/settings">RMS Settings</a>
         <a class="link-btn" href="/dispatch-map">Dispatch Map</a>
     </div>
@@ -17,7 +18,7 @@
     <div class="metric"><span>BOL Page</span><strong>Mapped</strong></div>
     <div class="metric"><span>Corner Post Rule</span><strong>÷ 4</strong></div>
     <div class="metric"><span>Duplicate Check</span><strong>On</strong></div>
-    <div class="metric"><span>History</span><strong>{{ history|length }}</strong></div>
+    <div class="metric"><span>Pagination</span><strong>All Pages</strong></div>
 </section>
 
 <div class="driver-list">
@@ -29,7 +30,7 @@
         <p><b>Password Saved:</b> {{ "Yes" if settings.rms_password_saved else "No" }}</p>
 
         <button class="secondary-btn" onclick="testConnection()">Test RMS Login</button>
-        <button class="primary-btn" onclick="syncOpenBols()">Scan RMS BOL List</button>
+        <button class="primary-btn" onclick="syncOpenBols()">Legacy Full Sync</button>
 
         <div id="sync-result" class="notice" style="display:none;margin-top:15px;"></div>
     </section>
@@ -37,13 +38,13 @@
     <section class="panel">
         <h3>Approved RMS Automation Path</h3>
         <p>1. Login to RMS</p>
-        <p>2. Open Bills of Lading page</p>
-        <p>3. Filter Incomplete / Assigned BOLs</p>
-        <p>4. Open BOL detail</p>
+        <p>2. Open Bills of Lading page and scan every page</p>
+        <p>3. Collect BOLs across pagination</p>
+        <p>4. Open each BOL detail</p>
         <p>5. Open Printable Bill of Lading</p>
         <p>6. Extract 84&quot; Corner Post quantity</p>
         <p>7. Calculate racks: Corner Posts ÷ 4</p>
-        <p>8. Import to Dispatch Map</p>
+        <p>8. Import new BOLs to Dispatch Map</p>
     </section>
 </div>
 
@@ -69,7 +70,7 @@ async function testConnection(){
     const data = await response.json();
     const box = document.getElementById("sync-result");
     box.style.display = "block";
-    box.innerText = data.result.message;
+    box.innerText = data.result.message + (data.result.errors && data.result.errors.length ? '\nErrors: ' + data.result.errors.join('; ') : '');
 }
 
 async function syncOpenBols(){
@@ -77,7 +78,7 @@ async function syncOpenBols(){
     const data = await response.json();
     const box = document.getElementById("sync-result");
     box.style.display = "block";
-    box.innerText = data.result.message;
+    box.innerText = data.result.message + (data.result.errors && data.result.errors.length ? '\nErrors: ' + data.result.errors.join('; ') : '');
 }
 </script>
 

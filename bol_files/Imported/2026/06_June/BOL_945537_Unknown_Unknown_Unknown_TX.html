@@ -1,0 +1,659 @@
+<!DOCTYPE html><html class="w-full h-screen pb-24 overflow-visible" lang="en"><head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="KhOMxQfr4yHCE5lYBwN6IRpwxQ8Z1FhfMz23a6cR">
+    <title>RMS - LadingBillDetail</title>
+    <!-- Styles -->
+    <style type="text/css">:root, :host {
+  --fa-font-solid: normal 900 1em/1 "Font Awesome 6 Free";
+  --fa-font-regular: normal 400 1em/1 "Font Awesome 6 Free";
+  --fa-font-light: normal 300 1em/1 "Font Awesome 6 Pro";
+  --fa-font-thin: normal 100 1em/1 "Font Awesome 6 Pro";
+  --fa-font-duotone: normal 900 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-regular: normal 400 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-light: normal 300 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-duotone-thin: normal 100 1em/1 "Font Awesome 6 Duotone";
+  --fa-font-brands: normal 400 1em/1 "Font Awesome 6 Brands";
+  --fa-font-sharp-solid: normal 900 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-regular: normal 400 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-light: normal 300 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-thin: normal 100 1em/1 "Font Awesome 6 Sharp";
+  --fa-font-sharp-duotone-solid: normal 900 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-regular: normal 400 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-light: normal 300 1em/1 "Font Awesome 6 Sharp Duotone";
+  --fa-font-sharp-duotone-thin: normal 100 1em/1 "Font Awesome 6 Sharp Duotone";
+}
+
+svg:not(:root).svg-inline--fa, svg:not(:host).svg-inline--fa {
+  overflow: visible;
+  box-sizing: content-box;
+}
+
+.svg-inline--fa {
+  display: var(--fa-display, inline-block);
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+}
+.svg-inline--fa.fa-2xs {
+  vertical-align: 0.1em;
+}
+.svg-inline--fa.fa-xs {
+  vertical-align: 0em;
+}
+.svg-inline--fa.fa-sm {
+  vertical-align: -0.0714285705em;
+}
+.svg-inline--fa.fa-lg {
+  vertical-align: -0.2em;
+}
+.svg-inline--fa.fa-xl {
+  vertical-align: -0.25em;
+}
+.svg-inline--fa.fa-2xl {
+  vertical-align: -0.3125em;
+}
+.svg-inline--fa.fa-pull-left {
+  margin-right: var(--fa-pull-margin, 0.3em);
+  width: auto;
+}
+.svg-inline--fa.fa-pull-right {
+  margin-left: var(--fa-pull-margin, 0.3em);
+  width: auto;
+}
+.svg-inline--fa.fa-li {
+  width: var(--fa-li-width, 2em);
+  top: 0.25em;
+}
+.svg-inline--fa.fa-fw {
+  width: var(--fa-fw-width, 1.25em);
+}
+
+.fa-layers svg.svg-inline--fa {
+  bottom: 0;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.fa-layers-counter, .fa-layers-text {
+  display: inline-block;
+  position: absolute;
+  text-align: center;
+}
+
+.fa-layers {
+  display: inline-block;
+  height: 1em;
+  position: relative;
+  text-align: center;
+  vertical-align: -0.125em;
+  width: 1em;
+}
+.fa-layers svg.svg-inline--fa {
+  transform-origin: center center;
+}
+
+.fa-layers-text {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+
+.fa-layers-counter {
+  background-color: var(--fa-counter-background-color, #ff253a);
+  border-radius: var(--fa-counter-border-radius, 1em);
+  box-sizing: border-box;
+  color: var(--fa-inverse, #fff);
+  line-height: var(--fa-counter-line-height, 1);
+  max-width: var(--fa-counter-max-width, 5em);
+  min-width: var(--fa-counter-min-width, 1.5em);
+  overflow: hidden;
+  padding: var(--fa-counter-padding, 0.25em 0.5em);
+  right: var(--fa-right, 0);
+  text-overflow: ellipsis;
+  top: var(--fa-top, 0);
+  transform: scale(var(--fa-counter-scale, 0.25));
+  transform-origin: top right;
+}
+
+.fa-layers-bottom-right {
+  bottom: var(--fa-bottom, 0);
+  right: var(--fa-right, 0);
+  top: auto;
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: bottom right;
+}
+
+.fa-layers-bottom-left {
+  bottom: var(--fa-bottom, 0);
+  left: var(--fa-left, 0);
+  right: auto;
+  top: auto;
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: bottom left;
+}
+
+.fa-layers-top-right {
+  top: var(--fa-top, 0);
+  right: var(--fa-right, 0);
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: top right;
+}
+
+.fa-layers-top-left {
+  left: var(--fa-left, 0);
+  right: auto;
+  top: var(--fa-top, 0);
+  transform: scale(var(--fa-layers-scale, 0.25));
+  transform-origin: top left;
+}
+
+.fa-1x {
+  font-size: 1em;
+}
+
+.fa-2x {
+  font-size: 2em;
+}
+
+.fa-3x {
+  font-size: 3em;
+}
+
+.fa-4x {
+  font-size: 4em;
+}
+
+.fa-5x {
+  font-size: 5em;
+}
+
+.fa-6x {
+  font-size: 6em;
+}
+
+.fa-7x {
+  font-size: 7em;
+}
+
+.fa-8x {
+  font-size: 8em;
+}
+
+.fa-9x {
+  font-size: 9em;
+}
+
+.fa-10x {
+  font-size: 10em;
+}
+
+.fa-2xs {
+  font-size: 0.625em;
+  line-height: 0.1em;
+  vertical-align: 0.225em;
+}
+
+.fa-xs {
+  font-size: 0.75em;
+  line-height: 0.0833333337em;
+  vertical-align: 0.125em;
+}
+
+.fa-sm {
+  font-size: 0.875em;
+  line-height: 0.0714285718em;
+  vertical-align: 0.0535714295em;
+}
+
+.fa-lg {
+  font-size: 1.25em;
+  line-height: 0.05em;
+  vertical-align: -0.075em;
+}
+
+.fa-xl {
+  font-size: 1.5em;
+  line-height: 0.0416666682em;
+  vertical-align: -0.125em;
+}
+
+.fa-2xl {
+  font-size: 2em;
+  line-height: 0.03125em;
+  vertical-align: -0.1875em;
+}
+
+.fa-fw {
+  text-align: center;
+  width: 1.25em;
+}
+
+.fa-ul {
+  list-style-type: none;
+  margin-left: var(--fa-li-margin, 2.5em);
+  padding-left: 0;
+}
+.fa-ul > li {
+  position: relative;
+}
+
+.fa-li {
+  left: calc(-1 * var(--fa-li-width, 2em));
+  position: absolute;
+  text-align: center;
+  width: var(--fa-li-width, 2em);
+  line-height: inherit;
+}
+
+.fa-border {
+  border-color: var(--fa-border-color, #eee);
+  border-radius: var(--fa-border-radius, 0.1em);
+  border-style: var(--fa-border-style, solid);
+  border-width: var(--fa-border-width, 0.08em);
+  padding: var(--fa-border-padding, 0.2em 0.25em 0.15em);
+}
+
+.fa-pull-left {
+  float: left;
+  margin-right: var(--fa-pull-margin, 0.3em);
+}
+
+.fa-pull-right {
+  float: right;
+  margin-left: var(--fa-pull-margin, 0.3em);
+}
+
+.fa-beat {
+  animation-name: fa-beat;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, ease-in-out);
+}
+
+.fa-bounce {
+  animation-name: fa-bounce;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.28, 0.84, 0.42, 1));
+}
+
+.fa-fade {
+  animation-name: fa-fade;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+}
+
+.fa-beat-fade {
+  animation-name: fa-beat-fade;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+}
+
+.fa-flip {
+  animation-name: fa-flip;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, ease-in-out);
+}
+
+.fa-shake {
+  animation-name: fa-shake;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, linear);
+}
+
+.fa-spin {
+  animation-name: fa-spin;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 2s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, linear);
+}
+
+.fa-spin-reverse {
+  --fa-animation-direction: reverse;
+}
+
+.fa-pulse,
+.fa-spin-pulse {
+  animation-name: fa-spin;
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 1s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, steps(8));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-beat,
+.fa-bounce,
+.fa-fade,
+.fa-beat-fade,
+.fa-flip,
+.fa-pulse,
+.fa-shake,
+.fa-spin,
+.fa-spin-pulse {
+    animation-delay: -1ms;
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+    transition-delay: 0s;
+    transition-duration: 0s;
+  }
+}
+@keyframes fa-beat {
+  0%, 90% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(var(--fa-beat-scale, 1.25));
+  }
+}
+@keyframes fa-bounce {
+  0% {
+    transform: scale(1, 1) translateY(0);
+  }
+  10% {
+    transform: scale(var(--fa-bounce-start-scale-x, 1.1), var(--fa-bounce-start-scale-y, 0.9)) translateY(0);
+  }
+  30% {
+    transform: scale(var(--fa-bounce-jump-scale-x, 0.9), var(--fa-bounce-jump-scale-y, 1.1)) translateY(var(--fa-bounce-height, -0.5em));
+  }
+  50% {
+    transform: scale(var(--fa-bounce-land-scale-x, 1.05), var(--fa-bounce-land-scale-y, 0.95)) translateY(0);
+  }
+  57% {
+    transform: scale(1, 1) translateY(var(--fa-bounce-rebound, -0.125em));
+  }
+  64% {
+    transform: scale(1, 1) translateY(0);
+  }
+  100% {
+    transform: scale(1, 1) translateY(0);
+  }
+}
+@keyframes fa-fade {
+  50% {
+    opacity: var(--fa-fade-opacity, 0.4);
+  }
+}
+@keyframes fa-beat-fade {
+  0%, 100% {
+    opacity: var(--fa-beat-fade-opacity, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(var(--fa-beat-fade-scale, 1.125));
+  }
+}
+@keyframes fa-flip {
+  50% {
+    transform: rotate3d(var(--fa-flip-x, 0), var(--fa-flip-y, 1), var(--fa-flip-z, 0), var(--fa-flip-angle, -180deg));
+  }
+}
+@keyframes fa-shake {
+  0% {
+    transform: rotate(-15deg);
+  }
+  4% {
+    transform: rotate(15deg);
+  }
+  8%, 24% {
+    transform: rotate(-18deg);
+  }
+  12%, 28% {
+    transform: rotate(18deg);
+  }
+  16% {
+    transform: rotate(-22deg);
+  }
+  20% {
+    transform: rotate(22deg);
+  }
+  32% {
+    transform: rotate(-12deg);
+  }
+  36% {
+    transform: rotate(12deg);
+  }
+  40%, 100% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.fa-rotate-90 {
+  transform: rotate(90deg);
+}
+
+.fa-rotate-180 {
+  transform: rotate(180deg);
+}
+
+.fa-rotate-270 {
+  transform: rotate(270deg);
+}
+
+.fa-flip-horizontal {
+  transform: scale(-1, 1);
+}
+
+.fa-flip-vertical {
+  transform: scale(1, -1);
+}
+
+.fa-flip-both,
+.fa-flip-horizontal.fa-flip-vertical {
+  transform: scale(-1, -1);
+}
+
+.fa-rotate-by {
+  transform: rotate(var(--fa-rotate-angle, 0));
+}
+
+.fa-stack {
+  display: inline-block;
+  vertical-align: middle;
+  height: 2em;
+  position: relative;
+  width: 2.5em;
+}
+
+.fa-stack-1x,
+.fa-stack-2x {
+  bottom: 0;
+  left: 0;
+  margin: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: var(--fa-stack-z-index, auto);
+}
+
+.svg-inline--fa.fa-stack-1x {
+  height: 1em;
+  width: 1.25em;
+}
+.svg-inline--fa.fa-stack-2x {
+  height: 2em;
+  width: 2.5em;
+}
+
+.fa-inverse {
+  color: var(--fa-inverse, #fff);
+}
+
+.sr-only,
+.fa-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:not(:focus),
+.fa-sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.svg-inline--fa .fa-primary {
+  fill: var(--fa-primary-color, currentColor);
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa .fa-secondary {
+  fill: var(--fa-secondary-color, currentColor);
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-primary {
+  opacity: var(--fa-secondary-opacity, 0.4);
+}
+
+.svg-inline--fa.fa-swap-opacity .fa-secondary {
+  opacity: var(--fa-primary-opacity, 1);
+}
+
+.svg-inline--fa mask .fa-primary,
+.svg-inline--fa mask .fa-secondary {
+  fill: black;
+}</style><link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="preload" as="style" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/app-rweeJo89.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/fortawesome-A2qYgHCJ.js"><link rel="modulepreload" as="script" href="https://rms.reusability.com/build/assets/lodash-1qI-k1uP.js"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-D6J8aFTj.css"><link rel="stylesheet" href="https://rms.reusability.com/build/assets/app-ClvLTrNr.css"><script type="text/javascript" async="" src="https://www.googletagmanager.com/gtag/js?id=G-V1LEVKMM8Y&amp;cx=c&amp;gtm=4e66h0"></script><script async="" src="https://www.googletagmanager.com/gtm.js?id=GTM-MHTSPMN"></script><script type="module" src="https://rms.reusability.com/build/assets/app-rweeJo89.js"></script>        <!-- Google Tag Manager -->
+    <script type="text/javascript">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-MHTSPMN');</script>
+    <!-- End Google Tag Manager -->
+    <style type="text/css">
+.mapdiv[data-v-177d06e3] {
+  width: 100%;
+  height: 100%;
+}
+</style><style type="text/css">
+.info-window-content[data-v-5b373d6e] {
+  display: none;
+}
+.mapdiv .info-window-content[data-v-5b373d6e] {
+  display: block;
+}
+</style><style type="text/css" data-primevue-style-id="base">
+.p-hidden-accessible {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.p-hidden-accessible input,
+.p-hidden-accessible select {
+    transform: scale(0);
+}
+
+.p-overflow-hidden {
+    overflow: hidden;
+    padding-right: var(--scrollbar-width);
+}
+</style><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/BolDetail-CqNfGtgw.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/primevue-CNRZMFHf.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue2-CNLaDoNn.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrdersService-BdWAuq1_.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/axios-B9ygI19o.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderLineItems-BXeof2pV.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/Stages-CPr6FDoP.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderSkusForm-BrT7YNB8.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/AssetsService-Dj7-NXLJ.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderComponentTypes-Dz1-O3LS.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/PlanLineItemsService-CaSugdtK.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/PlansService-Ck5suYz5.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/SkuEquivalentsService-C_YfQDkT.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/FormSkeleton-B0LOEBXY.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/RMSInputNumber-DEbhgoNU.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/RMSInputSwitch-BlBrosW7.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/BolsService-DnxGnQYZ.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/LocationsService-Brg6HrsN.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/TransitTypesService-BwPxZtgk.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/PreBillingMinQtyOverrideReasonsService-D_AEsMpx.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/TransitTypes-CkciMuyb.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/LadingBillStatusTypes-BfUhLMuz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderTypes-CP3qfu0s.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/RMSCalendar-EKNzeodv.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/luxon-B4E9XLgp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/RMSTextArea-to1XynuE.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/LocationAddress-CLgipses.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/toastMessageFormatUtility-wbC4isM_.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/OrderTypesService-Cwj6g7eA.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/ProgramsFilteredDropdown-UDPFe4-E.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/ProgramsService-DLljK90r.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/RMSDataTable-CLuTQOK1.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/ReportCreateModal-D3k2zBNG.js"><link rel="stylesheet" crossorigin="" href="/build/assets/RMSDataTable-C_7h6h5h.css"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-router-BpBw7Eqp.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue1-urecwTN2.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/chartjs-OdaPV79u.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue-chart-3-Cx0eXWQz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/lodash-1qI-k1uP.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vendor-CQDYJJfz.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/vue3stuff-D0BniihC.js"><link rel="modulepreload" as="script" crossorigin="" href="/build/assets/fortawesome-A2qYgHCJ.js"><style type="text/css">
+                        @media screen and (max-width: 960px) {
+                            .p-overlaypanel[pv_id_1] {
+                                width: 75vw !important;
+                            }
+                        }
+                    </style><style type="text/css" data-primevue-style-id="baseicon">
+.p-icon {
+    display: inline-block;
+}
+
+.p-icon-spin {
+    -webkit-animation: p-icon-spin 2s infinite linear;
+    animation: p-icon-spin 2s infinite linear;
+}
+
+@-webkit-keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+
+@keyframes p-icon-spin {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(359deg);
+        transform: rotate(359deg);
+    }
+}
+</style></head>
+
+<body id="docs-root" class="w-full h-screen overflow-hidden font-sans antialiased leading-none bg-gray-100">
+
+        <!-- Google Tag Manager (noscript) -->
+    <noscript>
+        <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MHTSPMN" height="0" width="0"
+                style="display:none;visibility:hidden"
+        ></iframe>
+    </noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <div class="flex flex-col">
+        <div class="h-screen">
+            <div id="vueApp" data-v-app=""><div class="vh-100 bg-gray-50"><div class="flex pt-4 app-shell-top-bar sm:px-4 drop-shadow-lg"><div class="flex-none w-[205px] logo-container sticky top-0"><div class="float-left"><div><img class="mx-auto h-14" src="/assets/images/logos/RMS_light_sans_company.svg" alt="RMS Logo"></div></div><!----></div><div class="flex-1"></div><div class="ml-4 text-s"><button class="p-button p-component user-profile-button" type="button" aria-label="Jessica Perez" aria:haspopup="true" aria-controls="overlay_panel" data-pc-name="button" data-pc-section="root"><span class="p-button-icon p-button-icon-left pi pi-user" data-pc-section="icon"></span><span class="p-button-label" data-pc-section="label">Jessica Perez</span><!----></button></div></div><div class="sticky top-0 left-0 flex h-screen"><div class="relative left-0 w-[220px] pb-10 overflow-auto z-50 transition-all duration-500 ease-in-out sidebar-container"><div class="w-full py-4"><div class="w-full pt-4 pb-4"><div class="sidebar-navigation"><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><svg class="svg-inline--fa fa-angles-left float-right mb-6 mr-2 text-xl text-gray-300 transition-all duration-200 ease-in-out cursor-pointer hover:text-white" aria-labelledby="svg-inline--fa-title-XXkuf16ZvJvi" data-prefix="fas" data-icon="angles-left" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title class="" id="svg-inline--fa-title-XXkuf16ZvJvi">Close menu</title><path class="" fill="currentColor" d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160zm352-160l-160 160c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L301.3 256 438.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0z"></path></svg></div></div><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><div class="p-accordion p-component" data-pc-name="accordion" data-pc-section="root"><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="0"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_0_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_0_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-truck fa-flip-horizontal text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="truck" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M48 0C21.5 0 0 21.5 0 48L0 368c0 26.5 21.5 48 48 48l16 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-64 0-32 0-18.7c0-17-6.7-33.3-18.7-45.3L512 114.7c-12-12-28.3-18.7-45.3-18.7L416 96l0-48c0-26.5-21.5-48-48-48L48 0zM416 160l50.7 0L544 237.3l0 18.7-128 0 0-96zM112 416a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path></svg><span class="ml-4">Recoveries</span></a></div><div id="pv_id_2_0_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_0_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/recoveries-by-zone" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Zones</span></div></div></a></div></div><div><div><a href="/recoveries-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Locations</span></div></div></a></div></div><div><div><a href="/recoveries-by-component" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Components</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="1"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_1_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_1_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-box-open text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="box-open" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M58.9 42.1c3-6.1 9.6-9.6 16.3-8.7L320 64 564.8 33.4c6.7-.8 13.3 2.7 16.3 8.7l41.7 83.4c9 17.9-.6 39.6-19.8 45.1L439.6 217.3c-13.9 4-28.8-1.9-36.2-14.3L320 64 236.6 203c-7.4 12.4-22.3 18.3-36.2 14.3L37.1 170.6c-19.3-5.5-28.8-27.2-19.8-45.1L58.9 42.1zM321.1 128l54.9 91.4c14.9 24.8 44.6 36.6 72.5 28.6L576 211.6l0 167c0 22-15 41.2-36.4 46.6l-204.1 51c-10.2 2.6-20.9 2.6-31 0l-204.1-51C79 419.7 64 400.5 64 378.5l0-167L191.6 248c27.8 8 57.6-3.8 72.5-28.6L318.9 128l2.2 0z"></path></svg><span class="ml-4">Orders &amp; BOLs</span></a></div><div id="pv_id_2_1_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_1_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/bills-of-lading" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">BOLs</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="2"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_2_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_2_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-address-book text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="address-book" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M96 0C60.7 0 32 28.7 32 64l0 384c0 35.3 28.7 64 64 64l288 0c35.3 0 64-28.7 64-64l0-384c0-35.3-28.7-64-64-64L96 0zM208 288l64 0c44.2 0 80 35.8 80 80c0 8.8-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16c0-44.2 35.8-80 80-80zm-32-96a64 64 0 1 1 128 0 64 64 0 1 1 -128 0zM512 80c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64zM496 192c-8.8 0-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8-7.2-16-16-16zm16 144c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64z"></path></svg><span class="ml-4">Account</span></a></div><div id="pv_id_2_2_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_2_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/accounts/SUMOGAUS2/inventory-location-summary" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">My Account</span></div></div></a></div></div><div><div><a href="/locations" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">My Locations</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="3"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_3_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_3_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-chart-line text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chart-line" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"></path></svg><span class="ml-4">Reports</span></a></div><div id="pv_id_2_3_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_3_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/reports/orders" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Order Details</span></div></div></a></div></div><div><div><a href="/reports/completed-orders" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Completed Orders</span></div></div></a></div></div><div><div><a href="/reports/current-inventory-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Current Inventory By Location</span></div></div></a></div></div><div><div><a href="/reports/historical-inventory-by-location" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Historical Inventory By Location</span></div></div></a></div></div><div><div><a href="/reports" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Archive</span></div></div></a></div></div></div></div></div></div><div class="p-accordion-tab" data-pc-section="root" data-pc-name="accordiontab" data-pc-index="4"><div class="p-accordion-header" data-pc-section="header"><a id="pv_id_2_4_header_action" class="p-accordion-header-link p-accordion-header-action" tabindex="0" role="button" aria-controls="pv_id_2_4_content" data-pc-section="headeraction"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon p-accordion-toggle-icon" aria-hidden="true" data-pc-section="headericon"><path d="M4.38708 13C4.28408 13.0005 4.18203 12.9804 4.08691 12.9409C3.99178 12.9014 3.9055 12.8433 3.83313 12.7701C3.68634 12.6231 3.60388 12.4238 3.60388 12.2161C3.60388 12.0084 3.68634 11.8091 3.83313 11.6622L8.50507 6.99022L3.83313 2.31827C3.69467 2.16968 3.61928 1.97313 3.62287 1.77005C3.62645 1.56698 3.70872 1.37322 3.85234 1.22959C3.99596 1.08597 4.18972 1.00371 4.3928 1.00012C4.59588 0.996539 4.79242 1.07192 4.94102 1.21039L10.1669 6.43628C10.3137 6.58325 10.3962 6.78249 10.3962 6.99022C10.3962 7.19795 10.3137 7.39718 10.1669 7.54416L4.94102 12.7701C4.86865 12.8433 4.78237 12.9014 4.68724 12.9409C4.59212 12.9804 4.49007 13.0005 4.38708 13Z" fill="currentColor"></path></svg><!----><svg class="svg-inline--fa fa-question text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="question" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path class="" fill="currentColor" d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z"></path></svg><span class="ml-4">Help</span></a></div><div id="pv_id_2_4_content" class="p-toggleable-content" role="region" aria-labelledby="pv_id_2_4_header_action" data-pc-section="accordiontab.transition" style="display: none;"><div class="p-accordion-content" data-pc-section="content"><div><div><div><a href="/help-files" class="text-gray-450 hover:bg-rms-primary-lighter hover:text-white group w-full flex flex-col text-xs font-medium pt-2 pb-2 pl-2 pr-2"><div class="text-left"><div class="float-left"><span class="mt-2">Help Files</span></div></div></a></div></div></div></div></div></div></div></div></div></div></div></div></div><div class="h-full absolute  -left-[100px] z-50 transition-all duration-500 ease-in-out sidebar-container"><div class="w-full py-4"><div class="w-full pb-4 text-center"><div class="mt-4 sidebar-navigation"><div class="grid grid-cols-1 gap-4"><div class="object-center col-span-1"><svg class="svg-inline--fa fa-angles-right mb-6 text-xl text-gray-300 transition-all duration-200 ease-in-out cursor-pointer hover:text-white" aria-labelledby="svg-inline--fa-title-wVWzPejYQ1HH" data-prefix="fas" data-icon="angles-right" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title class="" id="svg-inline--fa-title-wVWzPejYQ1HH">Open menu</title><path class="" fill="currentColor" d="M470.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 256 265.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160zm-352 160l160-160c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L210.7 256 73.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0z"></path></svg></div></div><div class="grid grid-cols-1 gap-4"><div class="col-span-1"><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-truck fa-flip-horizontal text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="truck" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M48 0C21.5 0 0 21.5 0 48L0 368c0 26.5 21.5 48 48 48l16 0c0 53 43 96 96 96s96-43 96-96l128 0c0 53 43 96 96 96s96-43 96-96l32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-64 0-32 0-18.7c0-17-6.7-33.3-18.7-45.3L512 114.7c-12-12-28.3-18.7-45.3-18.7L416 96l0-48c0-26.5-21.5-48-48-48L48 0zM416 160l50.7 0L544 237.3l0 18.7-128 0 0-96zM112 416a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zm368-48a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-box-open text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="box-open" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path class="" fill="currentColor" d="M58.9 42.1c3-6.1 9.6-9.6 16.3-8.7L320 64 564.8 33.4c6.7-.8 13.3 2.7 16.3 8.7l41.7 83.4c9 17.9-.6 39.6-19.8 45.1L439.6 217.3c-13.9 4-28.8-1.9-36.2-14.3L320 64 236.6 203c-7.4 12.4-22.3 18.3-36.2 14.3L37.1 170.6c-19.3-5.5-28.8-27.2-19.8-45.1L58.9 42.1zM321.1 128l54.9 91.4c14.9 24.8 44.6 36.6 72.5 28.6L576 211.6l0 167c0 22-15 41.2-36.4 46.6l-204.1 51c-10.2 2.6-20.9 2.6-31 0l-204.1-51C79 419.7 64 400.5 64 378.5l0-167L191.6 248c27.8 8 57.6-3.8 72.5-28.6L318.9 128l2.2 0z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-address-book text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="address-book" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M96 0C60.7 0 32 28.7 32 64l0 384c0 35.3 28.7 64 64 64l288 0c35.3 0 64-28.7 64-64l0-384c0-35.3-28.7-64-64-64L96 0zM208 288l64 0c44.2 0 80 35.8 80 80c0 8.8-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16c0-44.2 35.8-80 80-80zm-32-96a64 64 0 1 1 128 0 64 64 0 1 1 -128 0zM512 80c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64zM496 192c-8.8 0-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64c0-8.8-7.2-16-16-16zm16 144c0-8.8-7.2-16-16-16s-16 7.2-16 16l0 64c0 8.8 7.2 16 16 16s16-7.2 16-16l0-64z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-chart-line text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chart-line" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64L0 400c0 44.2 35.8 80 80 80l400 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L80 416c-8.8 0-16-7.2-16-16L64 64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z"></path></svg></div></div><div><div class="h-[43px] border-b border-gray-200 cursor-pointer flex flex-col justify-center items-center"><svg class="svg-inline--fa fa-question text-white fa-fw" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="question" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path class="" fill="currentColor" d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z"></path></svg></div></div></div></div></div></div></div></div><div class="absolute version-container w-[185px] bottom-20 left-4 z-50"><p class="text-sm text-gray-300">RMS v3.9.3.0</p></div><div class="absolute version-container bottom-20 left-2 z-50" style="display: none;"><p class="text-sm text-gray-300">RMS</p><p class="text-xs text-gray-300">v3.9.3.0</p></div><div class="flex-row flex-1 overflow-auto border-2"><div class="flex overflow-auto primary-content main-content-container"><main class="flex-auto"><section aria-labelledby="primary-heading" class="h-full"><div class="w-full px-5 py-1"><div><div class="mt-4 mb-4 bg-gray-50"><button class="p-button p-component p-button-link excludeFromPrint" type="button" aria-label="View Printable Bill of Lading" data-pc-name="button" data-pc-section="root"><span class="p-button-icon p-button-icon-left pi pi-print" data-pc-section="icon"></span><span class="p-button-label" data-pc-section="label">View Printable Bill of Lading</span><!----></button></div><div class="max-w-full prose"><h2 class="m-0"> Bill of Lading 945537 (Assigned)</h2><div class="grid grid-cols-12 gap-4"><div class="w-full col-span-3 pl-4"><div><span class="font-bold">Total Work Orders: 1</span></div></div></div><div class="grid grid-cols-12 gap-4"><div class="w-full col-span-3 pl-4"><div class="text-xs"><span class="font-bold">Created: </span><span>06/16/2026 10:42 AM by </span><span class="font-bold">Tori Mohlman</span></div><div class="text-xs"><span class="font-bold">Updated: </span><span>06/16/2026 10:43 AM by </span><span class="font-bold">Tori Mohlman</span></div><!----></div><div class="w-full col-span-3"><div class="text-xs"><span class="font-bold">Provider Generated: </span><span>No</span></div><div class="text-xs"><span class="font-bold">Managed By TMS: </span><span>No</span></div></div></div></div><div class="p-divider p-component p-divider-horizontal p-divider-solid p-divider-left" role="separator" aria-orientation="horizontal" data-pc-name="divider" data-pc-section="root" style="justify-content: center;"><!----></div><div class="mt-4 mb-4 bg-gray-50"><div class="pb-10"><div><div class="grid grid-cols-12 gap-4"><div class="col-span-3"><div class="prose"><h4>Pickup From</h4><div><span>Home Depot (HD6847)</span></div><div class=""><div><span>2607 Texas 1604 Loop</span><!----></div><div><span>San Antonio, TX 78245</span></div><div>United States</div></div><h4>Pickup Time(s)</h4><div><!----><div><!----></div></div><h4>Pickup Notes</h4><div><!----></div><div class="field"><div><label for="pickup-date" class="pt-1"><span>Pickup Date</span><!----><!----><span class="pl-1 text-gray-400"><svg class="svg-inline--fa fa-circle-info" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="circle-info" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336l24 0 0-64-24 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0c13.3 0 24 10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"></path></svg></span></label><span id="pickup-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn p-calendar-disabled inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="pickup-date_panel" inputmode="none" disabled="" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-disabled p-datepicker-trigger" type="button" aria-label="Choose Date" disabled="" aria-haspopup="dialog" aria-expanded="false" aria-controls="pickup-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div></div></div><div class="col-span-3"><div class="prose"><h4>Deliver To</h4><div><span>4 US &amp; Company - San Antonio, TX (SUSATXUS)</span></div><div class=""><div><span>10536 Sentinel Dr.</span><!----></div><div><span>San Antonio, TX 78217</span></div><div>United States</div></div><h4>Delivery Time(s)</h4><div><!----><div><!----></div></div><h4>Delivery Notes</h4><div><div><span class="font-medium">Order #2947983: </span><span>Contact Jessica Perez (719)452-9856 jperez@lkotrucking.com - Shipping hours 10:00AM to 3:00PM Mon-Fri</span></div></div><div class="field"><div><label for="delivered-date" class="pt-1"><span>Delivered Date</span><!----><!----><span class="pl-1 text-gray-400"><svg class="svg-inline--fa fa-circle-info" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="circle-info" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336l24 0 0-64-24 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0c13.3 0 24 10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"></path></svg></span></label><span id="delivered-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn p-calendar-disabled inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="delivered-date_panel" inputmode="none" disabled="" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-disabled p-datepicker-trigger" type="button" aria-label="Choose Date" disabled="" aria-haspopup="dialog" aria-expanded="false" aria-controls="delivered-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div><!----></div></div><div class="col-span-3"><div class="prose mb-5"><div><span class="font-bold">Ship Method: </span>Provider</div><div><div><span class="font-bold">Provider: </span>4 US Texas</div></div></div><div><div class="field"><div><label for="assigned-date" class="pt-1"><span>Assigned Date</span><!----><!----><span class="pl-1 text-gray-400"><svg class="svg-inline--fa fa-circle-info" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="circle-info" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336l24 0 0-64-24 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0c13.3 0 24 10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"></path></svg></span></label><span id="assigned-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn p-calendar-disabled p-inputwrapper-filled inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="assigned-date_panel" inputmode="none" disabled="" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-disabled p-datepicker-trigger" type="button" aria-label="Choose Date" disabled="" aria-haspopup="dialog" aria-expanded="false" aria-controls="assigned-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div><div class="field"><div><label for="due-date" class="pt-1"><span>Due Date (PDT)</span><!----><!----><span class="pl-1 text-gray-400"><svg class="svg-inline--fa fa-circle-info" aria-hidden="true" focusable="false" data-prefix="fas" data-icon="circle-info" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path class="" fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336l24 0 0-64-24 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0c13.3 0 24 10.7 24 24l0 88 8 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-80 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"></path></svg></span></label><span id="due-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn p-calendar-disabled p-inputwrapper-filled inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="due-date_panel" inputmode="none" disabled="" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-disabled p-datepicker-trigger" type="button" aria-label="Choose Date" disabled="" aria-haspopup="dialog" aria-expanded="false" aria-controls="due-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div><div class="field"><div><label for="commit-date" class="pt-1"><span>Commit Date</span><!----><!----><!----></label><span id="commit-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="commit-date_panel" inputmode="none" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-datepicker-trigger" type="button" aria-label="Choose Date" aria-haspopup="dialog" aria-expanded="false" aria-controls="commit-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div><div class="field"><div><label for="modified-commit-date" class="pt-1"><span>Modified Commit Date</span><!----><!----><!----></label><span id="modified-commit-date" class="p-calendar p-component p-inputwrapper p-calendar-w-btn p-calendar-disabled inputfield w-full" data-pc-name="calendar" data-pc-section="root"><input type="text" role="combobox" class="p-inputtext p-component" autocomplete="off" aria-autocomplete="none" aria-haspopup="dialog" aria-expanded="false" aria-controls="modified-commit-date_panel" inputmode="none" disabled="" tabindex="0" data-pc-section="input"><button class="p-button p-component p-button-icon-only p-disabled p-datepicker-trigger" type="button" aria-label="Choose Date" disabled="" aria-haspopup="dialog" aria-expanded="false" aria-controls="modified-commit-date_panel" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M10.7838 1.51351H9.83783V0.567568C9.83783 0.417039 9.77804 0.272676 9.6716 0.166237C9.56516 0.0597971 9.42079 0 9.27027 0C9.11974 0 8.97538 0.0597971 8.86894 0.166237C8.7625 0.272676 8.7027 0.417039 8.7027 0.567568V1.51351H5.29729V0.567568C5.29729 0.417039 5.2375 0.272676 5.13106 0.166237C5.02462 0.0597971 4.88025 0 4.72973 0C4.5792 0 4.43484 0.0597971 4.3284 0.166237C4.22196 0.272676 4.16216 0.417039 4.16216 0.567568V1.51351H3.21621C2.66428 1.51351 2.13494 1.73277 1.74467 2.12305C1.35439 2.51333 1.13513 3.04266 1.13513 3.59459V11.9189C1.13513 12.4709 1.35439 13.0002 1.74467 13.3905C2.13494 13.7807 2.66428 14 3.21621 14H10.7838C11.3357 14 11.865 13.7807 12.2553 13.3905C12.6456 13.0002 12.8649 12.4709 12.8649 11.9189V3.59459C12.8649 3.04266 12.6456 2.51333 12.2553 2.12305C11.865 1.73277 11.3357 1.51351 10.7838 1.51351ZM3.21621 2.64865H4.16216V3.59459C4.16216 3.74512 4.22196 3.88949 4.3284 3.99593C4.43484 4.10237 4.5792 4.16216 4.72973 4.16216C4.88025 4.16216 5.02462 4.10237 5.13106 3.99593C5.2375 3.88949 5.29729 3.74512 5.29729 3.59459V2.64865H8.7027V3.59459C8.7027 3.74512 8.7625 3.88949 8.86894 3.99593C8.97538 4.10237 9.11974 4.16216 9.27027 4.16216C9.42079 4.16216 9.56516 4.10237 9.6716 3.99593C9.77804 3.88949 9.83783 3.74512 9.83783 3.59459V2.64865H10.7838C11.0347 2.64865 11.2753 2.74831 11.4527 2.92571C11.6301 3.10311 11.7297 3.34371 11.7297 3.59459V5.67568H2.27027V3.59459C2.27027 3.34371 2.36993 3.10311 2.54733 2.92571C2.72473 2.74831 2.96533 2.64865 3.21621 2.64865ZM10.7838 12.8649H3.21621C2.96533 12.8649 2.72473 12.7652 2.54733 12.5878C2.36993 12.4104 2.27027 12.1698 2.27027 11.9189V6.81081H11.7297V11.9189C11.7297 12.1698 11.6301 12.4104 11.4527 12.5878C11.2753 12.7652 11.0347 12.8649 10.7838 12.8649Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button></span></div></div></div></div></div></div><div class="grid grid-cols-12 gap-4 mt-4"><div class="col-span-3"><div class="pt-9 pb-2"><label for="pre_bill_min_qty_override" class="pt-1"><span>Pre-Billing Minimum Qty Override</span><!----><!----><!----></label><div class="p-inputswitch p-component p-disabled inputfield align-middle ml-2" data-pc-name="inputswitch" data-pc-section="root" data-p-highlight="false" data-p-disabled="true" style="position: relative;"><input id="pre_bill_min_qty_override" type="checkbox" role="switch" class="p-inputswitch-input" disabled="" aria-checked="false" data-pc-section="input"><span class="p-inputswitch-slider" data-pc-section="slider"></span></div></div></div><div class="field col-span-3"><div><label for="pre_bill_min_qty_override_reason_id" class="pt-1"><span>Pre-Billing Minimum Qty Override Reason</span><!----><!----><!----></label><div class="p-autocomplete p-component p-inputwrapper p-disabled p-autocomplete-dd w-full inputfield" id="pre_bill_min_qty_override_reason_id" data-pc-name="autocomplete" data-pc-section="root" style="position: relative;"><input type="text" class="p-autocomplete-input p-inputtext p-component p-autocomplete-dd-input" tabindex="-1" disabled="" autocomplete="off" role="combobox" aria-haspopup="listbox" aria-autocomplete="list" aria-expanded="false" aria-controls="pre_bill_min_qty_override_reason_id_list" data-pc-section="input" value=""><!----><!----><button class="p-button p-component p-button-icon-only p-disabled p-autocomplete-dropdown" type="button" disabled="" tabindex="-1" aria-hidden="true" data-pc-name="dropdownbutton" data-pc-extend="button" data-pc-section="root"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="p-icon" aria-hidden="true" data-pc-section="dropdownicon"><path d="M7.01744 10.398C6.91269 10.3985 6.8089 10.378 6.71215 10.3379C6.61541 10.2977 6.52766 10.2386 6.45405 10.1641L1.13907 4.84913C1.03306 4.69404 0.985221 4.5065 1.00399 4.31958C1.02276 4.13266 1.10693 3.95838 1.24166 3.82747C1.37639 3.69655 1.55301 3.61742 1.74039 3.60402C1.92777 3.59062 2.11386 3.64382 2.26584 3.75424L7.01744 8.47394L11.769 3.75424C11.9189 3.65709 12.097 3.61306 12.2748 3.62921C12.4527 3.64535 12.6199 3.72073 12.7498 3.84328C12.8797 3.96582 12.9647 4.12842 12.9912 4.30502C13.0177 4.48162 12.9841 4.662 12.8958 4.81724L7.58083 10.1322C7.50996 10.2125 7.42344 10.2775 7.32656 10.3232C7.22968 10.3689 7.12449 10.3944 7.01744 10.398Z" fill="currentColor"></path></svg><span class="p-button-label" data-pc-section="label">&nbsp;</span><!----></button><span role="status" aria-live="polite" class="p-hidden-accessible" data-pc-section="hiddensearchresult" data-p-hidden-accessible="true">No results found</span></div></div></div><div class="col-span-3"><label for="bol-quote-number">Bill of Lading Quote #</label><input class="p-inputtext p-component w-full inputfield" id="bol-quote-number" placeholder="Enter BOL Quote #" disabled="" data-pc-name="inputtext" data-pc-section="root" value=""></div></div><!----><div class="grid grid-cols-12 gap-4 mt-4"><div class="col-span-6"><div><label for="expected-shipping-config" class="pt-1"><span>Expected Shipping Config</span><!----><!----><!----></label><textarea class="p-inputtextarea p-inputtext p-component inputfield w-full h-[2.65rem]" id="expected-shipping-config" disabled="" data-pc-name="textarea" data-pc-section="root"></textarea><!----></div></div><div class="col-span-6"><div><label for="provider-notes-text-area" class="pt-1"><span>Notes from Provider</span><!----><!----><!----></label><textarea class="p-inputtextarea p-inputtext p-component inputfield w-full h-[2.65rem]" id="provider-notes-text-area" data-pc-name="textarea" data-pc-section="root"></textarea><!----></div></div></div><!----><div class="mt-4 pt-2"><button class="p-button p-component p-button-success mr-2" type="button" aria-label="Save" id="submit-bill-of-lading-button" data-pc-name="button" data-pc-section="root"><span class="p-button-icon p-button-icon-left pi pi-check" data-pc-section="icon"></span><span class="p-button-label" data-pc-section="label">Save</span><!----></button><!----></div></div></div><div class="p-divider p-component p-divider-horizontal p-divider-solid p-divider-left" role="separator" aria-orientation="horizontal" data-pc-name="divider" data-pc-section="root" style="justify-content: center;"><!----></div><div class="float-left prose"><h2>Manifest</h2></div><!----><div class="clear-both"></div><div class="w-full"><button class="p-button p-component p-button-info" type="button" data-pc-name="button" data-pc-section="root">Show/Hide Order Details</button><div class="p-card p-component mb-3" data-pc-name="card" data-pc-section="root"><!----><div class="p-card-body" data-pc-section="body"><!----><div class="p-card-content" data-pc-section="content"><div id="order-id-2947983" class="mb-5"><div class="float-right mt-3 ml-3"><!----></div><div class="prose"><div class="text-2xl">Order 2947983</div></div><div class="clear-both"></div><!----><div class="w-full"><div class="p-card p-component mb-3" data-pc-name="card" data-pc-section="root"><!----><div class="p-card-body" data-pc-section="body"><!----><div class="p-card-content" data-pc-section="content"><div class="grid grid-cols-12 gap-4"><div class="col-span-2 prose"><h3>Item</h3></div><div class="col-span-2 prose"><h3>SKU #</h3></div><div class="col-span-2 prose"><h3>Description</h3></div><div class="col-span-1 prose"><h3>Weight</h3></div><div class="col-span-1 prose"><h3>Qty Requested</h3></div><div class="col-span-1 prose"><h3>Qty WIP Delivered</h3></div><div class="col-span-1 prose"><h3>Qty Damaged Delivered</h3></div><div class="col-span-1 prose"><h3>Qty FG Delivered</h3></div></div><div><div class="pt-2 border-left-1 border-right-1"><div class="grid grid-cols-12 gap-4 bg-white"><div class="col-span-2">84" Corner Post Only</div><div class="col-span-2">R-CPH84</div><div class="col-span-2">84" Corner Post Only</div><div class="col-span-1">5.20</div><div class="col-span-1">40</div><div class="col-span-1">0</div><div class="col-span-1">0</div><div class="col-span-1">0</div></div><!----></div><div class="pt-2 border-left-1 border-right-1"><div class="grid grid-cols-12 gap-4 bg-white"><div class="col-span-2">40" DRB</div><div class="col-span-2">R-DRB40</div><div class="col-span-2">40" DRB</div><div class="col-span-1">2.90</div><div class="col-span-1">60</div><div class="col-span-1">0</div><div class="col-span-1">0</div><div class="col-span-1">0</div></div><!----></div><div class="pt-2 border-left-1 border-right-1"><div class="grid grid-cols-12 gap-4 bg-white"><div class="col-span-2">48" DRB</div><div class="col-span-2">R-DRB48</div><div class="col-span-2">48" DRB</div><div class="col-span-1">3.40</div><div class="col-span-1">60</div><div class="col-span-1">0</div><div class="col-span-1">0</div><div class="col-span-1">0</div></div><!----></div><div class="pt-2 border-left-1 border-right-1"><div class="grid grid-cols-12 gap-4 bg-white"><div class="col-span-2">Wood Shelf</div><div class="col-span-2">R-W4048</div><div class="col-span-2">Wood Shelf</div><div class="col-span-1">16.50</div><div class="col-span-1">30</div><div class="col-span-1">0</div><div class="col-span-1">0</div><div class="col-span-1">0</div></div><!----></div></div></div><!----></div></div></div></div></div><!----></div></div></div></div></div></section></main></div></div></div></div></div>
+        </div>
+    </div>
+
+
+
+<div class="p-toast p-component p-toast-center p-ripple-disabled" data-pc-name="toast" data-pc-section="root" style="position: fixed; top: 50%; left: 50%;"><div data-pc-section="message"></div></div><!----><div class="p-toast p-component p-toast-center p-ripple-disabled" data-pc-name="toast" data-pc-section="root" style="position: fixed; top: 50%; left: 50%;"><div data-pc-section="message"></div></div><div class="p-toast p-component p-toast-center p-ripple-disabled" data-pc-name="toast" data-pc-section="root" style="position: fixed; top: 50%; left: 50%;"><div data-pc-section="message"></div></div><!----><!----><!----><!----><!----><!----><!----></body></html>

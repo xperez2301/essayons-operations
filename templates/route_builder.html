@@ -26,7 +26,7 @@
         <hr>
         <h4>Stop Order</h4>
         {% for stop in route.stops %}
-            <p>{{ loop.index }}. {{ stop.store_name }} — {{ stop.city }}, {{ stop.state }} — BOL {{ stop.bol }}</p>
+            <p>{{ loop.index }}. {{ stop.store_name }} — {{ stop.city }}, {{ stop.state }} — BOL {{ stop.bol }} — <a class="mini-link" href="/bol-live/{{ stop.bol }}" target="_blank">Live BOL</a> <a class="mini-link" href="/bol-view/{{ stop.id }}" target="_blank">Saved Copy</a></p>
         {% endfor %}
     </div>
 {% else %}

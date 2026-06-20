@@ -1,28 +1,33 @@
-EOMS v1.1 RMS Login Automation
+EOMS v1.2 Full RMS Multi-Page Import Engine
 
-What works in this build:
-- Save RMS username/password locally in Settings
-- Test RMS Login opens Chromium browser
-- Logs into RMS
-- Navigates to Bills of Lading page
-- Scans BOL hyperlinks
-- Saves diagnostic screenshot to diagnostics/
+What this build does:
+- Logs into RMS using saved Settings
+- Opens Bills of Lading page
+- Attempts to increase rows per page
+- Scans pagination across all pages
+- Collects BOL links, not just first 20
+- Opens each BOL detail page
+- Opens Printable Bill of Lading
+- Extracts:
+  BOL number
+  Origin/store number
+  Store name
+  Address/city/state/zip
+  Corner Post quantity
+  DRB quantities
+  Wood Shelf quantity
+  Total BOL weight
+- Calculates racks using Corner Posts / 4
+- Imports new BOL records to Dispatch Map
+- Saves printable BOL HTML into bol_files/Imported or bol_files/Need_Review by year/month
+- Skips duplicates
 - Writes sync history
 
-Before running:
-    pip install -r requirements.txt
-    python -m playwright install chromium
+Run:
+    py -3.12 -m pip install -r requirements.txt
+    py -3.12 -m playwright install chromium
+    py -3.12 app.py
 
 Test:
-    python app.py
-    open http://127.0.0.1:5000/settings
-    save RMS credentials
-    open http://127.0.0.1:5000/rms-sync
-    click Test RMS Login
-    click Scan RMS BOL List
-
-Next build:
-- Open each BOL
-- Open Printable Bill of Lading
-- Extract corner posts
-- Import into Dispatch Map automatically
+    /settings -> save RMS credentials
+    /rms-sync -> click Sync All RMS BOL Pages

@@ -1,52 +1,7 @@
 [
   {
-    "id": "82616c8f-0f02-4c2d-9123-00d37e833c9c",
-    "time": "2026-06-19T22:45:56",
-    "action": "RMS Login Test",
-    "details": {
-      "ok": false,
-      "status": "MISSING CREDENTIALS",
-      "message": "Save RMS username and password in Settings first.",
-      "bol_count": 0,
-      "sample_bols": [],
-      "id": "2f9bb3d1-ec39-42eb-834f-3fbce4854ef9",
-      "time": "2026-06-19T22:45:56",
-      "action": "Test RMS Login"
-    }
-  },
-  {
-    "id": "95f79f63-7eb1-4e0b-be43-b2bbfb76839d",
-    "time": "2026-06-19T22:46:21",
-    "action": "RMS Login Test",
-    "details": {
-      "ok": false,
-      "status": "MISSING CREDENTIALS",
-      "message": "Save RMS username and password in Settings first.",
-      "bol_count": 0,
-      "sample_bols": [],
-      "id": "1f20fc10-3dd1-4d6f-8722-df4cef1407ca",
-      "time": "2026-06-19T22:46:21",
-      "action": "Test RMS Login"
-    }
-  },
-  {
-    "id": "0f33f31b-bf94-4e1e-9d0f-0610bcf9577c",
-    "time": "2026-06-19T22:46:24",
-    "action": "RMS Login Test",
-    "details": {
-      "ok": false,
-      "status": "MISSING CREDENTIALS",
-      "message": "Save RMS username and password in Settings first.",
-      "bol_count": 0,
-      "sample_bols": [],
-      "id": "f1061571-35ce-4ef8-960f-0ba522c2c3c4",
-      "time": "2026-06-19T22:46:24",
-      "action": "Test RMS Login"
-    }
-  },
-  {
-    "id": "ed36cbf3-b200-4e91-8788-2b8eaf7574a4",
-    "time": "2026-06-19T22:47:00",
+    "id": "20b74680-d3bd-4b94-b55c-655f2b22e9d2",
+    "time": "2026-06-20T00:28:31",
     "action": "Update RMS Settings",
     "details": {
       "username": "jperez+Texas@lkotrucking.com",
@@ -54,60 +9,36 @@
     }
   },
   {
-    "id": "c7170925-56fd-4b57-9e69-336d7fa8cc88",
-    "time": "2026-06-19T22:47:15",
-    "action": "RMS Login Test",
+    "id": "707a84ef-28ab-4a5c-8e0b-fd2099eb2068",
+    "time": "2026-06-20T00:29:15",
+    "action": "Refresh RMS Queue",
     "details": {
       "ok": true,
-      "status": "LOGIN SUCCESS",
-      "message": "RMS login successful. Found 20 BOL links on the Bills of Lading page.",
-      "bol_count": 20,
-      "sample_bols": [
-        {
-          "bol": "945537",
-          "href": "/bills-of-lading/945537"
-        },
-        {
-          "bol": "945513",
-          "href": "/bills-of-lading/945513"
-        },
-        {
-          "bol": "945509",
-          "href": "/bills-of-lading/945509"
-        },
-        {
-          "bol": "945508",
-          "href": "/bills-of-lading/945508"
-        },
-        {
-          "bol": "945507",
-          "href": "/bills-of-lading/945507"
-        },
-        {
-          "bol": "945506",
-          "href": "/bills-of-lading/945506"
-        },
-        {
-          "bol": "945504",
-          "href": "/bills-of-lading/945504"
-        },
-        {
-          "bol": "945502",
-          "href": "/bills-of-lading/945502"
-        },
-        {
-          "bol": "945487",
-          "href": "/bills-of-lading/945487"
-        },
-        {
-          "bol": "945486",
-          "href": "/bills-of-lading/945486"
-        }
-      ],
-      "screenshot": "C:\\Users\\essay\\OneDrive\\Documentos\\GitHub\\essayons-operations\\diagnostics\\rms_sync_20260619_224714.png",
-      "id": "b0a4acdc-154b-484b-8e05-6e93870997f1",
-      "time": "2026-06-19T22:47:15",
-      "action": "Test RMS Login"
+      "status": "QUEUE UPDATED",
+      "message": "RMS queue updated. Found 116 BOLs. New 116. Already imported 0.",
+      "found": 116,
+      "new": 116,
+      "existing": 0,
+      "id": "e342bce3-fe45-42c3-9df2-7d4a5e6609b9",
+      "time": "2026-06-20T00:29:15",
+      "action": "Refresh RMS Queue"
+    }
+  },
+  {
+    "id": "bcb34be3-2f75-42be-a4c6-3813052c5f8d",
+    "time": "2026-06-20T00:29:31",
+    "action": "Import Selected RMS Queue",
+    "details": {
+      "ok": true,
+      "status": "IMPORT SELECTED COMPLETE",
+      "message": "Import/Re-import complete. Processed 3. Need Review 0.",
+      "imported": 3,
+      "skipped": 0,
+      "need_review": 0,
+      "errors": [],
+      "id": "0b934d8b-dd63-491e-9af3-0c9bb1389f04",
+      "time": "2026-06-20T00:29:31",
+      "action": "Import Selected RMS Queue"
     }
   }
 ]

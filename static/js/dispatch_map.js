@@ -5,6 +5,63 @@ const hubs = window.EOMS_HUBS || {};
 const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
 let selectedOrder = [];
 
+function parseDueDate(value){
+    if(!value) return null;
+    const parts = String(value).split("/");
+    if(parts.length === 3){
+        return new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1]));
+    }
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function dueStatus(store){
+    const due = parseDueDate(store.due_date);
+    if(!due) return "green";
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    if(diffDays < 0) return "red";
+    if(diffDays <= 4) return "amber";
+    return "green";
+}
+
+function pinIcon(number, color){
+    const colors = {
+        green: "#22c55e",
+        amber: "#f59e0b",
+        red: "#ef4444"
+    };
+    const fill = colors[color] || colors.green;
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46">
+      <path d="M19 45C19 45 36 27 36 17C36 7.6 28.4 0 19 0C9.6 0 2 7.6 2 17C2 27 19 45 19 45Z" fill="${fill}" stroke="white" stroke-width="3"/>
+      <circle cx="19" cy="17" r="11" fill="rgba(0,0,0,.22)"/>
+      <text x="19" y="22" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="white">${number}</text>
+    </svg>`;
+    return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(38,46),
+        anchor: new google.maps.Point(19,46)
+    };
+}
+
+function focusStoreCard(storeId){
+    document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
+    const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
+    if(box){
+        box.checked = true;
+        updateTotals();
+        const card = box.closest(".store-card");
+        if(card){
+            card.classList.add("active-store");
+            card.scrollIntoView({behavior:"smooth", block:"center"});
+        }
+    }
+}
+
+
 function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned"); }
 
 function selectedIds(){
@@ -23,7 +80,7 @@ function renderStores(){
     const available = visibleUnassignedStores();
 
     if(available.length === 0){
-        container.innerHTML = "<p class='muted'>No unassigned stores. Import RMS PDFs or approve Need Review items.</p>";
+        container.innerHTML = "<p class='muted'>No unassigned stores. Import RMS BOLs or check Need Review.</p>";
         return;
     }
 
@@ -35,8 +92,10 @@ function renderStores(){
             <input type="checkbox" class="store-box" data-store-id="${store.id}" data-racks="${store.expected_racks || 0}" data-weight="${store.weight || 0}">
             <div>
                 <strong>${store.store_name || store.origin || "Unknown Store"}</strong>
-                <span>BOL ${store.bol || ""} • ${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
-                <small>${store.hub || "Manual Review"} — ${store.hub_reason || ""}</small>
+                <span>BOL ${store.bol || ""} • Origin ${store.origin || ""}</span>
+                <span>${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
+                <span>${store.due_date ? "Due: " + store.due_date : "Due: Not captured"} • <b class="due-${dueStatus(store)}">${dueStatus(store).toUpperCase()}</b></span>
+                <small>${store.hub || "Manual Review"}</small><br><a class="mini-link" href="/bol-live/${store.bol}" target="_blank" onclick="event.stopPropagation()">Live BOL</a> <a class="mini-link" href="/bol-view/${store.id}" target="_blank" onclick="event.stopPropagation()">Saved Copy</a>
             </div>
         `;
         container.appendChild(label);
@@ -212,34 +271,66 @@ function initMap(){
         streetViewControl: false
     });
 
+    const bounds = new google.maps.LatLngBounds();
+
     Object.keys(hubs).forEach(hubName => {
         const hub = hubs[hubName];
+        const hubPos = {lat: Number(hub.lat), lng: Number(hub.lng)};
         new google.maps.Marker({
-            position: {lat: hub.lat, lng: hub.lng},
+            position: hubPos,
             map,
             title: hubName + " Hub",
             label: "H"
         });
+        bounds.extend(hubPos);
     });
+
+    const coordCount = {};
+    let pinNumber = 1;
 
     stores.forEach(store => {
         if(store.status !== "Unassigned") return;
 
+        let lat = Number(store.lat);
+        let lng = Number(store.lng);
+
+        if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
+        const key = lat.toFixed(4) + "," + lng.toFixed(4);
+        coordCount[key] = (coordCount[key] || 0) + 1;
+
+        const offsetIndex = coordCount[key] - 1;
+        const offset = offsetIndex * 0.018;
+
+        const pos = {
+            lat: lat + offset,
+            lng: lng + offset
+        };
+
+        const thisPinNumber = pinNumber++;
+        const color = dueStatus(store);
+
         markers[store.id] = new google.maps.Marker({
-            position: {lat: Number(store.lat), lng: Number(store.lng)},
+            position: pos,
             map,
-            title: store.store_name || store.origin || "Store",
-            label: "S"
+            title: `${thisPinNumber}. BOL ${store.bol || ""} ${store.store_name || store.origin || "Store"}`,
+            icon: pinIcon(thisPinNumber, color)
         });
 
+        bounds.extend(pos);
+
         markers[store.id].addListener("click", () => {
-            const box = document.querySelector(`.store-box[data-store-id="${store.id}"]`);
-            if(box){
-                box.checked = !box.checked;
-                updateTotals();
-            }
+            focusStoreCard(store.id);
         });
     });
 
     renderStores();
+
+    const visibleMarkers = Object.keys(markers).length;
+    if(visibleMarkers > 0){
+        map.fitBounds(bounds);
+        if(visibleMarkers === 1){
+            map.setZoom(8);
+        }
+    }
 }

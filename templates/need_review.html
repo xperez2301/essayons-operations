@@ -12,7 +12,7 @@
 {% for store in stores %}
     <div class="panel" id="review-{{ store.id }}">
         <h3>{{ store.store_name }} {{ store.origin }}</h3>
-        <p><b>BOL:</b> {{ store.bol }}</p>
+        <p><b>Origin:</b> {{ store.origin }}</p><p><b>Name:</b> {{ store.store_name or store.origin_name }}</p><p><b>Address:</b> {{ store.address or store.origin_address }}</p><p><b>City/State:</b> {{ store.city }}, {{ store.state }}</p><p><b>Contact:</b> {{ store.contact or store.origin_contact }}</p><p><b>BOL:</b> {{ store.bol }} — <a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live Printable</a> <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved Copy</a></p>
         <p><b>Address:</b> {{ store.address }}, {{ store.city }}, {{ store.state }}</p>
         <p><b>Expected Racks:</b> {{ store.expected_racks }}</p>
         <p><b>Reasons:</b> {{ store.review_reasons | join(", ") }}</p>
@@ -36,7 +36,7 @@
 <script>
 async function approveReview(storeId){
     const hub = document.getElementById("hub-" + storeId).value;
-    const response = await fetch("/api/approve-review", {
+    const response = await fetch("/api/approve-review-force", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({store_id:storeId, hub:hub})

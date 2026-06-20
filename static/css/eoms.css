@@ -28,3 +28,122 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
 @media(max-width:1200px){.dispatch-grid{grid-template-columns:1fr}.sidebar{display:none}.metrics{grid-template-columns:repeat(2,1fr)}}
 
 .secondary-btn{background:linear-gradient(135deg,#0f766e,#059669);width:100%;margin-bottom:10px}.preview-stop{padding:8px;border-bottom:1px solid rgba(148,163,184,.14)}
+
+.queue-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.small-btn{width:auto!important;padding:9px 12px!important}
+.queue-table{width:100%;border-collapse:collapse;font-size:13px}
+.queue-table th,.queue-table td{border-bottom:1px solid rgba(148,163,184,.18);padding:10px;text-align:left}
+.queue-table th{color:#bfdbfe;background:rgba(37,99,235,.12)}
+.status-chip{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700;font-size:12px}
+.status-chip.New{background:rgba(59,130,246,.2);color:#bfdbfe}
+.status-chip.Imported{background:rgba(34,197,94,.18);color:#bbf7d0}
+.status-chip.Need-Review{background:rgba(245,158,11,.18);color:#fde68a}
+.status-chip.Ignored{background:rgba(148,163,184,.18);color:#cbd5e1}
+
+.mini-link{display:inline-block;color:#93c5fd;text-decoration:none;font-weight:800;font-size:12px;border:1px solid rgba(147,197,253,.35);padding:4px 8px;border-radius:8px;background:rgba(37,99,235,.12)}
+.mini-link:hover{background:rgba(37,99,235,.28);color:white}
+
+.password-row{display:grid;grid-template-columns:1fr 90px;gap:10px;align-items:center}
+.password-row input{margin-bottom:10px}
+.check-line{display:flex!important;align-items:center;gap:10px;margin:8px 0 14px;color:#cbd5e1}
+.check-line input{width:auto!important;margin:0!important}
+.settings-status{background:rgba(37,99,235,.12);border:1px solid rgba(96,165,250,.28);border-radius:14px;padding:12px;margin-bottom:15px}
+
+.tiny-btn{font-size:11px;padding:4px 8px;border-radius:8px;margin-top:4px;background:linear-gradient(135deg,#7c2d12,#ea580c)}
+
+.queue-table td{vertical-align:top}.store-card span{line-height:1.35}
+
+/* v1.3.8 compact dispatch panel + better map layout */
+.dispatch-grid{
+    grid-template-columns:280px minmax(520px,1fr) 340px!important;
+    gap:14px!important;
+}
+#available-stores{
+    max-height:430px;
+    overflow-y:auto;
+    padding-right:4px;
+}
+.store-card{
+    padding:8px!important;
+    margin-bottom:7px!important;
+    border-radius:12px!important;
+    gap:8px!important;
+}
+.store-card strong{
+    font-size:13px!important;
+}
+.store-card span{
+    font-size:11px!important;
+    margin-top:2px!important;
+}
+.store-card small{
+    font-size:10px!important;
+}
+.panel{
+    padding:12px!important;
+}
+.panel h3{
+    font-size:16px!important;
+    margin-bottom:5px!important;
+}
+.panel p{
+    font-size:12px!important;
+}
+#map{
+    height:700px!important;
+}
+.metrics{
+    gap:10px!important;
+    margin-bottom:12px!important;
+}
+.metric{
+    padding:12px!important;
+}
+.metric strong{
+    font-size:20px!important;
+}
+.metric span{
+    font-size:10px!important;
+}
+
+/* v1.3.9 due-date colored pins and smaller available list */
+.dispatch-grid{
+    grid-template-columns:245px minmax(560px,1fr) 320px!important;
+    gap:12px!important;
+}
+#available-stores{
+    max-height:360px!important;
+    overflow-y:auto!important;
+}
+.store-card{
+    padding:6px!important;
+    margin-bottom:5px!important;
+    border-radius:10px!important;
+}
+.store-card strong{
+    font-size:12px!important;
+}
+.store-card span{
+    font-size:10px!important;
+    line-height:1.2!important;
+}
+.store-card small{
+    font-size:9px!important;
+}
+.panel{
+    padding:10px!important;
+}
+.panel h3{
+    font-size:15px!important;
+}
+.due-green{color:#22c55e}
+.due-amber{color:#f59e0b}
+.due-red{color:#ef4444}
+.active-store{
+    border:2px solid #60a5fa!important;
+    background:rgba(37,99,235,.22)!important;
+    box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
+}
+#map{
+    height:720px!important;
+}
