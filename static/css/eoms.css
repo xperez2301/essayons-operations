@@ -281,3 +281,149 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     background:rgba(37,99,235,.22)!important;
     box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
 }
+
+/* EOMS v1.6.1 Dispatch Board Inside Dispatch Map */
+.map-board-panel{
+    background:rgba(15,23,42,.86);
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:16px;
+    padding:12px;
+    margin-bottom:14px;
+}
+.map-board-header{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+}
+.map-board-header h3{
+    margin:0;
+}
+.map-board-metrics{
+    display:grid;
+    grid-template-columns:repeat(9,minmax(90px,1fr));
+    gap:8px;
+    margin:10px 0;
+}
+.map-board-metrics div{
+    background:rgba(30,41,59,.85);
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:12px;
+    padding:8px;
+}
+.map-board-metrics span{
+    display:block;
+    font-size:10px;
+    color:#94a3b8;
+    text-transform:uppercase;
+}
+.map-board-metrics strong{
+    font-size:16px;
+    color:white;
+}
+.map-board-grid{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(180px,1fr));
+    gap:10px;
+}
+.map-board-column{
+    background:rgba(2,6,23,.35);
+    border:1px solid rgba(148,163,184,.16);
+    border-radius:14px;
+    padding:8px;
+    max-height:360px;
+    overflow-y:auto;
+}
+.map-board-column h4{
+    display:flex;
+    justify-content:space-between;
+    margin:0 0 8px;
+    font-size:13px;
+}
+.map-board-card{
+    background:rgba(30,41,59,.86);
+    border:1px solid rgba(148,163,184,.16);
+    border-radius:12px;
+    padding:7px;
+    margin-bottom:7px;
+}
+.map-board-card-head{
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+    align-items:center;
+}
+.map-board-store{
+    font-size:11px;
+    font-weight:800;
+    margin-top:4px;
+}
+.map-board-sub,.map-board-driver{
+    font-size:10px;
+    color:#cbd5e1;
+    margin-top:3px;
+}
+.map-board-actions{
+    display:flex;
+    gap:4px;
+    flex-wrap:wrap;
+    margin-top:6px;
+}
+.hidden{
+    display:none!important;
+}
+@media(max-width:1400px){
+    .map-board-grid{grid-template-columns:repeat(2,1fr)}
+    .map-board-metrics{grid-template-columns:repeat(3,1fr)}
+}
+
+/* EOMS v1.7 Driver Dispatch Workflow */
+.driver-box{
+    margin:12px 0;
+    padding:12px;
+    border:1px solid rgba(96,165,250,.25);
+    border-radius:14px;
+    background:rgba(37,99,235,.10);
+}
+.driver-box h4{margin:0 0 8px}
+.driver-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr 1fr auto auto auto auto;
+    gap:8px;
+    align-items:center;
+}
+.driver-grid input{
+    padding:10px;
+    border-radius:10px;
+    border:1px solid rgba(148,163,184,.35);
+    background:#0f172a;
+    color:white;
+}
+.action-cell{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+}
+.route-actions-inline{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+.danger-btn{
+    background:linear-gradient(135deg,#7f1d1d,#dc2626)!important;
+    color:white!important;
+    border:none!important;
+    border-radius:10px;
+    padding:8px 10px;
+    font-weight:900;
+    cursor:pointer;
+}
+.small-btn{width:auto!important}
+@media(max-width:1300px){
+    .driver-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:800px){
+    .driver-grid{grid-template-columns:1fr}
+}

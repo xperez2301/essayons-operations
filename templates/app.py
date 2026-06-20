@@ -1920,7 +1920,7 @@ def api_assign_route():
 
 
 
-@app.route("/api/update-route-driver", methods=["POST"])
+@app.route("/api/update-route-driver", methods=["POST"], endpoint="api_update_route_driver_v170")
 def api_update_route_driver():
     data = request.get_json(force=True)
     route_id = data.get("route_id")

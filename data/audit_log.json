@@ -377,5 +377,25 @@
       "route_id": "d61f99da-19d3-40fc-aafe-fc1bb89c2d89",
       "restored": 2
     }
+  },
+  {
+    "id": "679a72c8-3a10-410a-9f64-a3dc8e5e9ad8",
+    "time": "2026-06-20T12:39:38",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "",
+      "stores": 4,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "9fc5cb6e-1a1a-4e5c-91d4-72a5b3b2bf08",
+    "time": "2026-06-20T12:40:04",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "66a12ee3-7f80-4b7c-846c-b8dd047f806b",
+      "restored": 4
+    }
   }
 ]

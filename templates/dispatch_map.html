@@ -12,6 +12,27 @@
     </div>
 </header>
 
+
+<section class="map-board-panel" id="map-dispatch-board">
+    <div class="map-board-header">
+        <div>
+            <h3>Dispatch Board</h3>
+            <p class="muted">Quick operations board built into Dispatch Map. No separate route needed.</p>
+        </div>
+        <button class="secondary-btn small-btn" onclick="toggleMapBoard()">Show / Hide Board</button>
+    </div>
+
+    <div class="map-board-metrics" id="map-board-metrics"></div>
+
+    <div class="map-board-grid" id="map-board-grid">
+        <div class="map-board-column" data-status="Need Review"><h4>Need Review <span>0</span></h4><div class="map-board-list"></div></div>
+        <div class="map-board-column" data-status="Unassigned"><h4>Unassigned <span>0</span></h4><div class="map-board-list"></div></div>
+        <div class="map-board-column" data-status="Assigned"><h4>Assigned <span>0</span></h4><div class="map-board-list"></div></div>
+        <div class="map-board-column" data-status="Dispatched"><h4>Dispatched <span>0</span></h4><div class="map-board-list"></div></div>
+        <div class="map-board-column" data-status="Completed"><h4>Completed <span>0</span></h4><div class="map-board-list"></div></div>
+    </div>
+</section>
+
 <section class="metrics">
     <div class="metric"><span>Selected Stores</span><strong id="store-count">0</strong></div>
     <div class="metric"><span>Racks</span><strong id="rack-count">0</strong></div>
