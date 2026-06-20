@@ -3,11 +3,11 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 @app.route("/")
-def login():
+def home():
     return render_template("login.html")
 
 @app.route("/login")
-def login_page():
+def login():
     return render_template("login.html")
 
 @app.route("/dispatch-map")
