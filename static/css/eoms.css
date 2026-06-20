@@ -467,3 +467,9 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     gap:8px;
     margin-top:10px;
 }
+
+/* EOMS v1.8 Telnyx Driver SMS */
+.settings-warning{
+    color:#f59e0b;
+    font-weight:800;
+}

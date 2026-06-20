@@ -179,10 +179,11 @@ function sendRoute(routeId, routeNumber){
         (helper ? "Helper: " + helper + "\\n" : "") +
         "Open route: " + routeLink;
 
-    showRouteSendBox(phone, msg);
+    showRouteSendBox(phone, msg, routeId);
 }
 
-function showRouteSendBox(phone, msg){
+function showRouteSendBox(phone, msg, routeId){
+    window.currentSendRouteId = routeId;
     let box = document.getElementById("route-send-box");
     if(!box){
         box = document.createElement("div");
@@ -201,6 +202,7 @@ function showRouteSendBox(phone, msg){
             <textarea id="route-send-message" readonly>${msg}</textarea>
             <div class="route-send-actions">
                 <button type="button" class="primary-btn small-btn" onclick="copyRouteMessage()">Copy Message</button>
+                <button type="button" class="primary-btn small-btn" onclick="sendRouteTelnyx()">Send via Telnyx</button>
                 <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl1}')">Open SMS App</button>
                 <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl2}')">Try SMS Backup</button>
                 <button type="button" class="danger-btn small-btn" onclick="closeRouteSendBox()">Close</button>
@@ -237,6 +239,23 @@ function fallbackCopyRouteMessage(text){
 
 function openSmsLink(url){
     window.location.href = url;
+}
+
+async function sendRouteTelnyx(){
+    const routeId = window.currentSendRouteId;
+    if(!routeId){
+        alert("Route ID missing.");
+        return;
+    }
+
+    const data = await postJson("/api/send-route-sms", {route_id: routeId});
+    if(!data.ok){
+        alert(data.message || "Unable to send Telnyx SMS.");
+        return;
+    }
+
+    alert("Route SMS sent by Telnyx.");
+    location.reload();
 }
 
 function closeRouteSendBox(){

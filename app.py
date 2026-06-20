@@ -61,7 +61,7 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": "", "telnyx_api_key": "", "telnyx_from_number": "+12103529669", "public_eoms_url": ""}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, [])
     ]:
@@ -1753,6 +1753,9 @@ def settings():
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
+        settings_data["telnyx_api_key"] = clean(request.form.get("telnyx_api_key")) or settings_data.get("telnyx_api_key", "")
+        settings_data["telnyx_from_number"] = clean(request.form.get("telnyx_from_number")) or settings_data.get("telnyx_from_number", "+12103529669")
+        settings_data["public_eoms_url"] = clean(request.form.get("public_eoms_url")) or settings_data.get("public_eoms_url", "")
         settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
 
         rms_password = clean(request.form.get("rms_password"))
@@ -1982,6 +1985,94 @@ def route_view(route_id):
         return "Route not found", 404
 
     return render_template("route_view.html", route=route)
+
+
+@app.route("/api/send-route-sms", methods=["POST"])
+def api_send_route_sms():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+
+    settings_data = read_json(SETTINGS_FILE)
+    telnyx_api_key = clean(settings_data.get("telnyx_api_key"))
+    telnyx_from_number = clean(settings_data.get("telnyx_from_number")) or "+12103529669"
+    public_eoms_url = clean(settings_data.get("public_eoms_url"))
+
+    routes = read_json(ROUTES_FILE)
+    route = None
+    for r in routes:
+        if r.get("id") == route_id or r.get("route_number") == route_id:
+            route = r
+            break
+
+    if not route:
+        return jsonify({"ok": False, "message": "Route not found."})
+
+    driver_phone = clean(route.get("driver_phone"))
+    if not driver_phone:
+        return jsonify({"ok": False, "message": "Driver phone number is missing. Save driver phone first."})
+
+    if not telnyx_api_key:
+        return jsonify({"ok": False, "message": "Telnyx API key missing. Save it in Settings first."})
+
+    if public_eoms_url:
+        route_link = public_eoms_url.rstrip("/") + f"/route-view/{route.get('id')}"
+    else:
+        route_link = request.host_url.rstrip("/") + f"/route-view/{route.get('id')}"
+
+    metrics = route.get("metrics", {})
+    message = (
+        f"EOMS Route {route.get('route_number')} assigned.\n"
+        f"Driver: {route.get('driver') or ''}\n"
+        f"Truck: {route.get('truck') or ''}\n"
+        f"Helper: {route.get('helper') or ''}\n"
+        f"Stops: {metrics.get('store_count', len(route.get('stops', [])))}\n"
+        f"Racks: {metrics.get('racks', 0)}\n"
+        f"Weight: {metrics.get('weight', 0)} lbs\n"
+        f"Open route: {route_link}"
+    )
+
+    try:
+        response = requests.post(
+            "https://api.telnyx.com/v2/messages",
+            headers={
+                "Authorization": f"Bearer {telnyx_api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": telnyx_from_number,
+                "to": driver_phone,
+                "text": message
+            },
+            timeout=20
+        )
+
+        ok = 200 <= response.status_code < 300
+        try:
+            payload = response.json()
+        except Exception:
+            payload = {"raw": response.text[:500]}
+
+        route["last_sms_status"] = "Sent" if ok else "Failed"
+        route["last_sms_time"] = datetime.now().isoformat(timespec="seconds")
+        route["last_sms_to"] = driver_phone
+        route["last_sms_response"] = payload
+
+        write_json(ROUTES_FILE, routes)
+        audit("Send Route SMS", {
+            "route_id": route_id,
+            "route_number": route.get("route_number"),
+            "to": driver_phone,
+            "ok": ok,
+            "status_code": response.status_code
+        })
+
+        if ok:
+            return jsonify({"ok": True, "message": "Route SMS sent.", "route_link": route_link, "telnyx": payload})
+        return jsonify({"ok": False, "message": f"Telnyx send failed: HTTP {response.status_code}", "telnyx": payload})
+
+    except Exception as e:
+        audit("Send Route SMS Error", {"route_id": route_id, "error": str(e)[:300]})
+        return jsonify({"ok": False, "message": f"Telnyx error: {str(e)[:300]}"})
 
 @app.route("/api/unassign-route", methods=["POST"])
 def api_unassign_route():
