@@ -4,17 +4,26 @@ import math
 import re
 import shutil
 import requests
+import secrets
+from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, jsonify, render_template, request, send_file, abort
+from flask import Flask, jsonify, render_template, request, send_file, abort, redirect, url_for, session
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 app = Flask(__name__)
+
+# EOMS Authentication
+app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_SET_SECRET_KEY_IN_AZURE")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
+SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "720"))
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
