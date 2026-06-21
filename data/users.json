@@ -3,7 +3,7 @@
     {
       "id": "admin",
       "username": "admin",
-      "password": "ChangeMeNow123!",
+      "password": "scrypt:32768:8:1$rmkSx2nTWdGP5GGI$72dff4f3373bba9666d4c0db3acf56335eebdd584f605d9ddacb0dca2f7b8a60f796e290fe8215fed61424e4608aeb256484d5a4a802a02a9923ed8fe2d49187",
       "role": "Admin",
       "assigned_cities": [
         "All"

@@ -15,20 +15,56 @@ from flask import Flask, jsonify, render_template, request, send_file, abort, re
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Playwright is only needed for the RMS scraping features. It is heavy and not
+# always available on a fresh App Service worker, so we import it lazily and let
+# the rest of the app run even if it is missing.
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    PLAYWRIGHT_AVAILABLE = True
+except Exception:  # pragma: no cover
+    PLAYWRIGHT_AVAILABLE = False
+
+    class PlaywrightTimeoutError(Exception):
+        pass
+
+    def sync_playwright(*args, **kwargs):
+        raise RuntimeError(
+            "Playwright is not installed on this server, so RMS automation is "
+            "disabled. Install it with: pip install playwright && playwright install chromium"
+        )
 
 app = Flask(__name__)
 
-# EOMS Admin Login
-app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_SET_SECRET_KEY_IN_AZURE")
+# Load a local .env file for development (no-op if python-dotenv or the file is
+# absent). On Azure, real values come from Application settings instead.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# ---------------------------------------------------------------------------
+# Configuration. Everything sensitive comes from environment variables first
+# (set these in Azure -> Configuration -> Application settings) and only falls
+# back to a default for local development.
+# ---------------------------------------------------------------------------
+app.secret_key = os.environ.get("SECRET_KEY") or "dev-only-change-me-set-SECRET_KEY"
+if app.secret_key == "dev-only-change-me-set-SECRET_KEY":
+    print("[EOMS][WARN] SECRET_KEY is not set. Set it in your environment / Azure app settings for production.")
+
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
 
-
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-UPLOAD_DIR = BASE_DIR / "uploads"
-BOL_DIR = BASE_DIR / "bol_files"
+
+# DATA_DIR / BOL_DIR can be pointed at a persistent location so a redeploy does
+# not wipe live data. On Azure App Service (Linux) use /home/data, which
+# survives restarts and deployments. Locally it defaults to ./data.
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data")))
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads")))
+BOL_DIR = Path(os.environ.get("BOL_DIR", str(BASE_DIR / "bol_files")))
 
 STORES_FILE = DATA_DIR / "stores.json"
 ROUTES_FILE = DATA_DIR / "routes.json"
@@ -74,7 +110,7 @@ def ensure_dirs():
         (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, []),
-        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":ADMIN_PASSWORD,"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
+        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
     ]:
         if not path.exists():
             path.write_text(json.dumps(default, indent=2), encoding="utf-8")
@@ -82,13 +118,68 @@ def ensure_dirs():
 def read_json(path):
     ensure_dirs()
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return [] if path != SETTINGS_FILE else {}
+        data = [] if path != SETTINGS_FILE else {}
+    # Environment variables win over anything stored on disk for secrets, so the
+    # repository never needs to contain real credentials.
+    if path == SETTINGS_FILE and isinstance(data, dict):
+        env_overlay = {
+            "rms_username": os.environ.get("RMS_USERNAME"),
+            "rms_password": os.environ.get("RMS_PASSWORD"),
+            "google_maps_api_key": os.environ.get("GOOGLE_MAPS_API_KEY"),
+        }
+        for key, value in env_overlay.items():
+            if value:
+                data[key] = value
+        if data.get("rms_password"):
+            data["rms_password_saved"] = True
+    return data
 
 def write_json(path, data):
     ensure_dirs()
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    # Atomic write: write to a temp file then replace, so a crash mid-write can
+    # never leave a half-written (corrupt) JSON file behind.
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+# ---------------------------------------------------------------------------
+# Password handling. Stored passwords are salted hashes (werkzeug). Any legacy
+# plaintext password found on disk is verified once and then transparently
+# upgraded to a hash, so existing logins keep working after the upgrade.
+# ---------------------------------------------------------------------------
+def hash_password(raw):
+    return generate_password_hash(raw or "")
+
+def looks_hashed(value):
+    return isinstance(value, str) and value.startswith(("pbkdf2:", "scrypt:", "argon2"))
+
+def verify_password(stored, provided):
+    """Return (is_valid, needs_upgrade)."""
+    if stored is None:
+        return False, False
+    if looks_hashed(stored):
+        return check_password_hash(stored, provided or ""), False
+    # Legacy plaintext comparison (constant work) — valid once, then upgrade.
+    return secrets.compare_digest(str(stored), str(provided or "")), True
+
+def migrate_user_passwords():
+    """One-time, idempotent: hash any plaintext passwords stored in users.json."""
+    try:
+        data = json.loads(USERS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    changed = False
+    for user in data.get("users", []):
+        pw = user.get("password")
+        if pw and not looks_hashed(pw):
+            user["password"] = hash_password(pw)
+            changed = True
+    if changed:
+        write_json(USERS_FILE, data)
+        print("[EOMS] Upgraded stored user passwords to hashed form.")
 
 def audit(action, details):
     log = read_json(AUDIT_FILE)
@@ -398,8 +489,6 @@ def require_admin_login():
     return redirect(url_for("login", next=request.path))
 
 
-<<<<<<< Updated upstream
-=======
 
 def users_payload():
     data = read_json(USERS_FILE)
@@ -497,11 +586,17 @@ def login():
         password = request.form.get("password") or ""
         next_url = request.form.get("next") or request.args.get("next") or "/dispatch-map"
         matched = None
-        for user in users_payload().get("users", []):
-            if user.get("username") == username and user.get("active", True) and user.get("password") == password:
-                matched = user
-                break
-        if not matched and username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        payload = users_payload()
+        for user in payload.get("users", []):
+            if user.get("username") == username and user.get("active", True):
+                ok, needs_upgrade = verify_password(user.get("password"), password)
+                if ok:
+                    if needs_upgrade:
+                        user["password"] = hash_password(password)
+                        save_users_payload(payload)
+                    matched = user
+                    break
+        if not matched and username == ADMIN_USERNAME and secrets.compare_digest(password, ADMIN_PASSWORD):
             matched = {"username": ADMIN_USERNAME, "role":"Admin", "assigned_cities":["All"]}
         if matched:
             session.clear()
@@ -518,39 +613,13 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
->>>>>>> Stashed changes
 @app.route("/")
 def home():
     if session.get("logged_in"):
         return redirect("/dispatch-map")
     return redirect("/login")
-<<<<<<< Updated upstream
 
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        next_url = request.form.get("next") or request.args.get("next") or "/dispatch-map"
-
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session.clear()
-            session["logged_in"] = True
-            session["username"] = username
-            return redirect(next_url)
-
-        return render_template("login.html", error="Invalid username or password", next=next_url)
-
-    return render_template("login.html", error=None, next=request.args.get("next") or "/dispatch-map")
-=======
->>>>>>> Stashed changes
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/login")
 
 
 @app.route("/api/dispatch-map-debug")
@@ -1904,7 +1973,7 @@ def users_create():
         return redirect("/users")
     if role != "Admin" and "All" in assigned_cities:
         assigned_cities = [c for c in assigned_cities if c != "All"] or ["San Antonio"]
-    users.append({"id": str(uuid4()), "username": username, "password": password, "role": role, "assigned_cities": assigned_cities, "active": True, "created_at": datetime.now().isoformat(timespec="seconds")})
+    users.append({"id": str(uuid4()), "username": username, "password": hash_password(password), "role": role, "assigned_cities": assigned_cities, "active": True, "created_at": datetime.now().isoformat(timespec="seconds")})
     data["users"] = users
     save_users_payload(data)
     audit("Create User", {"username": username, "role": role, "assigned_cities": assigned_cities})
@@ -1921,7 +1990,7 @@ def users_update(user_id):
             user["active"] = bool(request.form.get("active"))
             new_password = request.form.get("password") or ""
             if new_password:
-                user["password"] = new_password
+                user["password"] = hash_password(new_password)
             user["updated_at"] = datetime.now().isoformat(timespec="seconds")
             break
     save_users_payload(data)
@@ -2299,6 +2368,12 @@ def api_driver_complete():
     audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks})
     return jsonify({"ok": True, "store": updated})
 
+# Run startup tasks at import time so this works under gunicorn (which imports
+# `app:app` and never executes the __main__ block below).
+ensure_dirs()
+migrate_user_passwords()
+
 if __name__ == "__main__":
-    ensure_dirs()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug)
