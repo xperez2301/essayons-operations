@@ -11,32 +11,34 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="logo">⚒</div>
-                <div>
-                    <h1>EOMS</h1>
-                    <p>Essayons Operations</p>
+                <div class="logo" aria-label="Army Engineer Castle">
+                    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 5h10v9h9V5h10v9h9V5h10v20l-6 5v27H14V30l-6-5V5zm17 52h14V41c0-5-3-9-7-9s-7 4-7 9v16z"/></svg>
                 </div>
+                <div><h1>EOMS</h1><p>Essayons Operations</p></div>
             </div>
-            <div class="motto">
-                <span>ESSAYONS</span>
-                <small>Let us try • Building the route from import to completion</small>
-            </div>
+            <div class="motto"><span>ESSAYONS</span><small>Let Us Try &mdash; We Are Building</small></div>
+            {% set role = session.get('role', 'Dispatcher') %}
             <nav>
+                {% if role == 'Driver' %}
+                <a href="/driver">Assigned Routes</a>
+                {% else %}
+                <a href="/dashboard">Dashboard</a>
                 <a href="/dispatch-map">Dispatch Map</a>
-                <a href="/route-builder">Route Builder</a>
-                <a href="/rms-sync">RMS Sync</a>
-                <a href="/rms-queue">RMS Queue</a>
-                <a href="/rms-import">RMS Import</a>
-                <a href="/need-review">Need Review</a>
-                <a href="/driver">Driver Portal</a>
+                <a href="/dispatch-map#map-dispatch-board">Dispatch Board</a>
+                <a href="/driver">Drivers</a>
+                <a href="/need-review">Alerts</a>
+                {% if role in ['Admin', 'Operations Manager'] %}<a href="/route-builder">Reports</a>{% endif %}
+                {% if role == 'Admin' %}
+                <a href="/users">Users</a>
                 <a href="/settings">Settings</a>
-                {% if session.get('role') == 'Admin' %}<a href="/users">Users</a>{% endif %}
+                {% endif %}
+                {% endif %}
             </nav>
             <div class="nav-foot">
-                <b>Builder Status</b>
-                <span class="build-line"><i></i> Import → Map → Assign → Dispatch → Complete</span>
+                <b>Command Status</b>
+                <span class="build-line"><i></i> RMS &rarr; Review &rarr; Route &rarr; Assign &rarr; Dispatch &rarr; Complete</span>
                 {% if session.get('username') %}
-                <span class="who">{{ session.get('username') }} · {{ session.get('role','Dispatcher') }}</span>
+                <span class="who">{{ session.get('username') }} &middot; {{ role }}</span>
                 <a href="/logout">Sign out</a>
                 {% endif %}
             </div>
@@ -45,9 +47,9 @@
     </div>
     <script>
       (function(){
-        var here = location.pathname.replace(/\/+$/,'') || '/dispatch-map';
+        var here = location.pathname.replace(/\/+$/,'') || '/dashboard';
         document.querySelectorAll('.sidebar nav a').forEach(function(a){
-          var href = a.getAttribute('href').replace(/\/+$/,'');
+          var href = a.getAttribute('href').split('#')[0].replace(/\/+$/,'');
           if (href === here) a.classList.add('active');
         });
       })();

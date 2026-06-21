@@ -82,9 +82,21 @@ DRIVER_PAY_PER_PIECE = 0.30
 DEFAULT_RACK_WEIGHT = 200
 
 HUBS = {
-    "San Antonio": {"lat": 29.4241, "lng": -98.4936, "address": "San Antonio, TX"},
-    "Houston": {"lat": 29.7604, "lng": -95.3698, "address": "Houston, TX"},
-    "Dallas": {"lat": 32.8140, "lng": -96.9489, "address": "8101 Tristar Drive, Suite 112, Irving, TX 75063"}
+    "San Antonio": {
+        "lat": 29.5353,
+        "lng": -98.4188,
+        "address": "10536 Sentinel Dr, San Antonio, TX 78217"
+    },
+    "Houston": {
+        "lat": 30.0147,
+        "lng": -95.4306,
+        "address": "403 Century Plaza Dr, Houston, TX 77073"
+    },
+    "Dallas": {
+        "lat": 32.6386,
+        "lng": -96.8662,
+        "address": "2777 Danieldale Rd, Dallas, TX 75237"
+    }
 }
 
 CITY_COORDS = {
@@ -514,12 +526,22 @@ def is_admin():
     user = current_user()
     return bool(user and user.get("role") == "Admin")
 
+def current_role():
+    user = current_user()
+    return clean(user.get("role") if user else "") or "Dispatcher"
+
+def is_operations_manager():
+    return current_role() == "Operations Manager"
+
+def can_dispatch():
+    return current_role() in {"Admin", "Operations Manager", "Dispatcher"}
+
 def user_allowed_city_values():
     user = current_user()
     if not user:
         return []
     cities = user.get("assigned_cities") or []
-    if user.get("role") == "Admin" or "All" in cities:
+    if user.get("role") in {"Admin", "Operations Manager"} or "All" in cities:
         return ["All"]
     return cities
 
@@ -567,24 +589,55 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def dispatch_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login", next=request.path))
+        if not can_dispatch():
+            if request.path.startswith("/api/"):
+                return jsonify({"ok": False, "message": "Dispatch access required."}), 403
+            return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.before_request
 def enforce_login():
     path = request.path or "/"
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
         return None
     if session.get("logged_in"):
+        role = current_role()
+        admin_only = (
+            path.startswith("/users") or path.startswith("/settings") or
+            path.startswith("/rms-sync") or path.startswith("/rms-import") or
+            path.startswith("/rms-queue") or path.startswith("/api/rms/")
+        )
+        if admin_only and role != "Admin":
+            if path.startswith("/api/"):
+                return jsonify({"ok": False, "message": "Admin access required."}), 403
+            return render_template("access_denied.html"), 403
+        if role == "Driver":
+            driver_allowed = (
+                path.startswith("/driver") or path.startswith("/api/driver/") or
+                path.startswith("/route-view/") or path.startswith("/api/route/")
+            )
+            if not driver_allowed:
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "message": "Driver access is limited to assigned routes."}), 403
+                return redirect("/driver")
         return None
     return redirect(url_for("login", next=path))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
-        return redirect(request.args.get("next") or "/dispatch-map")
+        return redirect(request.args.get("next") or "/dashboard")
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
-        next_url = request.form.get("next") or request.args.get("next") or "/dispatch-map"
+        next_url = request.form.get("next") or request.args.get("next") or "/dashboard"
         matched = None
         payload = users_payload()
         for user in payload.get("users", []):
@@ -606,7 +659,7 @@ def login():
             session["assigned_cities"] = matched.get("assigned_cities", [])
             return redirect(next_url)
         error = "Invalid username or password."
-    return render_template("login.html", error=error, next=request.args.get("next") or "/dispatch-map")
+    return render_template("login.html", error=error, next=request.args.get("next") or "/dashboard")
 
 @app.route("/logout")
 def logout():
@@ -616,11 +669,80 @@ def logout():
 @app.route("/")
 def home():
     if session.get("logged_in"):
-        return redirect("/dispatch-map")
+        return redirect("/dashboard")
     return redirect("/login")
 
 
 
+
+
+
+def dashboard_metrics():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"]
+    by_status = {status: 0 for status in statuses}
+    for store in stores:
+        status = store.get("status") or "Unassigned"
+        by_status[status] = by_status.get(status, 0) + 1
+    active = [s for s in stores if (s.get("status") or "Unassigned") != "Completed"]
+    racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
+    weight = round(sum(num(s.get("weight")) for s in active), 1)
+    pieces = round(racks * PIECES_PER_RACK, 1)
+    open_routes = [r for r in routes if (r.get("status") or "Assigned") != "Completed"]
+    recent_routes = sorted(routes, key=lambda r: r.get("created_at", ""), reverse=True)[:8]
+    return {
+        "by_status": by_status,
+        "active_stores": len(active),
+        "open_routes": len(open_routes),
+        "racks": racks,
+        "weight": weight,
+        "pieces": pieces,
+        "revenue": round(pieces * RATE_PER_PIECE, 2),
+        "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2),
+        "remaining_capacity": round(MAX_PAYLOAD - weight, 1),
+        "recent_routes": recent_routes,
+    }
+
+@app.route("/dashboard")
+def dashboard():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    sync_history = read_json(SYNC_HISTORY_FILE)
+    maps_key = clean(read_json(SETTINGS_FILE).get("google_maps_api_key"))
+    return render_template(
+        "dashboard.html",
+        metrics=dashboard_metrics(),
+        stores=stores,
+        routes=routes,
+        hubs=HUBS,
+        sync_history=sync_history[-5:] if isinstance(sync_history, list) else [],
+        google_maps_api_key=maps_key,
+        can_view_financials=current_role() in {"Admin", "Operations Manager"},
+    )
+
+@app.route("/api/dashboard-live")
+def api_dashboard_live():
+    return jsonify({"ok": True, "metrics": dashboard_metrics()})
+
+@app.route("/api/drivers")
+@dispatch_required
+def api_drivers():
+    users = users_payload().get("users", [])
+    drivers = []
+    for user in users:
+        if not user.get("active", True):
+            continue
+        role = (user.get("role") or "").lower()
+        if role == "driver":
+            drivers.append({
+                "name": user.get("display_name") or user.get("username"),
+                "username": user.get("username"),
+                "role": user.get("role", "Dispatcher"),
+                "phone": user.get("phone", ""),
+                "cities": user.get("assigned_cities", []),
+            })
+    return jsonify({"ok": True, "drivers": drivers})
 
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
@@ -683,10 +805,15 @@ def api_geocode_stores():
     return jsonify({"ok": True, "updated": updated, "failed": failed})
 
 @app.route("/dispatch-map")
+@dispatch_required
 def dispatch_map():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     maps_key = clean(read_json(SETTINGS_FILE).get("google_maps_api_key"))
-    return render_template("dispatch_map.html", stores=stores, hubs=HUBS, max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key)
+    return render_template(
+        "dispatch_map.html", stores=stores, hubs=HUBS,
+        max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key,
+        can_view_financials=current_role() in {"Admin", "Operations Manager"}
+    )
 
 @app.route("/route-builder")
 def route_builder():
@@ -1952,6 +2079,30 @@ def api_rms_sync_open_bols():
     return jsonify({"ok": result.get("ok", False), "result": result})
 
 
+@app.route("/api/rms/auto-grab-bols", methods=["POST"])
+def api_rms_auto_grab_bols():
+    """Dashboard one-click RMS grabber.
+    Uses the same full RMS multi-page import engine as RMS Sync, but gives the
+    dashboard button a dedicated endpoint and simpler response target.
+    """
+    history = read_json(SYNC_HISTORY_FILE)
+    payload = request.get_json(silent=True) or {}
+    max_bols = int(payload.get("max_bols") or 0)
+
+    result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+    result.update({
+        "id": str(uuid4()),
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "action": "Dashboard Auto Grab BOLs"
+    })
+
+    history.append(result)
+    write_json(SYNC_HISTORY_FILE, history)
+    audit("Dashboard Auto Grab BOLs", result)
+
+    return jsonify({"ok": result.get("ok", False), "result": result})
+
+
 @app.route("/users")
 @admin_required
 def users_admin():
@@ -1965,6 +2116,8 @@ def users_create():
     username = clean(request.form.get("username"))
     password = request.form.get("password") or ""
     role = clean(request.form.get("role")) or "Dispatcher"
+    if role not in {"Admin", "Operations Manager", "Dispatcher", "Driver"}:
+        role = "Dispatcher"
     assigned_cities = request.form.getlist("assigned_cities") or ["San Antonio"]
     data = users_payload()
     users = data.get("users", [])
@@ -1972,7 +2125,7 @@ def users_create():
         return redirect("/users")
     if any(u.get("username") == username for u in users):
         return redirect("/users")
-    if role != "Admin" and "All" in assigned_cities:
+    if role not in {"Admin", "Operations Manager"} and "All" in assigned_cities:
         assigned_cities = [c for c in assigned_cities if c != "All"] or ["San Antonio"]
     users.append({"id": str(uuid4()), "username": username, "password": hash_password(password), "role": role, "assigned_cities": assigned_cities, "active": True, "created_at": datetime.now().isoformat(timespec="seconds")})
     data["users"] = users
@@ -1986,8 +2139,11 @@ def users_update(user_id):
     data = users_payload()
     for user in data.get("users", []):
         if user.get("id") == user_id or user.get("username") == user_id:
-            user["role"] = clean(request.form.get("role")) or user.get("role", "Dispatcher")
+            role = clean(request.form.get("role")) or user.get("role", "Dispatcher")
+            user["role"] = role if role in {"Admin", "Operations Manager", "Dispatcher", "Driver"} else "Dispatcher"
             user["assigned_cities"] = request.form.getlist("assigned_cities") or user.get("assigned_cities", ["San Antonio"])
+            if user["role"] not in {"Admin", "Operations Manager"} and "All" in user["assigned_cities"]:
+                user["assigned_cities"] = [c for c in user["assigned_cities"] if c != "All"] or ["San Antonio"]
             user["active"] = bool(request.form.get("active"))
             new_password = request.form.get("password") or ""
             if new_password:
@@ -2052,6 +2208,54 @@ def api_dispatch_board_live():
         }
     })
 
+
+@app.route("/api/send-route-sms", methods=["POST"])
+@dispatch_required
+def api_send_route_sms():
+    data = request.get_json(force=True)
+    route_id = data.get("route_id")
+    routes = read_json(ROUTES_FILE)
+    route = next((r for r in routes if r.get("id") == route_id or r.get("route_number") == route_id), None)
+    if not route:
+        return jsonify({"ok": False, "message": "Route not found."}), 404
+
+    phone = clean(route.get("driver_phone"))
+    if not phone:
+        return jsonify({"ok": False, "message": "Add the driver phone number first."})
+
+    public_base = clean(os.environ.get("PUBLIC_BASE_URL")) or request.host_url.rstrip("/")
+    route_link = f"{public_base}/route-view/{route.get('id')}"
+    body = f"EOMS Route {route.get('route_number')}"
+    if route.get("driver"):
+        body += f" for {route.get('driver')}"
+    body += "\n"
+    if route.get("truck"):
+        body += f"Truck: {route.get('truck')}\n"
+    if route.get("helper"):
+        body += f"Helper: {route.get('helper')}\n"
+    body += f"Stops: {len(route.get('stops', []))} | Racks: {route.get('metrics', {}).get('racks', 0)} | Weight: {route.get('metrics', {}).get('weight', 0)} lbs\nOpen route: {route_link}"
+
+    api_key = clean(os.environ.get("TELNYX_API_KEY"))
+    from_number = clean(os.environ.get("TELNYX_FROM_NUMBER")) or clean(read_json(SETTINGS_FILE).get("telnyx_from_number"))
+    if not api_key or not from_number:
+        return jsonify({"ok": False, "message": "Telnyx is not configured locally. Copy Message or set TELNYX_API_KEY and TELNYX_FROM_NUMBER.", "body": body})
+
+    try:
+        resp = requests.post(
+            "https://api.telnyx.com/v2/messages",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": from_number, "to": phone, "text": body},
+            timeout=15,
+        )
+        if resp.status_code >= 300:
+            return jsonify({"ok": False, "message": f"Telnyx error {resp.status_code}: {resp.text[:180]}", "body": body})
+        route["last_sms_sent_at"] = datetime.now().isoformat(timespec="seconds")
+        write_json(ROUTES_FILE, routes)
+        audit("Send Route SMS", {"route_id": route.get("id"), "route_number": route.get("route_number"), "to": phone})
+        return jsonify({"ok": True, "message": "Route SMS sent.", "body": body})
+    except Exception as exc:
+        return jsonify({"ok": False, "message": "SMS send failed: " + str(exc)[:180], "body": body})
+
 @app.route("/api/routes")
 def api_routes():
     routes = read_json(ROUTES_FILE)
@@ -2062,14 +2266,24 @@ def api_route_detail(route_id):
     routes = read_json(ROUTES_FILE)
     for route in routes:
         if route.get("id") == route_id or route.get("route_number") == route_id:
+            if current_role() == "Driver":
+                user = current_user() or {}
+                driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
+                if clean(route.get("driver")) not in driver_names:
+                    return jsonify({"ok": False, "message": "Route not assigned to you."}), 403
             return jsonify({"ok": True, "route": route})
     return jsonify({"ok": False, "message": "Route not found."}), 404
 
 @app.route("/api/preview-route", methods=["POST"])
+@dispatch_required
 def api_preview_route():
     data = request.get_json(force=True)
     store_ids = data.get("store_ids", [])
     mode = data.get("mode", "optimized")
+
+    allowed_ids = {s.get("id") for s in filter_stores_for_user(read_json(STORES_FILE))}
+    if any(store_id not in allowed_ids for store_id in store_ids):
+        return jsonify({"ok": False, "message": "One or more stores are outside your assigned cities."}), 403
 
     hub_name, ordered, metrics = build_route_order(store_ids, mode)
 
@@ -2085,11 +2299,17 @@ def api_preview_route():
     })
 
 @app.route("/api/assign-route", methods=["POST"])
+@dispatch_required
 def api_assign_route():
     data = request.get_json(force=True)
     driver = clean(data.get("driver"))
+    driver_phone = clean(data.get("driver_phone"))
     store_ids = data.get("store_ids", [])
     mode = data.get("mode", "optimized")
+
+    allowed_ids = {s.get("id") for s in filter_stores_for_user(read_json(STORES_FILE))}
+    if any(store_id not in allowed_ids for store_id in store_ids):
+        return jsonify({"ok": False, "message": "One or more stores are outside your assigned cities."}), 403
 
     hub_name, ordered, metrics = build_route_order(store_ids, mode)
 
@@ -2116,6 +2336,7 @@ def api_assign_route():
         "id": str(uuid4()),
         "route_number": route_number,
         "driver": driver,
+        "driver_phone": driver_phone,
         "hub": hub_name,
         "mode": mode,
         "mode_label": "Selection Order" if mode == "selection" else "Optimized Nearest Stop",
@@ -2132,6 +2353,45 @@ def api_assign_route():
     audit("Assign Route", {"route_number": route_number, "driver": driver, "stores": len(ordered), "mode": mode})
 
     return jsonify({"ok": True, "route": route, "assigned": ordered, "metrics": metrics})
+
+
+@app.route("/api/dispatch-route", methods=["POST"])
+@dispatch_required
+def api_dispatch_route():
+    data = request.get_json(force=True)
+    route_id = clean(data.get("route_id"))
+    routes = read_json(ROUTES_FILE)
+    visible_route_ids = {
+        clean(r.get("id")) for r in filter_routes_for_user(routes)
+    } | {
+        clean(r.get("route_number")) for r in filter_routes_for_user(routes)
+    }
+    if route_id not in visible_route_ids:
+        return jsonify({"ok": False, "message": "Route not found or outside your assigned cities."}), 404
+
+    route = next((r for r in routes if clean(r.get("id")) == route_id or clean(r.get("route_number")) == route_id), None)
+    if not route:
+        return jsonify({"ok": False, "message": "Route not found."}), 404
+    if not clean(route.get("driver")):
+        return jsonify({"ok": False, "message": "Assign a driver before dispatch."})
+    if num((route.get("metrics") or {}).get("weight")) > MAX_PAYLOAD:
+        return jsonify({"ok": False, "message": "Route exceeds the 25,001 lb payload limit."})
+
+    route["status"] = "Dispatched"
+    route["dispatched_at"] = datetime.now().isoformat(timespec="seconds")
+    route_store_ids = set(route.get("store_ids", []))
+    stores = read_json(STORES_FILE)
+    for store in stores:
+        if store.get("id") in route_store_ids:
+            store["status"] = "Dispatched"
+            store["dispatched_at"] = route["dispatched_at"]
+            if store.get("pdf_path"):
+                store["pdf_path"] = move_pdf(store["pdf_path"], "Dispatched")
+
+    write_json(ROUTES_FILE, routes)
+    write_json(STORES_FILE, stores)
+    audit("Dispatch Route", {"route_id": route.get("id"), "route_number": route.get("route_number"), "driver": route.get("driver")})
+    return jsonify({"ok": True, "route": route, "message": "Route dispatched."})
 
 
 
@@ -2179,41 +2439,6 @@ def api_update_route_driver():
 
     return jsonify({"ok": True, "route": updated})
 
-@app.route("/api/dispatch-route", methods=["POST"])
-def api_dispatch_route():
-    data = request.get_json(force=True)
-    route_id = data.get("route_id")
-
-    routes = read_json(ROUTES_FILE)
-    stores = read_json(STORES_FILE)
-
-    route = None
-    for r in routes:
-        if r.get("id") == route_id or r.get("route_number") == route_id:
-            r["status"] = "Dispatched"
-            r["dispatched_at"] = datetime.now().isoformat(timespec="seconds")
-            route = r
-            break
-
-    if not route:
-        return jsonify({"ok": False, "message": "Route not found."})
-
-    route_store_ids = set(route.get("store_ids", []))
-    for store in stores:
-        if store.get("id") in route_store_ids:
-            store["status"] = "Dispatched"
-            store["assigned_driver"] = route.get("driver", "")
-            store["driver_phone"] = route.get("driver_phone", "")
-            store["dispatched_at"] = route.get("dispatched_at")
-            if store.get("pdf_path"):
-                store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
-
-    write_json(ROUTES_FILE, routes)
-    write_json(STORES_FILE, stores)
-    audit("Dispatch Route", {"route_id": route_id, "route_number": route.get("route_number")})
-
-    return jsonify({"ok": True, "route": route})
-
 @app.route("/api/complete-route", methods=["POST"])
 def api_complete_route():
     data = request.get_json(force=True)
@@ -2258,6 +2483,12 @@ def route_view(route_id):
 
     if not route:
         return "Route not found", 404
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
+        if clean(route.get("driver")) not in driver_names:
+            return render_template("access_denied.html"), 403
 
     return render_template("route_view.html", route=route)
 
@@ -2370,7 +2601,11 @@ def api_unassign_store():
 
 @app.route("/driver")
 def driver_portal():
-    stores = [s for s in read_json(STORES_FILE) if s.get("status") == "Assigned"]
+    stores = [s for s in read_json(STORES_FILE) if s.get("status") in {"Assigned", "Dispatched"}]
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
+        stores = [s for s in stores if clean(s.get("assigned_driver")) in driver_names]
     return render_template("driver.html", stores=stores)
 
 @app.route("/api/driver/complete", methods=["POST"])
@@ -2382,6 +2617,11 @@ def api_driver_complete():
     updated = None
     for store in stores:
         if store.get("id") == store_id:
+            if current_role() == "Driver":
+                user = current_user() or {}
+                driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
+                if clean(store.get("assigned_driver")) not in driver_names:
+                    return jsonify({"ok": False, "message": "This stop is not assigned to you."}), 403
             store["collected_racks"] = collected_racks
             store["variance"] = collected_racks - num(store.get("expected_racks"))
             store["status"] = "Completed"

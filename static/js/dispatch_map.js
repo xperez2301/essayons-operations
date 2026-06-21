@@ -3,7 +3,9 @@ let markers = {};
 const stores = window.EOMS_STORES || [];
 const hubs = window.EOMS_HUBS || {};
 const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
+const CAN_VIEW_FINANCIALS = !!window.EOMS_CAN_VIEW_FINANCIALS;
 let selectedOrder = [];
+let activeClusterInfo = null;
 
 function parseDueDate(value){
     if(!value) return null;
@@ -28,17 +30,29 @@ function dueStatus(store){
 }
 
 function pinIcon(number, color){
-    const colors = {green:"#22c55e", amber:"#f59e0b", red:"#ef4444"};
+    const colors = {green:"#244678", amber:"#d7a53e", red:"#b7332d"};
     const fill = colors[color] || colors.green;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="46" viewBox="0 0 38 46">
-      <path d="M19 45C19 45 36 27 36 17C36 7.6 28.4 0 19 0C9.6 0 2 7.6 2 17C2 27 19 45 19 45Z" fill="${fill}" stroke="white" stroke-width="3"/>
-      <circle cx="19" cy="17" r="11" fill="rgba(0,0,0,.25)"/>
-      <text x="19" y="22" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="white">${number}</text>
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="20" fill="${fill}" stroke="#f4efe6" stroke-width="2"/>
+      <circle cx="24" cy="24" r="23" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
+      <text x="24" y="30" text-anchor="middle" font-family="Arial" font-size="16" font-weight="900" fill="white">${number}</text>
     </svg>`;
     return {
         url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(38,46),
-        anchor: new google.maps.Point(19,46)
+        scaledSize: new google.maps.Size(48,48),
+        anchor: new google.maps.Point(24,24)
+    };
+}
+
+function hubIcon(){
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
+      <circle cx="26" cy="26" r="22" fill="#b7332d" stroke="#ffe2dd" stroke-width="3"/>
+      <path d="M14 33h24v-13h-4v-5h-5v5h-6v-5h-5v5h-4v13zm8 0v-7h8v7" fill="white" opacity=".95"/>
+    </svg>`;
+    return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(52,52),
+        anchor: new google.maps.Point(26,26)
     };
 }
 
@@ -59,6 +73,13 @@ function focusStoreCard(storeId){
     }
 }
 
+function selectStoreFromMap(storeId){
+    focusStoreCard(storeId);
+    if(activeClusterInfo) activeClusterInfo.close();
+    previewRoute();
+}
+window.selectStoreFromMap = selectStoreFromMap;
+
 
 function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned"); }
 
@@ -70,6 +91,49 @@ function updateSelectionOrder(){
     const ids = selectedIds();
     ids.forEach(id => { if(!selectedOrder.includes(id)) selectedOrder.push(id); });
     selectedOrder = selectedOrder.filter(id => ids.includes(id));
+}
+
+
+function selectAllVisible(){
+    document.querySelectorAll(".store-box").forEach(box => { box.checked = true; if(!selectedOrder.includes(box.dataset.storeId)) selectedOrder.push(box.dataset.storeId); });
+    updateTotals();
+}
+function clearSelection(){
+    document.querySelectorAll(".store-box").forEach(box => box.checked = false);
+    selectedOrder = [];
+    updateTotals();
+}
+function selectDueToday(){
+    const today = new Date(); today.setHours(0,0,0,0);
+    document.querySelectorAll(".store-box").forEach(box => {
+        const store = stores.find(s => s.id === box.dataset.storeId);
+        const due = store ? parseDueDate(store.due_date) : null;
+        if(due){ due.setHours(0,0,0,0); }
+        const shouldSelect = due && due <= today;
+        box.checked = !!shouldSelect;
+        if(shouldSelect && !selectedOrder.includes(box.dataset.storeId)) selectedOrder.push(box.dataset.storeId);
+    });
+    selectedOrder = selectedOrder.filter(id => Array.from(document.querySelectorAll(".store-box:checked")).some(b => b.dataset.storeId === id));
+    updateTotals();
+}
+async function loadDrivers(){
+    const select = document.getElementById("driver-select");
+    if(!select) return;
+    try{
+        const response = await fetch("/api/drivers");
+        const data = await response.json();
+        if(!data.ok) return;
+        const existing = select.value;
+        select.innerHTML = '<option value="">Select Driver</option>';
+        (data.drivers || []).forEach(driver => {
+            const option = document.createElement("option");
+            option.value = driver.name || driver.username;
+            option.dataset.phone = driver.phone || "";
+            option.textContent = (driver.name || driver.username) + (driver.cities && driver.cities.length ? " — " + driver.cities.join(", ") : "");
+            if(existing && option.value === existing) option.selected = true;
+            select.appendChild(option);
+        });
+    }catch(err){ console.warn("Unable to load drivers", err); }
 }
 
 function renderStores(){
@@ -120,6 +184,21 @@ function updateTotals(){
     if(weight > MAX_CAPACITY){ status.innerText = "OVER LIMIT"; status.classList.add("over"); }
     else if(weight > 22000){ status.innerText = "WARNING"; status.classList.add("warning"); }
     else{ status.innerText = "SAFE"; status.classList.add("safe"); }
+
+    const gauge = document.getElementById("payload-gauge-fill");
+    if(gauge){
+        gauge.style.width = Math.min(100, (weight / MAX_CAPACITY) * 100) + "%";
+        gauge.className = weight > MAX_CAPACITY ? "over" : weight > 22000 ? "warning" : "safe";
+    }
+    const preview = document.getElementById("route-preview");
+    if(preview && selectedOrder.length){
+        preview.innerHTML = selectedOrder.map((id, index) => {
+            const store = stores.find(item => item.id === id);
+            return store ? `<div class="preview-stop"><b>${index + 1}</b> ${store.store_name || store.origin || "Store"}<small>BOL ${store.bol || ""} &middot; ${Number(store.weight || 0).toLocaleString()} lbs</small></div>` : "";
+        }).join("");
+    }else if(preview){
+        preview.innerHTML = "<p class='muted'>Select stores to build the route. The first store selected becomes stop 1.</p>";
+    }
 }
 
 document.addEventListener("change", updateTotals);
@@ -161,8 +240,7 @@ function renderPreview(data){
             <p><b>Weight:</b> ${m.weight} lbs</p>
             <p><b>Remaining:</b> ${m.remaining_capacity} lbs</p>
             <p><b>Mileage:</b> ${m.mileage} mi</p>
-            <p><b>Revenue:</b> $${m.revenue}</p>
-            <p><b>Driver Pay:</b> $${m.driver_pay}</p>
+            ${CAN_VIEW_FINANCIALS ? `<p><b>Revenue:</b> $${m.revenue}</p><p><b>Driver Pay:</b> $${m.driver_pay}</p>` : ""}
             <p><b>Status:</b> <span class="${m.status === "SAFE" ? "safe" : m.status === "WARNING" ? "warning" : "over"}">${m.status}</span></p>
             <hr>
             <h4>Stop Order</h4>
@@ -184,11 +262,13 @@ async function assignDriver(){
     if(ids.length === 0){ alert("Select stores first"); return; }
 
     const mode = document.getElementById("route-mode").value;
+    const selectedDriverOption = document.getElementById("driver-select").selectedOptions[0];
+    const driverPhone = selectedDriverOption ? selectedDriverOption.dataset.phone || "" : "";
 
     const response = await fetch("/api/assign-route", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({driver: driver, store_ids: ids, mode: mode})
+        body: JSON.stringify({driver: driver, driver_phone: driverPhone, store_ids: ids, mode: mode})
     });
 
     const data = await response.json();
@@ -205,8 +285,8 @@ async function assignDriver(){
         <p><b>Driver:</b> ${driver}</p>
         <p><b>Hub:</b> ${route.hub}</p>
         <p><b>Miles:</b> ${route.metrics.mileage}</p>
-        <p><b>Revenue:</b> $${route.metrics.revenue}</p>
-        <p><b>Driver Pay:</b> $${route.metrics.driver_pay}</p>
+        ${CAN_VIEW_FINANCIALS ? `<p><b>Revenue:</b> $${route.metrics.revenue}</p><p><b>Driver Pay:</b> $${route.metrics.driver_pay}</p>` : ""}
+        <button class="primary-btn dispatch-route-btn" onclick="dispatchRoute('${route.id}', this)">Dispatch Route &amp; Send SMS</button>
     `;
 
     data.assigned.forEach(store => {
@@ -221,8 +301,6 @@ async function assignDriver(){
         row.appendChild(btn);
         routeBlock.appendChild(row);
 
-        if(markers[store.id]) markers[store.id].setMap(null);
-
         const original = stores.find(s => s.id === store.id);
         if(original){
             original.status = "Assigned";
@@ -235,8 +313,34 @@ async function assignDriver(){
     renderStores();
     renderMapDispatchBoardLive();
     updateTotals();
-    document.getElementById("route-preview").innerHTML = "<p class='muted'>Route assigned. View full route in Route Builder.</p>";
+    document.getElementById("route-preview").innerHTML = "<p class='safe'>Route assigned. Dispatch it from the Assigned Queue below.</p>";
 }
+
+async function dispatchRoute(routeId, button){
+    button.disabled = true;
+    button.textContent = "Dispatching...";
+    try{
+        const response = await fetch("/api/dispatch-route", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({route_id:routeId})
+        });
+        const data = await response.json();
+        if(!data.ok) throw new Error(data.message || "Dispatch failed");
+        const smsResponse = await fetch("/api/send-route-sms", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({route_id:routeId})
+        });
+        const sms = await smsResponse.json();
+        button.textContent = sms.ok ? "Dispatched - SMS Sent" : "Dispatched - SMS Not Configured";
+        button.className = "secondary-btn dispatch-route-btn";
+        renderMapDispatchBoardLive();
+    }catch(err){
+        button.disabled = false;
+        button.textContent = "Dispatch Route & Send SMS";
+        alert(err.message);
+    }
+}
+window.dispatchRoute = dispatchRoute;
 
 async function unassignStore(storeId, row){
     const response = await fetch("/api/unassign-store", {
@@ -273,10 +377,19 @@ function initMap(){
     }
     map = new google.maps.Map(document.getElementById("map"), {
         zoom: 6,
-        center: {lat: 30.2672, lng: -97.7431},
+        center: {lat: 30.8, lng: -97.2},
         mapTypeControl: false,
         streetViewControl: false,
-        gestureHandling: "greedy"
+        fullscreenControl: true,
+        gestureHandling: "greedy",
+        styles: [
+            {elementType:"geometry", stylers:[{color:"#17212b"}]},
+            {elementType:"labels.text.stroke", stylers:[{color:"#111820"}]},
+            {elementType:"labels.text.fill", stylers:[{color:"#e7e7e7"}]},
+            {featureType:"water", elementType:"geometry", stylers:[{color:"#0c3357"}]},
+            {featureType:"road", elementType:"geometry", stylers:[{color:"#2b333b"}]},
+            {featureType:"poi", stylers:[{visibility:"off"}]}
+        ]
     });
 
     const bounds = new google.maps.LatLngBounds();
@@ -284,12 +397,16 @@ function initMap(){
     Object.keys(hubs).forEach(hubName => {
         const hub = hubs[hubName];
         const hubPos = {lat: Number(hub.lat), lng: Number(hub.lng)};
-        new google.maps.Marker({
+        const marker = new google.maps.Marker({
             position: hubPos,
             map,
             title: hubName + " Hub",
-            label: "H"
+            icon: hubIcon()
         });
+        const info = new google.maps.InfoWindow({
+            content: `<div style="font-family:Arial"><b>${hubName.toUpperCase()} HUB</b><br>${hub.address || ""}</div>`
+        });
+        marker.addListener("click", () => info.open(map, marker));
         bounds.extend(hubPos);
     });
 
@@ -592,6 +709,7 @@ async function renderMapDispatchBoardLive(){
 document.addEventListener("DOMContentLoaded", function(){
     if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
     setTimeout(renderMapDispatchBoardLive, 500);
+    loadDrivers();
 });
 
 
