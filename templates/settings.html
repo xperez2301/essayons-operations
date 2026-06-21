@@ -45,7 +45,16 @@
         <label>Google Maps API Key</label>
         <input type="password" name="google_maps_api_key" value="{{ settings.google_maps_api_key or '' }}" placeholder="Used to place pins at exact street address">
 
-        <button class="primary-btn" type="submit">Save RMS Settings</button>
+        <hr>
+        <h3>Telnyx Driver SMS</h3>
+        <label>Telnyx API Key</label>
+        <input type="password" name="telnyx_api_key" placeholder="{{ 'API key saved - leave blank to keep it' if settings.telnyx_api_key_saved else 'KEY...' }}">
+
+        <label>Telnyx Sending Number</label>
+        <input type="tel" name="telnyx_from_number" value="{{ settings.telnyx_from_number or '' }}" placeholder="+12105551234">
+        <p class="muted">Use E.164 format, including +1. Only Admin can view or change these settings.</p>
+
+        <button class="primary-btn" type="submit">Save Settings</button>
     </form>
 
     <div style="margin-top:15px;">

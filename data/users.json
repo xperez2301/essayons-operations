@@ -10,6 +10,19 @@
       ],
       "active": true,
       "created_at": "system"
+    },
+    {
+      "id": "26c70912-1f00-421b-acc0-ea450d0074b0",
+      "username": "4325860",
+      "display_name": "xavier perez",
+      "password": "scrypt:32768:8:1$OW3f6zwXcutUTzOH$ff0b69fff9fa61f0a5e68701b32baac93ef7c169b9dfd8d9857633755fd020f546b8871ea9c3e2061af6c41a95b17b25318ff9f42694959a747c4a0df9c08768",
+      "phone": "17194325860",
+      "role": "Driver",
+      "assigned_cities": [
+        "San Antonio"
+      ],
+      "active": true,
+      "created_at": "2026-06-21T00:21:33"
     }
   ]
 }

@@ -598,5 +598,65 @@
       "route_id": "10fc5865-be90-43fc-829f-9c54f8d6a685",
       "restored": 3
     }
+  },
+  {
+    "id": "f0c3b3c5-ce67-45ca-9a4e-f21f76ce0d59",
+    "time": "2026-06-21T00:21:34",
+    "action": "Create Driver",
+    "details": {
+      "username": "4325860",
+      "display_name": "xavier perez",
+      "phone": "17194325860",
+      "assigned_cities": [
+        "San Antonio"
+      ]
+    }
+  },
+  {
+    "id": "675406f0-4492-4202-8064-28cd4fc1b25b",
+    "time": "2026-06-21T00:22:02",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "xavier perez",
+      "stores": 2,
+      "mode": "selection"
+    }
+  },
+  {
+    "id": "8e459d60-4c1b-4f24-b455-cb20ab30d00c",
+    "time": "2026-06-21T00:25:06",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "58ab49e9-075d-47ae-8ae4-ee3dcaf19e00",
+    "time": "2026-06-21T00:33:02",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "1a08eaec-0d76-4986-ac75-cfd417f3b198",
+    "time": "2026-06-21T00:33:44",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "093c5a0c-4c17-455f-9f5a-b00024bdb5e7",
+    "time": "2026-06-21T00:34:16",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "a5b9ceea-c287-4663-84b7-c9a4704bf74a",
+      "restored": 2
+    }
   }
 ]

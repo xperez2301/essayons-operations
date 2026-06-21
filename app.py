@@ -730,11 +730,15 @@ def api_dashboard_live():
 def api_drivers():
     users = users_payload().get("users", [])
     drivers = []
+    allowed_cities = set(user_allowed_city_values())
     for user in users:
         if not user.get("active", True):
             continue
         role = (user.get("role") or "").lower()
         if role == "driver":
+            driver_cities = set(user.get("assigned_cities") or [])
+            if current_role() == "Dispatcher" and "All" not in allowed_cities and not (allowed_cities & driver_cities):
+                continue
             drivers.append({
                 "name": user.get("display_name") or user.get("username"),
                 "username": user.get("username"),
@@ -743,6 +747,85 @@ def api_drivers():
                 "cities": user.get("assigned_cities", []),
             })
     return jsonify({"ok": True, "drivers": drivers})
+
+
+@app.route("/drivers")
+@dispatch_required
+def drivers_directory():
+    drivers = [u for u in users_payload().get("users", []) if (u.get("role") or "").lower() == "driver"]
+    allowed_cities = set(user_allowed_city_values())
+    if current_role() == "Dispatcher" and "All" not in allowed_cities:
+        drivers = [u for u in drivers if allowed_cities & set(u.get("assigned_cities") or [])]
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    driver_phones = {}
+    for driver in drivers:
+        phone = clean(driver.get("phone"))
+        if phone:
+            driver_phones[clean(driver.get("username"))] = phone
+            driver_phones[clean(driver.get("display_name"))] = phone
+    route_counts = {}
+    for route in routes:
+        driver_name = clean(route.get("driver"))
+        if driver_name:
+            route_counts[driver_name] = route_counts.get(driver_name, 0) + 1
+            if not clean(route.get("driver_phone")):
+                route["driver_phone"] = driver_phones.get(driver_name, "")
+    return render_template(
+        "drivers.html", drivers=drivers, routes=routes,
+        route_counts=route_counts, city_options=["All", "San Antonio", "Houston", "Dallas"],
+        can_manage=is_admin()
+    )
+
+
+@app.route("/drivers/create", methods=["POST"])
+@admin_required
+def drivers_create():
+    username = clean(request.form.get("username"))
+    display_name = clean(request.form.get("display_name"))
+    password = request.form.get("password") or ""
+    phone = clean(request.form.get("phone"))
+    assigned_cities = request.form.getlist("assigned_cities") or ["San Antonio"]
+    if "All" in assigned_cities:
+        assigned_cities = ["San Antonio", "Houston", "Dallas"]
+    data = users_payload()
+    users = data.get("users", [])
+    if not username or not display_name or not password or not phone:
+        return redirect("/drivers?error=missing")
+    if any(clean(u.get("username")) == username for u in users):
+        return redirect("/drivers?error=duplicate")
+    users.append({
+        "id": str(uuid4()), "username": username, "display_name": display_name,
+        "password": hash_password(password), "phone": phone, "role": "Driver",
+        "assigned_cities": assigned_cities, "active": True,
+        "created_at": datetime.now().isoformat(timespec="seconds")
+    })
+    data["users"] = users
+    save_users_payload(data)
+    audit("Create Driver", {"username": username, "display_name": display_name, "phone": phone, "assigned_cities": assigned_cities})
+    return redirect("/drivers?created=1")
+
+
+@app.route("/drivers/update/<driver_id>", methods=["POST"])
+@admin_required
+def drivers_update(driver_id):
+    data = users_payload()
+    updated = None
+    for user in data.get("users", []):
+        if (user.get("id") == driver_id or user.get("username") == driver_id) and (user.get("role") or "").lower() == "driver":
+            user["display_name"] = clean(request.form.get("display_name")) or user.get("display_name") or user.get("username")
+            user["phone"] = clean(request.form.get("phone")) or user.get("phone", "")
+            user["assigned_cities"] = request.form.getlist("assigned_cities") or user.get("assigned_cities", ["San Antonio"])
+            user["active"] = bool(request.form.get("active"))
+            password = request.form.get("password") or ""
+            if password:
+                user["password"] = hash_password(password)
+            user["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            updated = user
+            break
+    save_users_payload(data)
+    if updated:
+        audit("Update Driver", {"username": updated.get("username"), "active": updated.get("active"), "assigned_cities": updated.get("assigned_cities")})
+    return redirect("/drivers")
 
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
@@ -2163,6 +2246,11 @@ def settings():
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
+        settings_data["telnyx_from_number"] = clean(request.form.get("telnyx_from_number")) or settings_data.get("telnyx_from_number", "")
+        telnyx_api_key = clean(request.form.get("telnyx_api_key"))
+        if telnyx_api_key:
+            settings_data["telnyx_api_key"] = telnyx_api_key
+        settings_data["telnyx_api_key_saved"] = bool(settings_data.get("telnyx_api_key") or os.environ.get("TELNYX_API_KEY"))
         settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
 
         rms_password = clean(request.form.get("rms_password"))
@@ -2180,7 +2268,7 @@ def settings():
             settings_data["rms_password_saved"] = False
         write_json(SETTINGS_FILE, settings_data)
         audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"]})
-        message = "RMS settings saved. Automatic sync will be added later."
+        message = "RMS, mapping, and Telnyx settings saved."
     return render_template("settings.html", settings=settings_data, message=message)
 
 
@@ -2220,6 +2308,15 @@ def api_send_route_sms():
         return jsonify({"ok": False, "message": "Route not found."}), 404
 
     phone = clean(route.get("driver_phone"))
+    if not phone and clean(route.get("driver")):
+        driver_name = clean(route.get("driver"))
+        for user in users_payload().get("users", []):
+            names = {clean(user.get("username")), clean(user.get("display_name"))}
+            if (user.get("role") or "").lower() == "driver" and driver_name in names:
+                phone = clean(user.get("phone"))
+                if phone:
+                    route["driver_phone"] = phone
+                break
     if not phone:
         return jsonify({"ok": False, "message": "Add the driver phone number first."})
 
@@ -2235,8 +2332,9 @@ def api_send_route_sms():
         body += f"Helper: {route.get('helper')}\n"
     body += f"Stops: {len(route.get('stops', []))} | Racks: {route.get('metrics', {}).get('racks', 0)} | Weight: {route.get('metrics', {}).get('weight', 0)} lbs\nOpen route: {route_link}"
 
-    api_key = clean(os.environ.get("TELNYX_API_KEY"))
-    from_number = clean(os.environ.get("TELNYX_FROM_NUMBER")) or clean(read_json(SETTINGS_FILE).get("telnyx_from_number"))
+    telnyx_settings = read_json(SETTINGS_FILE)
+    api_key = clean(os.environ.get("TELNYX_API_KEY")) or clean(telnyx_settings.get("telnyx_api_key"))
+    from_number = clean(os.environ.get("TELNYX_FROM_NUMBER")) or clean(telnyx_settings.get("telnyx_from_number"))
     if not api_key or not from_number:
         return jsonify({"ok": False, "message": "Telnyx is not configured locally. Copy Message or set TELNYX_API_KEY and TELNYX_FROM_NUMBER.", "body": body})
 

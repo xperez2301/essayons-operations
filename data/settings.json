@@ -6,5 +6,8 @@
   "google_maps_api_key": "AIzaSyAH0B8_yxpIoWHhAape38sR51-sxEiEoMk",
   "remember_rms_credentials": true,
   "rms_password": "Flag1010!",
-  "rms_connection_status": "MISSING CREDENTIALS"
+  "rms_connection_status": "MISSING CREDENTIALS",
+  "telnyx_from_number": "+1-210-352-9669",
+  "telnyx_api_key": "KEY019EE8A7B3FF58C504F77A2DF93CF052_sPe8OaeXpUhyk45KO2y1nD",
+  "telnyx_api_key_saved": true
 }
