@@ -1,0 +1,15 @@
+{
+  "users": [
+    {
+      "id": "admin",
+      "username": "admin",
+      "password": "ChangeMeNow123!",
+      "role": "Admin",
+      "assigned_cities": [
+        "All"
+      ],
+      "active": true,
+      "created_at": "system"
+    }
+  ]
+}

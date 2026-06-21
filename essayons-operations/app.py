@@ -5,8 +5,13 @@ import math
 import re
 import shutil
 import requests
+<<<<<<< Updated upstream
 import secrets
 from functools import wraps
+=======
+from functools import wraps
+import secrets
+>>>>>>> Stashed changes
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -19,11 +24,18 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 app = Flask(__name__)
 
+<<<<<<< Updated upstream
 # EOMS Authentication
 app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_SET_SECRET_KEY_IN_AZURE")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "720"))
+=======
+# EOMS Admin Login
+app.secret_key = os.environ.get("SECRET_KEY", "CHANGE_ME_SET_SECRET_KEY_IN_AZURE")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
+>>>>>>> Stashed changes
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -37,6 +49,10 @@ AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
 RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
+<<<<<<< Updated upstream
+=======
+USERS_FILE = DATA_DIR / "users.json"
+>>>>>>> Stashed changes
 
 MAX_PAYLOAD = 25001
 WARNING_PAYLOAD = 22000
@@ -71,9 +87,16 @@ def ensure_dirs():
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
+<<<<<<< Updated upstream
         (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": "", "telnyx_api_key": "", "telnyx_from_number": "+12103529669", "public_eoms_url": ""}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, [])
+=======
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
+        (SYNC_HISTORY_FILE, []),
+        (RMS_QUEUE_FILE, []),
+        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":ADMIN_PASSWORD,"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
+>>>>>>> Stashed changes
     ]:
         if not path.exists():
             path.write_text(json.dumps(default, indent=2), encoding="utf-8")
@@ -380,6 +403,7 @@ def parse_csv(path):
             rows.append(normalize_row(row))
     return rows
 
+<<<<<<< Updated upstream
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -412,6 +436,142 @@ def enforce_login():
 
     return redirect(url_for("login", next=path))
 
+=======
+def is_public_path(path):
+    return (
+        path == "/login"
+        or path == "/logout"
+        or path.startswith("/static/")
+        or path == "/favicon.ico"
+    )
+
+@app.before_request
+def require_admin_login():
+    if is_public_path(request.path):
+        return None
+    if session.get("logged_in"):
+        return None
+    return redirect(url_for("login", next=request.path))
+
+
+
+def users_payload():
+    data = read_json(USERS_FILE)
+    if isinstance(data, dict) and "users" in data:
+        return data
+    return {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":ADMIN_PASSWORD,"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}
+
+def save_users_payload(data):
+    write_json(USERS_FILE, data)
+
+def current_user():
+    username = session.get("username")
+    if not username:
+        return None
+    for user in users_payload().get("users", []):
+        if user.get("username") == username and user.get("active", True):
+            return user
+    if username == ADMIN_USERNAME:
+        return {"id":"admin","username":ADMIN_USERNAME,"role":"Admin","assigned_cities":["All"],"active":True}
+    return None
+
+def is_admin():
+    user = current_user()
+    return bool(user and user.get("role") == "Admin")
+
+def user_allowed_city_values():
+    user = current_user()
+    if not user:
+        return []
+    cities = user.get("assigned_cities") or []
+    if user.get("role") == "Admin" or "All" in cities:
+        return ["All"]
+    return cities
+
+def store_city_allowed(store):
+    allowed = user_allowed_city_values()
+    if "All" in allowed:
+        return True
+    values = {clean(store.get("city")), clean(store.get("hub")), clean(store.get("dispatch_group")), clean(store.get("origin_city"))}
+    return any(a in values for a in allowed)
+
+def filter_stores_for_user(stores):
+    return stores if is_admin() else [s for s in stores if store_city_allowed(s)]
+
+def filter_routes_for_user(routes):
+    if is_admin():
+        return routes
+    allowed = user_allowed_city_values()
+    if "All" in allowed:
+        return routes
+    result = []
+    for route in routes:
+        vals = {clean(route.get("hub")), clean(route.get("city"))}
+        for stop in route.get("stops", []):
+            vals.add(clean(stop.get("city")))
+            vals.add(clean(stop.get("hub")))
+        if any(a in vals for a in allowed):
+            result.append(route)
+    return result
+
+def filter_queue_for_user(queue):
+    if is_admin():
+        return queue
+    allowed = user_allowed_city_values()
+    if "All" in allowed:
+        return queue
+    return [q for q in queue if any(a in {clean(q.get("city")), clean(q.get("hub")), clean(q.get("dispatch_group")), clean(q.get("origin_city"))} for a in allowed)]
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login", next=request.path))
+        if not is_admin():
+            return render_template("access_denied.html"), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.before_request
+def enforce_login():
+    path = request.path or "/"
+    if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
+        return None
+    if session.get("logged_in"):
+        return None
+    return redirect(url_for("login", next=path))
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("logged_in"):
+        return redirect(request.args.get("next") or "/dispatch-map")
+    error = None
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        next_url = request.form.get("next") or request.args.get("next") or "/dispatch-map"
+        matched = None
+        for user in users_payload().get("users", []):
+            if user.get("username") == username and user.get("active", True) and user.get("password") == password:
+                matched = user
+                break
+        if not matched and username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            matched = {"username": ADMIN_USERNAME, "role":"Admin", "assigned_cities":["All"]}
+        if matched:
+            session.clear()
+            session["logged_in"] = True
+            session["username"] = matched.get("username")
+            session["role"] = matched.get("role", "Dispatcher")
+            session["assigned_cities"] = matched.get("assigned_cities", [])
+            return redirect(next_url)
+        error = "Invalid username or password."
+    return render_template("login.html", error=error, next=request.args.get("next") or "/dispatch-map")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+>>>>>>> Stashed changes
 
 @app.route("/")
 def home():
@@ -420,6 +580,7 @@ def home():
     return redirect("/login")
 
 
+<<<<<<< Updated upstream
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
@@ -486,6 +647,9 @@ def api_dispatch_board_live():
             "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2)
         }
     })
+=======
+
+>>>>>>> Stashed changes
 
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
@@ -549,12 +713,20 @@ def api_geocode_stores():
 
 @app.route("/dispatch-map")
 def dispatch_map():
+<<<<<<< Updated upstream
     stores = read_json(STORES_FILE)
+=======
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+>>>>>>> Stashed changes
     return render_template("dispatch_map.html", stores=stores, hubs=HUBS, max_payload=MAX_PAYLOAD)
 
 @app.route("/route-builder")
 def route_builder():
+<<<<<<< Updated upstream
     routes = read_json(ROUTES_FILE)
+=======
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+>>>>>>> Stashed changes
     return render_template("route_builder.html", routes=routes)
 
 @app.route("/rms-import", methods=["GET", "POST"])
@@ -608,7 +780,11 @@ def rms_import():
 
 @app.route("/need-review")
 def need_review():
+<<<<<<< Updated upstream
     stores = [s for s in read_json(STORES_FILE) if s.get("status") == "Need Review"]
+=======
+    stores = [s for s in filter_stores_for_user(read_json(STORES_FILE)) if s.get("status") == "Need Review"]
+>>>>>>> Stashed changes
     return render_template("need_review.html", stores=stores, hubs=HUBS)
 
 @app.route("/api/approve-review", methods=["POST"])
@@ -1696,8 +1872,13 @@ def api_rms_repair_bol(bol_number):
 
 @app.route("/rms-queue")
 def rms_queue():
+<<<<<<< Updated upstream
     queue = read_json(RMS_QUEUE_FILE)
     stores = read_json(STORES_FILE)
+=======
+    queue = filter_queue_for_user(read_json(RMS_QUEUE_FILE))
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+>>>>>>> Stashed changes
     imported_bols = {clean(s.get("bol")) for s in stores if clean(s.get("bol"))}
 
     for q in queue:
@@ -1765,6 +1946,10 @@ def api_rms_queue_update_status():
     return jsonify({"ok": True, "updated": updated})
 
 @app.route("/rms-sync")
+<<<<<<< Updated upstream
+=======
+@admin_required
+>>>>>>> Stashed changes
 def rms_sync():
     settings_data = read_json(SETTINGS_FILE)
     history = read_json(SYNC_HISTORY_FILE)
@@ -1814,7 +1999,58 @@ def api_rms_sync_open_bols():
 
     return jsonify({"ok": result.get("ok", False), "result": result})
 
+<<<<<<< Updated upstream
 @app.route("/settings", methods=["GET", "POST"])
+=======
+
+@app.route("/users")
+@admin_required
+def users_admin():
+    data = users_payload()
+    city_options = ["All", "San Antonio", "Houston", "Dallas", "Austin", "Killeen", "Waco", "Corpus Christi", "South Texas"]
+    return render_template("users.html", users=data.get("users", []), city_options=city_options)
+
+@app.route("/users/create", methods=["POST"])
+@admin_required
+def users_create():
+    username = clean(request.form.get("username"))
+    password = request.form.get("password") or ""
+    role = clean(request.form.get("role")) or "Dispatcher"
+    assigned_cities = request.form.getlist("assigned_cities") or ["San Antonio"]
+    data = users_payload()
+    users = data.get("users", [])
+    if not username or not password:
+        return redirect("/users")
+    if any(u.get("username") == username for u in users):
+        return redirect("/users")
+    if role != "Admin" and "All" in assigned_cities:
+        assigned_cities = [c for c in assigned_cities if c != "All"] or ["San Antonio"]
+    users.append({"id": str(uuid4()), "username": username, "password": password, "role": role, "assigned_cities": assigned_cities, "active": True, "created_at": datetime.now().isoformat(timespec="seconds")})
+    data["users"] = users
+    save_users_payload(data)
+    audit("Create User", {"username": username, "role": role, "assigned_cities": assigned_cities})
+    return redirect("/users")
+
+@app.route("/users/update/<user_id>", methods=["POST"])
+@admin_required
+def users_update(user_id):
+    data = users_payload()
+    for user in data.get("users", []):
+        if user.get("id") == user_id or user.get("username") == user_id:
+            user["role"] = clean(request.form.get("role")) or user.get("role", "Dispatcher")
+            user["assigned_cities"] = request.form.getlist("assigned_cities") or user.get("assigned_cities", ["San Antonio"])
+            user["active"] = bool(request.form.get("active"))
+            new_password = request.form.get("password") or ""
+            if new_password:
+                user["password"] = new_password
+            user["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            break
+    save_users_payload(data)
+    return redirect("/users")
+
+@app.route("/settings", methods=["GET", "POST"])
+@admin_required
+>>>>>>> Stashed changes
 def settings():
     settings_data = read_json(SETTINGS_FILE)
     message = ""
@@ -1823,9 +2059,12 @@ def settings():
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
+<<<<<<< Updated upstream
         settings_data["telnyx_api_key"] = clean(request.form.get("telnyx_api_key")) or settings_data.get("telnyx_api_key", "")
         settings_data["telnyx_from_number"] = clean(request.form.get("telnyx_from_number")) or settings_data.get("telnyx_from_number", "+12103529669")
         settings_data["public_eoms_url"] = clean(request.form.get("public_eoms_url")) or settings_data.get("public_eoms_url", "")
+=======
+>>>>>>> Stashed changes
         settings_data["remember_rms_credentials"] = bool(request.form.get("remember_rms_credentials"))
 
         rms_password = clean(request.form.get("rms_password"))
@@ -2056,6 +2295,7 @@ def route_view(route_id):
 
     return render_template("route_view.html", route=route)
 
+<<<<<<< Updated upstream
 
 @app.route("/api/send-route-sms", methods=["POST"])
 def api_send_route_sms():
@@ -2144,6 +2384,8 @@ def api_send_route_sms():
         audit("Send Route SMS Error", {"route_id": route_id, "error": str(e)[:300]})
         return jsonify({"ok": False, "message": f"Telnyx error: {str(e)[:300]}"})
 
+=======
+>>>>>>> Stashed changes
 @app.route("/api/unassign-route", methods=["POST"])
 def api_unassign_route():
     data = request.get_json(force=True)

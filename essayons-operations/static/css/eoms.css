@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
 .app-shell{display:flex;min-height:100vh}
@@ -473,3 +474,7 @@ select,input{width:100%;padding:11px;border-radius:12px;border:1px solid rgba(14
     color:#f59e0b;
     font-weight:800;
 }
+=======
+
+.user-form{display:grid;gap:10px}.user-form input,.user-form select,.inline-user-form input,.inline-user-form select{padding:10px;border-radius:10px;background:#0f172a;color:white;border:1px solid #475569}.city-checks{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px solid #334155;border-radius:10px}.inline-user-form{display:grid;gap:7px}.small-btn{width:auto!important}
+>>>>>>> Stashed changes
