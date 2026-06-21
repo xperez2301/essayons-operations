@@ -578,5 +578,25 @@
       "store_id": "1ec38b74-8b03-457e-bce3-c0d0e597887d",
       "hub": "Dallas"
     }
+  },
+  {
+    "id": "ef6245e3-8738-4c8a-b2c1-cd2aec28bc3b",
+    "time": "2026-06-20T22:33:42",
+    "action": "Assign Route",
+    "details": {
+      "route_number": "RT-00001",
+      "driver": "",
+      "stores": 3,
+      "mode": "optimized"
+    }
+  },
+  {
+    "id": "46b13924-1782-447d-8c6e-e8b7fae77dc6",
+    "time": "2026-06-20T22:33:50",
+    "action": "Unassign Entire Route",
+    "details": {
+      "route_id": "10fc5865-be90-43fc-829f-9c54f8d6a685",
+      "restored": 3
+    }
   }
 ]

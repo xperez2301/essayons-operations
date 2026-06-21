@@ -1,1 +1,28 @@
-<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>EOMS Login</title><style>body{margin:0;min-height:100vh;font-family:Arial;background:#0f172a;color:white;display:flex;align-items:center;justify-content:center}.card{width:min(420px,90vw);background:#111827;border:1px solid #334155;border-radius:18px;padding:28px}input,button{width:100%;padding:13px;margin-top:10px;border-radius:10px;border:1px solid #475569}input{background:#020617;color:white}button{background:#22c55e;color:#052e16;font-weight:900}.err{background:#7f1d1d;padding:10px;border-radius:10px}</style></head><body><form class='card' method='POST' action='/login'><h1>EOMS Login</h1><p>Authorized dispatch access only.</p>{% if error %}<div class='err'>{{ error }}</div>{% endif %}<input type='hidden' name='next' value='{{ next or "/dispatch-map" }}'><input name='username' placeholder='Username' required autofocus><input name='password' type='password' placeholder='Password' required><button>Enter Dispatch Portal</button></form></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EOMS Login | Essayons Operations</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+</head>
+<body class="login-body">
+  <form class="login-card" method="POST" action="/login">
+    <div class="login-crest">
+      <div class="logo">⚒</div>
+      <div>
+        <h1>EOMS</h1>
+        <p>Essayons Operations</p>
+      </div>
+    </div>
+    <div class="login-banner">We are building the route — import, map, assign, dispatch, complete.</div>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next" value="{{ next or '/dispatch-map' }}">
+    <label for="username">Username</label>
+    <input id="username" name="username" placeholder="Enter username" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" placeholder="Enter password" required>
+    <button class="primary-btn login-btn" type="submit">Enter Dispatch Portal</button>
+  </form>
+</body>
+</html>

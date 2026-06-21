@@ -1,36 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<header class="hero topbar">
+<header class="topbar">
     <div>
-        <span class="eyebrow">Construction Control Center</span>
         <h2>Dispatch Map</h2>
-        <p>Build the load from RMS import, place stores on the map, protect the M2 25,001 lb payload, and move routes from selection to completion.</p>
+        <p>Select RMS PDFs, preview optimized route, assign driver, and protect M2 payload capacity.</p>
     </div>
-    <div class="hero-actions">
+    <div>
         <a class="link-btn" href="/rms-import">Import RMS PDF</a>
         <a class="link-btn" href="/route-builder">Route Builder</a>
-        <a class="link-btn" href="/settings">Map Settings</a>
+        <a class="link-btn" href="/driver">Driver Portal</a>
     </div>
 </header>
 
-<section class="build-strip">
-    <div><b>1</b><span>Import BOL</span></div>
-    <div><b>2</b><span>Pin Store</span></div>
-    <div><b>3</b><span>Select Load</span></div>
-    <div><b>4</b><span>Assign Driver</span></div>
-    <div><b>5</b><span>Complete Route</span></div>
-</section>
 
 <section class="map-board-panel" id="map-dispatch-board">
     <div class="map-board-header">
         <div>
-            <span class="eyebrow">Live Job Board</span>
             <h3>Dispatch Board</h3>
-            <p class="muted">A single board for Need Review, Unassigned, Assigned, Dispatched, and Completed work.</p>
+            <p class="muted">Quick operations board built into Dispatch Map. No separate route needed.</p>
         </div>
         <button class="secondary-btn small-btn" onclick="toggleMapBoard()">Show / Hide Board</button>
     </div>
+
     <div class="map-board-metrics" id="map-board-metrics"></div>
+
     <div class="map-board-grid" id="map-board-grid">
         <div class="map-board-column" data-status="Need Review"><h4>Need Review <span>0</span></h4><div class="map-board-list"></div></div>
         <div class="map-board-column" data-status="Unassigned"><h4>Unassigned <span>0</span></h4><div class="map-board-list"></div></div>
@@ -40,25 +33,24 @@
     </div>
 </section>
 
-<section class="metrics blueprint">
+<section class="metrics">
     <div class="metric"><span>Selected Stores</span><strong id="store-count">0</strong></div>
     <div class="metric"><span>Racks</span><strong id="rack-count">0</strong></div>
     <div class="metric"><span>Weight</span><strong><span id="weight-count">0</span> lbs</strong></div>
     <div class="metric"><span>Remaining</span><strong><span id="remaining-capacity">{{ max_payload }}</span> lbs</strong></div>
-    <div class="metric"><span>Payload Status</span><strong id="capacity-status" class="safe">SAFE</strong></div>
+    <div class="metric"><span>Status</span><strong id="capacity-status" class="safe">SAFE</strong></div>
 </section>
 
-<div class="dispatch-grid three-zone">
-    <section class="panel load-panel">
-        <span class="eyebrow">Material Yard</span>
+<div class="dispatch-grid">
+    <section class="panel">
         <h3>Available Stores</h3>
-        <p class="muted">Unassigned imported PDFs appear here. Click store cards or map pins. Selection order is saved for route building.</p>
+        <p class="muted">Unassigned imported PDFs appear here. Click store cards or map pins.</p>
         <div id="available-stores"></div>
         <hr>
         <label>Route Mode</label>
         <select id="route-mode">
-            <option value="selection">Use My Selection Order</option>
             <option value="optimized">Nearest Stop From Hub</option>
+            <option value="selection">Use Selection Order</option>
         </select>
         <button class="secondary-btn" onclick="previewRoute()">Preview Route</button>
         <hr>
@@ -69,22 +61,17 @@
             <option>Driver 2</option>
             <option>Driver 3</option>
         </select>
-        <div class="button-stack">
-            <button class="primary-btn" onclick="buildRoute('selection')">Build Route - My Order</button>
-            <button class="secondary-btn" onclick="buildRoute('optimized')">Optimize Route</button>
-        </div>
+        <button class="primary-btn" onclick="assignDriver()">Assign Driver</button>
+<button class="primary-btn" onclick="buildRoute('selection')">Build Route - Selection Order</button>
+<button class="secondary-btn" onclick="buildRoute('optimized')">Optimize Route</button>
     </section>
 
-    <section class="map-panel crane-panel">
-        <div class="map-panel-head">
-            <div><span class="eyebrow">Pin Layout</span><h3>Operations Map</h3></div>
-            <button class="secondary-btn small-btn" onclick="geocodeStores()">Fix / Reload Pins</button>
-        </div>
+    <section class="map-panel">
+        <div class="map-panel-head"><h3>Operations Map</h3></div>
         <div id="map"></div>
     </section>
 
-    <section class="panel preview-panel">
-        <span class="eyebrow">Route Blueprint</span>
+    <section class="panel">
         <h3>Route Preview</h3>
         <div id="route-preview" class="muted">Select stores and click Preview Route.</div>
         <hr>
@@ -97,15 +84,20 @@
 window.EOMS_STORES = {{ stores | tojson }};
 window.EOMS_HUBS = {{ hubs | tojson }};
 window.MAX_PAYLOAD = {{ max_payload }};
+
+// Google calls this automatically if the Maps key is invalid, unauthorized,
+// referrer-blocked, or billing is off. Show the reason instead of a blank box.
 function gm_authFailure(){
     var el = document.getElementById("map");
     if (el) el.innerHTML =
-      "<div class='map-missing-key'><b>Google rejected this Maps API key.</b>" +
-      "<br>Confirm Maps JavaScript API, billing, and allowed referrers in Settings." +
-      "<br>The store list and route builder still work locally.</div>";
+      "<div class='map-missing-key'>Google rejected this Maps API key." +
+      "<br>Confirm the <b>Maps JavaScript API</b> is enabled, <b>billing</b> is on, and this site is allowed in the key's HTTP-referrer restrictions." +
+      "<br>Open the browser console (F12) for the exact error code.</div>";
 }
+</script>
+
 async function geocodeStores(){
-    if(!confirm("Fix existing store pin locations now? This may take a minute.")) return;
+    alert("Fixing existing store pin locations. This may take a minute.");
     const response = await fetch("/api/geocode-stores", {method:"POST"});
     const data = await response.json();
     alert("Geocode complete. Updated: " + data.updated + " Failed/Fallback: " + data.failed);
@@ -114,13 +106,14 @@ async function geocodeStores(){
 </script>
 <script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
 {% if google_maps_api_key %}
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
 {% else %}
 <script>
   document.addEventListener("DOMContentLoaded", function(){
     var el = document.getElementById("map");
     if (el) el.innerHTML =
-      "<div class='map-missing-key'><b>Map disabled locally.</b><br>No Google Maps API key is set. Add it under <a href='/settings'>Settings</a> to enable live pins.<br>The store list, board, route preview, and assignment still work.</div>";
+      "<div class='map-missing-key'>Map disabled &mdash; no Google Maps API key set." +
+      "<br>Add one under <a href='/settings'>Settings</a> (or the GOOGLE_MAPS_API_KEY environment variable) to enable the map.</div>";
   });
 </script>
 {% endif %}

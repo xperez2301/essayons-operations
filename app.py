@@ -685,7 +685,8 @@ def api_geocode_stores():
 @app.route("/dispatch-map")
 def dispatch_map():
     stores = filter_stores_for_user(read_json(STORES_FILE))
-    return render_template("dispatch_map.html", stores=stores, hubs=HUBS, max_payload=MAX_PAYLOAD)
+    maps_key = clean(read_json(SETTINGS_FILE).get("google_maps_api_key"))
+    return render_template("dispatch_map.html", stores=stores, hubs=HUBS, max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key)
 
 @app.route("/route-builder")
 def route_builder():
@@ -2026,6 +2027,30 @@ def settings():
         message = "RMS settings saved. Automatic sync will be added later."
     return render_template("settings.html", settings=settings_data, message=message)
 
+
+
+@app.route("/api/dispatch-board-live")
+def api_dispatch_board_live():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    active_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched"}
+    active = [s for s in stores if s.get("status", "Unassigned") in active_statuses]
+    racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
+    weight = round(sum(num(s.get("weight")) for s in active), 1)
+    pieces = round(racks * PIECES_PER_RACK, 1)
+    return jsonify({
+        "ok": True,
+        "stores": stores,
+        "metrics": {
+            "stores": len(active),
+            "racks": racks,
+            "pieces": pieces,
+            "weight": weight,
+            "revenue": round(pieces * RATE_PER_PIECE, 2),
+            "driver_pay": round(pieces * DRIVER_PAY_PER_PIECE, 2),
+            "max_payload": MAX_PAYLOAD,
+            "remaining_capacity": round(MAX_PAYLOAD - weight, 1),
+        }
+    })
 
 @app.route("/api/routes")
 def api_routes():

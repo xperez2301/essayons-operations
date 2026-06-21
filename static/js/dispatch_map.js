@@ -263,6 +263,14 @@ async function unassignStore(storeId, row){
 }
 
 function initMap(){
+    if(!window.google || !google.maps){
+        const el = document.getElementById("map");
+        if(el) el.innerHTML = "<div class='map-missing-key'><b>Google Maps did not load.</b><br>The store list and route builder still work locally.</div>";
+        renderStores();
+        updateTotals();
+        if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
+        return;
+    }
     map = new google.maps.Map(document.getElementById("map"), {
         zoom: 6,
         center: {lat: 30.2672, lng: -97.7431},
@@ -514,6 +522,7 @@ async function renderMapDispatchBoardLive(){
         const data = await response.json();
         if(!data.ok){
             console.warn("Dispatch board live API failed", data);
+            if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
             return;
         }
 
@@ -576,10 +585,38 @@ async function renderMapDispatchBoardLive(){
         });
     }catch(err){
         console.error("Dispatch Board live render error", err);
+        if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
     }
 }
 
 document.addEventListener("DOMContentLoaded", function(){
+    if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
     setTimeout(renderMapDispatchBoardLive, 500);
 });
 
+
+
+// Local fallback: render the store list/board even if Google Maps does not load.
+document.addEventListener("DOMContentLoaded", function(){
+    try {
+        if (document.getElementById("available-stores")) {
+            renderStores();
+            updateTotals();
+        }
+        if (typeof renderMapDispatchBoardLive === "function") {
+            renderMapDispatchBoardLive();
+        }
+        setTimeout(function(){
+            var mapBox = document.getElementById("map");
+            if (mapBox && !map) {
+                if (!mapBox.innerHTML.trim()) {
+                    mapBox.innerHTML = "<div class='map-missing-key'>Map did not load locally. Check Settings for Google Maps API key, then click Fix / Reload Pins.</div>";
+                }
+            }
+        }, 2500);
+    } catch (err) {
+        console.error("Dispatch Map local fallback failed:", err);
+    }
+});
+
+window.initMap = initMap;
