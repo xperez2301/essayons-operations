@@ -50,12 +50,21 @@ except Exception:
 # (set these in Azure -> Configuration -> Application settings) and only falls
 # back to a default for local development.
 # ---------------------------------------------------------------------------
-app.secret_key = os.environ.get("SECRET_KEY") or "dev-only-change-me-set-SECRET_KEY"
-if app.secret_key == "dev-only-change-me-set-SECRET_KEY":
-    print("[EOMS][WARN] SECRET_KEY is not set. Set it in your environment / Azure app settings for production.")
+app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError(
+        "SECRET_KEY is required. Set it to a long random value in the hosting "
+        "environment before starting EOMS."
+    )
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "1") == "1",
+)
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "ChangeMeNow123!")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -117,6 +126,11 @@ def ensure_dirs():
     UPLOAD_DIR.mkdir(exist_ok=True)
     for root in ["Imported", "Assigned", "Completed", "Need_Review", "RMS_Backup"]:
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
+    if not USERS_FILE.exists() and not ADMIN_PASSWORD:
+        raise RuntimeError(
+            "ADMIN_PASSWORD is required on first startup so EOMS can create "
+            "the initial administrator account."
+        )
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
         (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
@@ -484,29 +498,11 @@ def parse_csv(path):
             rows.append(normalize_row(row))
     return rows
 
-def is_public_path(path):
-    return (
-        path == "/login"
-        or path == "/logout"
-        or path.startswith("/static/")
-        or path == "/favicon.ico"
-    )
-
-@app.before_request
-def require_admin_login():
-    if is_public_path(request.path):
-        return None
-    if session.get("logged_in"):
-        return None
-    return redirect(url_for("login", next=request.path))
-
-
-
 def users_payload():
     data = read_json(USERS_FILE)
     if isinstance(data, dict) and "users" in data:
         return data
-    return {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":ADMIN_PASSWORD,"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}
+    return {"users": []}
 
 def save_users_payload(data):
     write_json(USERS_FILE, data)
@@ -528,7 +524,7 @@ def is_admin():
 
 def current_role():
     user = current_user()
-    return clean(user.get("role") if user else "") or "Dispatcher"
+    return clean(user.get("role") if user else "")
 
 def is_operations_manager():
     return current_role() == "Operations Manager"
@@ -606,7 +602,7 @@ def enforce_login():
     path = request.path or "/"
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
         return None
-    if session.get("logged_in"):
+    if session.get("logged_in") and current_user():
         role = current_role()
         admin_only = (
             path.startswith("/users") or path.startswith("/settings") or
@@ -627,17 +623,29 @@ def enforce_login():
                     return jsonify({"ok": False, "message": "Driver access is limited to assigned routes."}), 403
                 return redirect("/driver")
         return None
+    session.clear()
+    if path.startswith("/api/"):
+        return jsonify({"ok": False, "message": "Authentication required."}), 401
     return redirect(url_for("login", next=path))
+
+def safe_next_url(candidate):
+    """Allow only local absolute paths as post-login destinations."""
+    candidate = clean(candidate)
+    if candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return "/dashboard"
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if session.get("logged_in"):
+    if session.get("logged_in") and current_user():
         return redirect(request.args.get("next") or "/dashboard")
+    if session.get("logged_in"):
+        session.clear()
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
-        next_url = request.form.get("next") or request.args.get("next") or "/dashboard"
+        next_url = safe_next_url(request.form.get("next") or request.args.get("next"))
         matched = None
         payload = users_payload()
         for user in payload.get("users", []):
@@ -649,7 +657,7 @@ def login():
                         save_users_payload(payload)
                     matched = user
                     break
-        if not matched and username == ADMIN_USERNAME and secrets.compare_digest(password, ADMIN_PASSWORD):
+        if ADMIN_PASSWORD and not matched and username == ADMIN_USERNAME and secrets.compare_digest(password, ADMIN_PASSWORD):
             matched = {"username": ADMIN_USERNAME, "role":"Admin", "assigned_cities":["All"]}
         if matched:
             session.clear()
