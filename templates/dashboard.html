@@ -123,8 +123,16 @@ function gm_authFailure(){
       const data=await response.json();
       const result=data.result || {};
       if(!data.ok){statusBox.classList.add('err'); statusBox.textContent=result.message || data.message || 'Auto grab failed.'; return;}
-      statusBox.textContent=`Auto grab complete. Found ${result.found || result.total_found || 0}. Imported ${result.imported || result.added || 0}. Updated ${result.updated || 0}. Failed ${result.failed || 0}. Refreshing...`;
-      setTimeout(()=>window.location.reload(),1200);
+      const found = result.found ?? result.bol_count ?? result.total_found ?? 0;
+      const imported = result.imported ?? result.added ?? 0;
+      const updated = result.updated ?? 0;
+      const skipped = result.skipped ?? 0;
+      const needReview = result.need_review ?? 0;
+      const failed = result.failed ?? (result.errors ? result.errors.length : 0);
+      let message = result.message || `Auto grab complete. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. Failed ${failed}.`;
+      if(result.errors && result.errors.length) message += ' Errors: ' + result.errors.join(' | ');
+      statusBox.textContent = message + ' Refreshing...';
+      setTimeout(()=>window.location.reload(),1800);
     }catch(err){statusBox.classList.add('err'); statusBox.textContent='Auto grab failed: '+err.message;}
     finally{btn.disabled=false;}
   }

@@ -47,6 +47,12 @@
   - The first Auto Grab after deployment may take several minutes while Chromium and the Linux dependencies install.
 - RMS full import pagination is more resilient.
   - BOL list links are captured as a single browser-side snapshot, avoiding `Locator.all: Execution context was destroyed` when RMS refreshes or navigates during pagination.
+- RMS login automation is more tolerant of slow or changed login pages.
+  - Login fields now wait longer, use visible-field detection, and report the RMS page URL/title/body snippet if the login form does not appear.
+- Dashboard Auto Grab now reports what actually happened.
+  - Existing BOLs are updated instead of skipped, so re-grabbing RMS refreshes saved BOL data.
+  - The dashboard shows scanned, imported, updated, skipped, need-review, failed, and error details.
+  - If RMS loads but no BOL links are found, the app saves diagnostics under `diagnostics/` and reports the RMS page summary.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.

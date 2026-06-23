@@ -8,6 +8,7 @@ import requests
 import zipfile
 import subprocess
 import sys
+import time
 from io import BytesIO
 from functools import wraps
 import secrets
@@ -1160,17 +1161,7 @@ def rms_login_with_playwright(headless=True):
         browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
         try:
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-
-            # RMS login fields from observed page
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-
-            password_box = page.locator('input[type="password"]').first
-            password_box.fill(password)
-
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
 
@@ -1409,6 +1400,103 @@ def normalize_due_date(value):
         pass
     return value
 
+RMS_USERNAME_SELECTOR = (
+    'input[name="username"], input[name="email"], input[type="email"], '
+    'input[id*="username" i], input[id*="email" i], '
+    'input[placeholder*="Username" i], input[placeholder*="Email" i], '
+    'input[autocomplete="username"], input:not([type]), input[type="text"]'
+)
+RMS_PASSWORD_SELECTOR = 'input[type="password"], input[name*="password" i], input[id*="password" i]'
+
+def page_excerpt(page):
+    try:
+        title = clean(page.title())
+    except Exception:
+        title = ""
+    try:
+        body = clean(page.locator("body").inner_text(timeout=5000))
+    except Exception:
+        body = ""
+    return f"url={page.url} title={title} body={body[:350]}"
+
+def fill_first_visible(page, selector, value, label, timeout_ms=90000):
+    deadline = time.time() + (timeout_ms / 1000)
+    last_error = ""
+    while time.time() < deadline:
+        try:
+            locator = page.locator(selector)
+            count = min(locator.count(), 25)
+            for idx in range(count):
+                field = locator.nth(idx)
+                try:
+                    if field.is_visible(timeout=1000) and field.is_enabled(timeout=1000):
+                        field.fill(value, timeout=15000)
+                        return True
+                except Exception as exc:
+                    last_error = str(exc)[:160]
+        except Exception as exc:
+            last_error = str(exc)[:160]
+        page.wait_for_timeout(750)
+    raise PlaywrightTimeoutError(
+        f"Timed out waiting for RMS {label} field. {page_excerpt(page)} last_error={last_error}"
+    )
+
+def click_first_visible(page, selector, label, timeout_ms=45000):
+    deadline = time.time() + (timeout_ms / 1000)
+    last_error = ""
+    while time.time() < deadline:
+        try:
+            locator = page.locator(selector)
+            count = min(locator.count(), 25)
+            for idx in range(count):
+                button = locator.nth(idx)
+                try:
+                    if button.is_visible(timeout=1000) and button.is_enabled(timeout=1000):
+                        button.click(timeout=15000)
+                        return True
+                except Exception as exc:
+                    last_error = str(exc)[:160]
+        except Exception as exc:
+            last_error = str(exc)[:160]
+        page.wait_for_timeout(750)
+    raise PlaywrightTimeoutError(
+        f"Timed out waiting for RMS {label}. {page_excerpt(page)} last_error={last_error}"
+    )
+
+def login_to_rms(page, login_url, username, password):
+    page.goto(login_url, wait_until="domcontentloaded", timeout=90000)
+    try:
+        page.wait_for_load_state("networkidle", timeout=20000)
+    except Exception:
+        pass
+    fill_first_visible(page, RMS_USERNAME_SELECTOR, username, "username")
+    fill_first_visible(page, RMS_PASSWORD_SELECTOR, password, "password")
+    click_first_visible(
+        page,
+        'button:has-text("Sign In"), button:has-text("Login"), input[type="submit"], button[type="submit"], button',
+        "login button"
+    )
+    try:
+        page.wait_for_load_state("networkidle", timeout=90000)
+    except Exception:
+        page.wait_for_timeout(3000)
+
+def write_rms_diagnostic(page, prefix):
+    diag_dir = BASE_DIR / "diagnostics"
+    diag_dir.mkdir(exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    screenshot_path = diag_dir / f"{prefix}_{stamp}.png"
+    html_path = diag_dir / f"{prefix}_{stamp}.html"
+    try:
+        page.screenshot(path=str(screenshot_path), full_page=True)
+    except Exception:
+        screenshot_path = ""
+    try:
+        html_path.write_text(page.content(), encoding="utf-8", errors="ignore")
+    except Exception:
+        html_path = ""
+    return {"screenshot": str(screenshot_path), "html": str(html_path), "page": page_excerpt(page)}
+
 def collect_bol_links_from_all_pages(page, max_pages=50):
     bol_links = []
     seen = set()
@@ -1547,6 +1635,23 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
             seen2.add(item["bol"])
     return unique
 
+def import_printable_bol_item(item, existing_keys=None, existing_bols=None):
+    stores = read_json(STORES_FILE)
+    replaced = False
+    for idx, existing in enumerate(stores):
+        if clean(existing.get("bol")) == clean(item.get("bol")):
+            item["id"] = existing.get("id", item.get("id"))
+            stores[idx] = item
+            replaced = True
+            break
+    if not replaced:
+        stores.append(item)
+    write_json(STORES_FILE, stores)
+    if existing_keys is not None and existing_bols is not None:
+        track_bol_key(item, existing_keys, existing_bols)
+    update_queue_from_item(item)
+    return "updated" if replaced else "imported"
+
 def open_printable_and_extract(page, bol_link):
     bol = bol_link.get("bol")
     href = bol_link.get("href") or ""
@@ -1617,11 +1722,7 @@ def scan_rms_queue_with_playwright(headless=True):
         page = browser.new_page()
 
         try:
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-            page.locator('input[type="password"]').first.fill(password)
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
             bol_links = collect_bol_links_from_all_pages(page)
@@ -1774,11 +1875,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
         page = browser.new_page()
 
         try:
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-            page.locator('input[type="password"]').first.fill(password)
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             for bol in bol_numbers:
                 bol = clean(bol)
@@ -1889,6 +1986,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
 
     imported = 0
+    updated = 0
     skipped = 0
     need_review = 0
     errors = []
@@ -1897,14 +1995,14 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
         browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
         try:
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-            page.locator('input[type="password"]').first.fill(password)
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
             bol_links = collect_bol_links_from_all_pages(page)
+
+            diagnostic = None
+            if not bol_links:
+                diagnostic = write_rms_diagnostic(page, "rms_no_bol_links")
 
             if max_bols and max_bols > 0:
                 bol_links = bol_links[:max_bols]
@@ -1930,15 +2028,12 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         item["review_reasons"].append("BOL fallback from list")
                         item["status"] = "Need Review"
 
-                    if is_duplicate_bol(item, existing_keys, existing_bols):
-                        skipped += 1
-                        detail_page.close()
-                        continue
-
                     item["pdf_path"] = save_printable_snapshot(item, html)
-                    existing.append(item)
-                    track_bol_key(item, existing_keys, existing_bols)
-                    imported += 1
+                    action = import_printable_bol_item(item, existing_keys, existing_bols)
+                    if action == "updated":
+                        updated += 1
+                    else:
+                        imported += 1
                     if item.get("status") == "Need Review":
                         need_review += 1
 
@@ -1947,17 +2042,24 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 except Exception as e:
                     errors.append(f"{link.get('bol')}: {str(e)[:120]}")
 
-            write_json(STORES_FILE, existing)
             browser.close()
+
+            message = f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}."
+            if diagnostic:
+                message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
 
             return {
                 "ok": True,
                 "status": "IMPORT COMPLETE",
-                "message": f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Skipped {skipped}. Need Review {need_review}.",
+                "message": message,
                 "bol_count": len(bol_links),
+                "found": len(bol_links),
                 "imported": imported,
+                "updated": updated,
                 "skipped": skipped,
                 "need_review": need_review,
+                "failed": len(errors),
+                "diagnostic": diagnostic,
                 "errors": errors[:10]
             }
 
@@ -1968,9 +2070,12 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 "status": "ERROR",
                 "message": f"RMS full import error: {str(e)[:300]}",
                 "imported": imported,
+                "updated": updated,
                 "skipped": skipped,
                 "need_review": need_review,
                 "bol_count": 0,
+                "found": 0,
+                "failed": max(1, len(errors)),
                 "errors": errors[:10]
             }
 
@@ -1999,12 +2104,7 @@ def bol_live_printable(bol_number):
         page = browser.new_page()
 
         try:
-            # Login first.
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-            page.locator('input[type="password"]').first.fill(password)
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             # Go straight to the RMS printable URL.
             page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
@@ -2180,11 +2280,7 @@ def api_rms_repair_bol(bol_number):
         browser = launch_chromium_with_repair(p, headless=True)
         page = browser.new_page()
         try:
-            page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            page.locator('input[name="username"], input[type="email"], input[placeholder*="Username"], input').first.fill(username)
-            page.locator('input[type="password"]').first.fill(password)
-            page.get_by_role("button", name=re.compile("Sign In|Login", re.I)).click()
-            page.wait_for_load_state("networkidle", timeout=60000)
+            login_to_rms(page, login_url, username, password)
 
             direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
             page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
