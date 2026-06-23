@@ -1504,49 +1504,75 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
     def harvest_current_page():
         found = []
         try:
-            anchors = page.evaluate(
-                """() => Array.from(document.querySelectorAll('a')).map((anchor) => {
-                    const row = anchor.closest('tr');
+            page_snapshot = page.evaluate(
+                """() => {
+                    const anchors = Array.from(document.querySelectorAll('a')).map((anchor) => {
+                        const row = anchor.closest('tr');
+                        return {
+                            text: (anchor.innerText || anchor.textContent || '').trim(),
+                            href: anchor.getAttribute('href') || '',
+                            rowText: row ? (row.innerText || row.textContent || '').trim() : ''
+                        };
+                    });
+                    const rows = Array.from(document.querySelectorAll('tr')).map((row) => ({
+                        text: (row.innerText || row.textContent || '').trim()
+                    }));
                     return {
-                        text: (anchor.innerText || anchor.textContent || '').trim(),
-                        href: anchor.getAttribute('href') || '',
-                        rowText: row ? (row.innerText || row.textContent || '').trim() : ''
+                        anchors,
+                        rows,
+                        bodyText: (document.body ? (document.body.innerText || document.body.textContent || '') : '').trim()
                     };
-                })"""
+                }"""
             )
         except Exception:
-            anchors = []
+            page_snapshot = {"anchors": [], "rows": [], "bodyText": ""}
 
-        for anchor in anchors:
+        def add_candidate(bol, href="", row_text=""):
+            bol = clean(bol)
+            if not re.fullmatch(r"\d{4,}", bol) or bol in seen:
+                return
+            seen.add(bol)
+            row_text = clean(row_text)
+            due_date = ""
+            assigned_date = ""
+
+            # RMS list row usually contains assigned/due dates. Capture first/last date as fallback.
+            dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b", row_text)
+            if dates:
+                assigned_date = normalize_due_date(dates[0])
+                due_date = normalize_due_date(dates[-1])
+
+            # If row labels exist, prefer labeled due date.
+            labeled_due = find_match(r"Due Date(?:\s*\(PDT\))?\s*[:\s]*([0-9/\-]+)", row_text)
+            if labeled_due:
+                due_date = normalize_due_date(labeled_due)
+
+            found.append({
+                "bol": bol,
+                "href": href,
+                "row_text": row_text,
+                "assigned_date": assigned_date,
+                "due_date": due_date
+            })
+
+        for anchor in page_snapshot.get("anchors", []):
             try:
                 text = clean(anchor.get("text"))
                 href = anchor.get("href") or ""
-                if re.fullmatch(r"\d{4,}", text) and text not in seen:
-                    seen.add(text)
-                    row_text = clean(anchor.get("rowText"))
-                    due_date = ""
-                    assigned_date = ""
-
-                    # RMS list row usually contains assigned/due dates. Capture first/last date as fallback.
-                    dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b", row_text)
-                    if dates:
-                        assigned_date = normalize_due_date(dates[0])
-                        due_date = normalize_due_date(dates[-1])
-
-                    # If row labels exist, prefer labeled due date.
-                    labeled_due = find_match(r"Due Date(?:\s*\(PDT\))?\s*[:\s]*([0-9/\-]+)", row_text)
-                    if labeled_due:
-                        due_date = normalize_due_date(labeled_due)
-
-                    found.append({
-                        "bol": text,
-                        "href": href,
-                        "row_text": row_text,
-                        "assigned_date": assigned_date,
-                        "due_date": due_date
-                    })
+                href_bol = find_match(r"/bills-of-lading/(\d{4,})(?:/print)?", href)
+                add_candidate(text if re.fullmatch(r"\d{4,}", text) else href_bol, href, anchor.get("rowText"))
             except Exception:
                 pass
+
+        for row in page_snapshot.get("rows", []):
+            row_text = clean(row.get("text"))
+            for bol in re.findall(r"\b\d{5,8}\b", row_text):
+                add_candidate(bol, f"https://rms.reusability.com/bills-of-lading/{bol}/print", row_text)
+
+        # Last fallback: catch visible direct-print links even if RMS renders without table rows.
+        body_text = clean(page_snapshot.get("bodyText"))
+        for bol in re.findall(r"bills-of-lading/(\d{4,})/print", body_text):
+            add_candidate(bol, f"https://rms.reusability.com/bills-of-lading/{bol}/print", body_text[:500])
         return found
 
     # Try setting rows per page to largest available value first.

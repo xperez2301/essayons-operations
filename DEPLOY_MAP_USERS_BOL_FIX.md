@@ -53,6 +53,11 @@
   - Existing BOLs are updated instead of skipped, so re-grabbing RMS refreshes saved BOL data.
   - The dashboard shows scanned, imported, updated, skipped, need-review, failed, and error details.
   - If RMS loads but no BOL links are found, the app saves diagnostics under `diagnostics/` and reports the RMS page summary.
+- RMS BOL discovery matches the live RMS URL pattern.
+  - Login URL: `https://rms.reusability.com/login`
+  - BOL list URL: `https://rms.reusability.com/bills-of-lading`
+  - Printable URL pattern: `https://rms.reusability.com/bills-of-lading/<BOL>/print`
+  - Auto Grab now detects BOL numbers from anchor text, BOL link URLs, and table row text.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.
