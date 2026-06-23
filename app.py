@@ -2288,22 +2288,47 @@ def api_rms_auto_grab_bols():
     Uses the same full RMS multi-page import engine as RMS Sync, but gives the
     dashboard button a dedicated endpoint and simpler response target.
     """
-    history = read_json(SYNC_HISTORY_FILE)
-    payload = request.get_json(silent=True) or {}
-    max_bols = int(payload.get("max_bols") or 0)
+    try:
+        history = read_json(SYNC_HISTORY_FILE)
+        payload = request.get_json(silent=True) or {}
+        max_bols = int(payload.get("max_bols") or 0)
 
-    result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
-    result.update({
-        "id": str(uuid4()),
-        "time": datetime.now().isoformat(timespec="seconds"),
-        "action": "Dashboard Auto Grab BOLs"
-    })
+        try:
+            result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "status": "AUTO GRAB ERROR",
+                "message": f"RMS Auto Grab failed before import completed: {str(exc)[:700]}",
+                "found": 0,
+                "imported": 0,
+                "updated": 0,
+                "failed": 1,
+            }
+        result.update({
+            "id": str(uuid4()),
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "action": "Dashboard Auto Grab BOLs"
+        })
 
-    history.append(result)
-    write_json(SYNC_HISTORY_FILE, history)
-    audit("Dashboard Auto Grab BOLs", result)
+        history.append(result)
+        write_json(SYNC_HISTORY_FILE, history)
+        audit("Dashboard Auto Grab BOLs", result)
 
-    return jsonify({"ok": result.get("ok", False), "result": result})
+        return jsonify({"ok": result.get("ok", False), "result": result})
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "result": {
+                "ok": False,
+                "status": "AUTO GRAB SERVER ERROR",
+                "message": f"Auto Grab server error: {str(exc)[:700]}",
+                "found": 0,
+                "imported": 0,
+                "updated": 0,
+                "failed": 1,
+            }
+        }), 500
 
 @app.route("/archive")
 @dispatch_required
