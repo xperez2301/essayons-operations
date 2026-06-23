@@ -135,7 +135,7 @@ def ensure_dirs():
         )
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": ""}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, []),
         (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
@@ -152,6 +152,16 @@ def read_json(path):
     # Environment variables win over anything stored on disk for secrets, so the
     # repository never needs to contain real credentials.
     if path == SETTINGS_FILE and isinstance(data, dict):
+        defaults = {
+            "map_default_type": "satellite",
+            "map_default_zoom": 7,
+            "map_board_default_open": False,
+            "map_live_refresh_seconds": 30,
+            "due_red_days": 4,
+            "due_amber_days": 7,
+        }
+        for key, value in defaults.items():
+            data.setdefault(key, value)
         env_overlay = {
             "rms_username": os.environ.get("RMS_USERNAME"),
             "rms_password": os.environ.get("RMS_PASSWORD"),
@@ -269,11 +279,16 @@ def track_bol_key(item, existing_keys, existing_bols):
 def completion_summary_for_stores(stores):
     expected = round(sum(num(s.get("expected_racks")) for s in stores), 2)
     collected = round(sum(num(s.get("collected_racks")) for s in stores), 2)
+    expected_pieces = round(sum(num(s.get("expected_pieces")) or (num(s.get("expected_racks")) * PIECES_PER_RACK) for s in stores), 2)
+    collected_pieces = round(sum(num(s.get("collected_pieces")) for s in stores), 2)
     return {
         "stores": len(stores),
         "expected_racks": expected,
         "collected_racks": collected,
         "variance": round(collected - expected, 2),
+        "expected_pieces": expected_pieces,
+        "collected_pieces": collected_pieces,
+        "pieces_variance": round(collected_pieces - expected_pieces, 2),
         "completed_at": datetime.now().isoformat(timespec="seconds"),
     }
 
@@ -975,10 +990,20 @@ def api_geocode_stores():
 @dispatch_required
 def dispatch_map():
     stores = filter_stores_for_user(read_json(STORES_FILE))
-    maps_key = clean(read_json(SETTINGS_FILE).get("google_maps_api_key"))
+    settings_data = read_json(SETTINGS_FILE)
+    maps_key = clean(settings_data.get("google_maps_api_key"))
+    map_settings = {
+        "map_default_type": clean(settings_data.get("map_default_type")) or "satellite",
+        "map_default_zoom": int(num(settings_data.get("map_default_zoom")) or 7),
+        "map_board_default_open": bool(settings_data.get("map_board_default_open")),
+        "map_live_refresh_seconds": int(num(settings_data.get("map_live_refresh_seconds")) or 30),
+        "due_red_days": int(num(settings_data.get("due_red_days")) or 4),
+        "due_amber_days": int(num(settings_data.get("due_amber_days")) or 7),
+    }
     return render_template(
         "dispatch_map.html", stores=stores, hubs=HUBS,
         max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key,
+        map_settings=map_settings,
         can_view_financials=current_role() in {"Admin", "Operations Manager"}
     )
 
@@ -2347,6 +2372,8 @@ def archive():
         "expected_racks": round(sum(num(s.get("expected_racks")) for s in completed_stores), 2),
         "collected_racks": round(sum(num(s.get("collected_racks")) for s in completed_stores), 2),
         "variance": round(sum(num(s.get("variance")) for s in completed_stores), 2),
+        "expected_pieces": round(sum(num(s.get("expected_pieces")) or (num(s.get("expected_racks")) * PIECES_PER_RACK) for s in completed_stores), 2),
+        "collected_pieces": round(sum(num(s.get("collected_pieces")) for s in completed_stores), 2),
     }
 
     return render_template(
@@ -2358,7 +2385,48 @@ def archive():
         driver_options=driver_options,
         filters={"q": q, "city": city, "driver": driver, "date_from": date_from, "date_to": date_to},
         can_export=is_admin(),
+        can_edit_closeout=current_role() in {"Admin", "Operations Manager", "Dispatcher"},
     )
+
+@app.route("/api/store-closeout/<store_id>", methods=["POST"])
+@dispatch_required
+def api_store_closeout_update(store_id):
+    data = request.get_json(force=True)
+    stores = read_json(STORES_FILE)
+    updated = None
+    for store in stores:
+        if store.get("id") == store_id:
+            if "collected_racks" in data and data.get("collected_racks") not in (None, ""):
+                collected_racks = num(data.get("collected_racks"))
+                if collected_racks < 0:
+                    return jsonify({"ok": False, "message": "Collected rack count cannot be negative."}), 400
+                store["collected_racks"] = collected_racks
+                store["variance"] = collected_racks - num(store.get("expected_racks"))
+                store["variance_review"] = abs(num(store.get("variance"))) >= 2
+            if "collected_pieces" in data and data.get("collected_pieces") not in (None, ""):
+                collected_pieces = num(data.get("collected_pieces"))
+                if collected_pieces < 0:
+                    return jsonify({"ok": False, "message": "PCS count cannot be negative."}), 400
+                store["collected_pieces"] = collected_pieces
+                expected_pieces = num(store.get("expected_pieces")) or (num(store.get("expected_racks")) * PIECES_PER_RACK)
+                store["pieces_variance"] = collected_pieces - expected_pieces
+            store["closeout_updated_at"] = datetime.now().isoformat(timespec="seconds")
+            store["closeout_updated_by"] = session.get("username", "system")
+            updated = store
+            break
+    if not updated:
+        return jsonify({"ok": False, "message": "BOL/store not found."}), 404
+    write_json(STORES_FILE, stores)
+
+    routes = read_json(ROUTES_FILE)
+    for route in routes:
+        route_store_ids = set(route.get("store_ids", []))
+        if store_id in route_store_ids:
+            route_stores = [s for s in stores if s.get("id") in route_store_ids]
+            route["completion_summary"] = completion_summary_for_stores(route_stores)
+    write_json(ROUTES_FILE, routes)
+    audit("Update Store Closeout", {"store_id": store_id, "collected_racks": updated.get("collected_racks"), "collected_pieces": updated.get("collected_pieces")})
+    return jsonify({"ok": True, "store": updated})
 
 @app.route("/api/system-health")
 @admin_required
@@ -2512,6 +2580,15 @@ def settings():
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
         settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
+        map_default_type = clean(request.form.get("map_default_type")).lower()
+        if map_default_type not in {"satellite", "roadmap", "hybrid", "terrain"}:
+            map_default_type = "satellite"
+        settings_data["map_default_type"] = map_default_type
+        settings_data["map_default_zoom"] = max(3, min(18, int(num(request.form.get("map_default_zoom")) or 7)))
+        settings_data["map_board_default_open"] = bool(request.form.get("map_board_default_open"))
+        settings_data["map_live_refresh_seconds"] = max(10, min(300, int(num(request.form.get("map_live_refresh_seconds")) or 30)))
+        settings_data["due_red_days"] = max(0, min(30, int(num(request.form.get("due_red_days")) or 4)))
+        settings_data["due_amber_days"] = max(settings_data["due_red_days"], min(60, int(num(request.form.get("due_amber_days")) or 7)))
         settings_data["telnyx_from_number"] = clean(request.form.get("telnyx_from_number")) or settings_data.get("telnyx_from_number", "")
         telnyx_api_key = clean(request.form.get("telnyx_api_key"))
         if telnyx_api_key:
@@ -2846,6 +2923,8 @@ def api_complete_route():
                 store["collected_racks"] = num(store.get("expected_racks"))
                 store["variance"] = 0
                 store["closeout_override"] = True
+            if store.get("collected_pieces") in (None, ""):
+                store["collected_pieces"] = num(store.get("collected_racks")) * PIECES_PER_RACK
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
 
@@ -3002,6 +3081,11 @@ def api_driver_complete():
     collected_racks = num(data.get("collected_racks"))
     if collected_racks < 0:
         return jsonify({"ok": False, "message": "Collected rack count cannot be negative."}), 400
+    collected_pieces = None
+    if data.get("collected_pieces") not in (None, ""):
+        collected_pieces = num(data.get("collected_pieces"))
+        if collected_pieces < 0:
+            return jsonify({"ok": False, "message": "PCS count cannot be negative."}), 400
     stores = read_json(STORES_FILE)
     updated = None
     for store in stores:
@@ -3012,7 +3096,10 @@ def api_driver_complete():
                 if clean(store.get("assigned_driver")) not in driver_names:
                     return jsonify({"ok": False, "message": "This stop is not assigned to you."}), 403
             store["collected_racks"] = collected_racks
+            store["collected_pieces"] = collected_pieces if collected_pieces is not None else collected_racks * PIECES_PER_RACK
             store["variance"] = collected_racks - num(store.get("expected_racks"))
+            expected_pieces = num(store.get("expected_pieces")) or (num(store.get("expected_racks")) * PIECES_PER_RACK)
+            store["pieces_variance"] = num(store.get("collected_pieces")) - expected_pieces
             store["status"] = "Completed"
             store["completed_at"] = datetime.now().isoformat(timespec="seconds")
             if abs(num(store.get("variance"))) >= 2:
@@ -3032,7 +3119,7 @@ def api_driver_complete():
                 route["completed_at"] = datetime.now().isoformat(timespec="seconds")
                 route["completion_summary"] = completion_summary_for_stores(route_stores)
     write_json(ROUTES_FILE, routes)
-    audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks})
+    audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks, "collected_pieces": collected_pieces})
     if not updated:
         return jsonify({"ok": False, "message": "Stop not found."}), 404
     return jsonify({"ok": True, "store": updated})

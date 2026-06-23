@@ -18,6 +18,8 @@
   <div class="metric"><span>Expected Racks</span><strong>{{ totals.expected_racks }}</strong></div>
   <div class="metric"><span>Collected Racks</span><strong>{{ totals.collected_racks }}</strong></div>
   <div class="metric"><span>Variance</span><strong>{{ totals.variance }}</strong></div>
+  <div class="metric"><span>Expected PCS</span><strong>{{ totals.expected_pieces }}</strong></div>
+  <div class="metric"><span>Collected PCS</span><strong>{{ totals.collected_pieces }}</strong></div>
 </section>
 
 <section class="panel">
@@ -42,7 +44,7 @@
 <section class="panel">
   <h3>Completed BOLs</h3>
   <table class="queue-table">
-    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>Completed</th><th>Expected</th><th>Collected</th><th>Variance</th><th>Links</th></tr></thead>
+    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>Completed</th><th>Expected Racks</th><th>Collected Racks</th><th>Rack Var</th><th>PCS</th><th>Links</th></tr></thead>
     <tbody>
       {% for store in stores %}
       <tr>
@@ -53,8 +55,22 @@
         <td>{{ store.due_date or "" }}</td>
         <td>{{ store.completed_at or "" }}</td>
         <td>{{ store.expected_racks or 0 }}</td>
-        <td>{{ store.collected_racks if store.collected_racks is defined else "" }}</td>
+        <td>
+          {% if can_edit_closeout %}
+          <input class="closeout-input" id="racks-{{ store.id }}" type="number" min="0" step="1" value="{{ store.collected_racks if store.collected_racks is defined else '' }}">
+          {% else %}
+          {{ store.collected_racks if store.collected_racks is defined else "" }}
+          {% endif %}
+        </td>
         <td><span class="{{ 'over' if store.variance_review else 'safe' }}">{{ store.variance if store.variance is defined else "" }}</span></td>
+        <td>
+          {% if can_edit_closeout %}
+          <input class="closeout-input" id="pieces-{{ store.id }}" type="number" min="0" step="1" value="{{ store.collected_pieces if store.collected_pieces is defined else '' }}">
+          <button class="tiny-btn" onclick="saveCloseout('{{ store.id }}')">Save</button>
+          {% else %}
+          {{ store.collected_pieces if store.collected_pieces is defined else "" }}
+          {% endif %}
+        </td>
         <td>
           <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
           <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
@@ -62,7 +78,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="10">No completed BOLs match these filters.</td></tr>
+      <tr><td colspan="11">No completed BOLs match these filters.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -92,4 +108,22 @@
     </tbody>
   </table>
 </section>
+<script>
+async function saveCloseout(storeId){
+  const racks = document.getElementById("racks-" + storeId).value;
+  const pieces = document.getElementById("pieces-" + storeId).value;
+  const response = await fetch("/api/store-closeout/" + storeId, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({collected_racks:racks, collected_pieces:pieces})
+  });
+  const data = await response.json();
+  if(!data.ok){
+    alert(data.message || "Unable to save closeout.");
+    return;
+  }
+  alert("Closeout updated.");
+  location.reload();
+}
+</script>
 {% endblock %}

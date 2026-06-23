@@ -16,8 +16,11 @@
         <p><b>Driver:</b> {{ store.assigned_driver }}</p>
         <p><b>Location:</b> {{ store.city }}, {{ store.state }}</p>
         <p><b>Expected Racks:</b> {{ store.expected_racks }}</p>
+        <p><b>Expected PCS:</b> {{ store.expected_pieces or ((store.expected_racks or 0) * 19) }}</p>
         <label>Racks Collected</label>
         <input id="collected-{{ store.id }}" type="number" min="0" step="1" required>
+        <label>PCS Collected</label>
+        <input id="pieces-{{ store.id }}" type="number" min="0" step="1" placeholder="Optional; defaults from racks">
         <button onclick="completeStop('{{ store.id }}')">Complete Stop</button>
     </div>
 {% else %}
@@ -31,6 +34,7 @@
 <script>
 async function completeStop(storeId){
     const value = document.getElementById("collected-" + storeId).value;
+    const pieces = document.getElementById("pieces-" + storeId).value;
     if(value === ""){
         alert("Enter collected rack count before completing this stop.");
         return;
@@ -38,7 +42,7 @@ async function completeStop(storeId){
     const response = await fetch("/api/driver/complete", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({store_id:storeId, collected_racks:value})
+        body:JSON.stringify({store_id:storeId, collected_racks:value, collected_pieces:pieces})
     });
     const data = await response.json();
     if(data.ok){

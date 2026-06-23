@@ -4,6 +4,7 @@ const stores = window.EOMS_STORES || [];
 const hubs = window.EOMS_HUBS || {};
 const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
 const CAN_VIEW_FINANCIALS = !!window.EOMS_CAN_VIEW_FINANCIALS;
+const MAP_SETTINGS = window.EOMS_MAP_SETTINGS || {};
 let selectedOrder = [];
 let activeClusterInfo = null;
 
@@ -24,12 +25,10 @@ function dueStatus(store){
     today.setHours(0,0,0,0);
     due.setHours(0,0,0,0);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-    // Due-date color rule:
-    // - red: overdue or 4 days or less remaining
-    // - amber: 5 through 7 days remaining
-    // - green: more than 7 days remaining, or no due date captured
-    if(diffDays <= 4) return "red";
-    if(diffDays <= 7) return "amber";
+    const redDays = Number(MAP_SETTINGS.due_red_days || 4);
+    const amberDays = Number(MAP_SETTINGS.due_amber_days || 7);
+    if(diffDays <= redDays) return "red";
+    if(diffDays <= amberDays) return "amber";
     return "green";
 }
 
@@ -380,9 +379,10 @@ function initMap(){
         return;
     }
     map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 6,
+        zoom: Number(MAP_SETTINGS.map_default_zoom || 7),
         center: {lat: 30.8, lng: -97.2},
-        mapTypeControl: false,
+        mapTypeId: MAP_SETTINGS.map_default_type || "satellite",
+        mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true,
         gestureHandling: "greedy",
@@ -713,6 +713,10 @@ async function renderMapDispatchBoardLive(){
 document.addEventListener("DOMContentLoaded", function(){
     if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
     setTimeout(renderMapDispatchBoardLive, 500);
+    const refreshSeconds = Number(MAP_SETTINGS.map_live_refresh_seconds || 30);
+    if(refreshSeconds >= 10){
+        setInterval(renderMapDispatchBoardLive, refreshSeconds * 1000);
+    }
     loadDrivers();
 });
 

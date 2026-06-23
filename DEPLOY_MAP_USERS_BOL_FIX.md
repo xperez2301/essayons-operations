@@ -17,14 +17,27 @@
   - The button appears on the Archive page for admins.
 - Closeout validation added.
   - Drivers must enter collected rack count before completing a stop.
+  - Drivers can enter collected PCS count during stop completion.
+  - If PCS is left blank, the system estimates PCS from collected racks.
+  - Dispatch/Admin can edit collected racks and PCS later from the Archive page.
   - Dispatch route closeout warns if stops are missing rack closeout.
-  - Route completion saves a summary of expected racks, collected racks, variance, and completion time.
+  - Route completion saves a summary of expected racks, collected racks, expected PCS, collected PCS, variance, and completion time.
 - System Health check added in Settings.
   - Confirms writable data/upload/BOL folders.
   - Shows whether Playwright is importable.
   - Shows RMS setting status without exposing passwords.
 - Duplicate BOL import protection improved.
   - Import now checks BOL plus origin and BOL number to reduce duplicate assignments.
+- Dispatch Map display controls added in Settings.
+  - Default map view now starts as Satellite.
+  - Admin can switch the default map view to Satellite, Hybrid, Road Map, or Terrain.
+  - Admin can set default map zoom.
+  - Admin can choose whether the dispatch board opens by default.
+  - Admin can set dispatch board refresh seconds.
+  - Admin can adjust red/amber/green due-date pin thresholds without changing code.
+- Operations Dashboard includes an Admin-only Auto Grab BOLs button.
+  - It calls the RMS full import engine directly from the dashboard.
+  - It reports found/imported/updated/failed results and refreshes the page after success.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.

@@ -49,6 +49,37 @@
         <input type="password" name="google_maps_api_key" value="{{ settings.google_maps_api_key or '' }}" placeholder="Used to place pins at exact street address">
 
         <hr>
+        <h3>Dispatch Map & Page Display</h3>
+        <p class="muted">These control page behavior and map colors without changing code.</p>
+
+        <label>Default Map View</label>
+        <select name="map_default_type">
+            {% set map_type = settings.map_default_type or 'satellite' %}
+            <option value="satellite" {% if map_type == 'satellite' %}selected{% endif %}>Satellite</option>
+            <option value="hybrid" {% if map_type == 'hybrid' %}selected{% endif %}>Hybrid satellite + roads</option>
+            <option value="roadmap" {% if map_type == 'roadmap' %}selected{% endif %}>Road map</option>
+            <option value="terrain" {% if map_type == 'terrain' %}selected{% endif %}>Terrain</option>
+        </select>
+
+        <label>Default Map Zoom</label>
+        <input type="number" name="map_default_zoom" min="3" max="18" value="{{ settings.map_default_zoom or 7 }}">
+
+        <label class="check-line">
+            <input type="checkbox" name="map_board_default_open" {% if settings.map_board_default_open %}checked{% endif %}>
+            Open dispatch board by default on the map page
+        </label>
+
+        <label>Dispatch Board Refresh Seconds</label>
+        <input type="number" name="map_live_refresh_seconds" min="10" max="300" value="{{ settings.map_live_refresh_seconds or 30 }}">
+
+        <label>Red Pin Threshold — Days Until Due</label>
+        <input type="number" name="due_red_days" min="0" max="30" value="{{ settings.due_red_days or 4 }}">
+
+        <label>Amber Pin Threshold — Days Until Due</label>
+        <input type="number" name="due_amber_days" min="1" max="60" value="{{ settings.due_amber_days or 7 }}">
+        <p class="muted">Example: red 4 and amber 7 means 0–4 days is red, 5–7 days is amber, and anything above 7 is green.</p>
+
+        <hr>
         <h3>Telnyx Driver SMS</h3>
         <label>Telnyx API Key</label>
         <input type="password" name="telnyx_api_key" placeholder="{{ 'API key saved - leave blank to keep it' if settings.telnyx_api_key_saved else 'KEY...' }}">
