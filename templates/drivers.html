@@ -7,8 +7,10 @@
   </header>
 
   {% if request.args.get('created') %}<div class="notice">Driver created and is now available in Dispatch Map assignments.</div>{% endif %}
+  {% if request.args.get('deleted') %}<div class="notice">Driver account deleted. Existing route history remains available.</div>{% endif %}
   {% if request.args.get('error') == 'missing' %}<div class="err">Name, username, temporary password, and mobile number are required.</div>{% endif %}
   {% if request.args.get('error') == 'duplicate' %}<div class="err">That username already exists.</div>{% endif %}
+  {% if request.args.get('error') == 'notfound' %}<div class="err">Driver was not found or is not a driver account.</div>{% endif %}
   <div id="driver-send-status" class="notice hidden"></div>
 
   {% if can_manage %}
@@ -42,6 +44,9 @@
               <input name="display_name" value="{{ driver_name }}" aria-label="Driver name"><input name="phone" value="{{ driver.phone or '' }}" placeholder="+12105551234" aria-label="Mobile number"><input name="password" type="password" placeholder="New password optional" aria-label="New password">
               <div class="city-checks">{% for city in city_options if city != 'All' %}<label><input type="checkbox" name="assigned_cities" value="{{ city }}" {% if city in (driver.assigned_cities or []) %}checked{% endif %}> {{ city }}</label>{% endfor %}</div>
               <label class="active-check"><input type="checkbox" name="active" value="1" {% if driver.active %}checked{% endif %}> Active</label><button class="secondary-btn small-btn">Save Driver</button>
+            </form>
+            <form method="POST" action="/drivers/delete/{{ driver.id or driver.username }}" onsubmit="return confirm('Delete driver {{ driver_name }}? This removes their login/contact record but keeps route history.');">
+              <button class="danger-btn small-btn" type="submit">Delete Driver</button>
             </form>
           </details>
           {% endif %}

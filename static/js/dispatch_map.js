@@ -24,13 +24,17 @@ function dueStatus(store){
     today.setHours(0,0,0,0);
     due.setHours(0,0,0,0);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-    if(diffDays < 0) return "red";
-    if(diffDays <= 4) return "amber";
+    // Due-date color rule:
+    // - red: overdue or 4 days or less remaining
+    // - amber: 5 through 7 days remaining
+    // - green: more than 7 days remaining, or no due date captured
+    if(diffDays <= 4) return "red";
+    if(diffDays <= 7) return "amber";
     return "green";
 }
 
 function pinIcon(number, color){
-    const colors = {green:"#244678", amber:"#d7a53e", red:"#b7332d"};
+    const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d"};
     const fill = colors[color] || colors.green;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
       <circle cx="24" cy="24" r="20" fill="${fill}" stroke="#f4efe6" stroke-width="2"/>

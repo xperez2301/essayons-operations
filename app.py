@@ -835,6 +835,35 @@ def drivers_update(driver_id):
         audit("Update Driver", {"username": updated.get("username"), "active": updated.get("active"), "assigned_cities": updated.get("assigned_cities")})
     return redirect("/drivers")
 
+@app.route("/drivers/delete/<driver_id>", methods=["POST"])
+@admin_required
+def drivers_delete(driver_id):
+    data = users_payload()
+    users = data.get("users", [])
+    target = next(
+        (
+            u for u in users
+            if (u.get("id") == driver_id or u.get("username") == driver_id)
+            and (u.get("role") or "").lower() == "driver"
+        ),
+        None,
+    )
+    if not target:
+        audit("Delete Driver Failed", {"driver_id": driver_id, "reason": "not found"})
+        return redirect("/drivers?error=notfound")
+
+    data["users"] = [
+        u for u in users
+        if not (u.get("id") == target.get("id") or u.get("username") == target.get("username"))
+    ]
+    save_users_payload(data)
+    audit("Delete Driver", {
+        "username": target.get("username"),
+        "display_name": target.get("display_name"),
+        "phone": target.get("phone"),
+    })
+    return redirect("/drivers?deleted=1")
+
 @app.route("/api/dispatch-map-debug")
 def api_dispatch_map_debug():
     stores = read_json(STORES_FILE)
@@ -2242,6 +2271,41 @@ def users_update(user_id):
             user["updated_at"] = datetime.now().isoformat(timespec="seconds")
             break
     save_users_payload(data)
+    return redirect("/users")
+
+@app.route("/users/delete/<user_id>", methods=["POST"])
+@admin_required
+def users_delete(user_id):
+    data = users_payload()
+    users = data.get("users", [])
+    current = current_user() or {}
+    target = next((u for u in users if u.get("id") == user_id or u.get("username") == user_id), None)
+
+    if not target:
+        audit("Delete User Failed", {"user_id": user_id, "reason": "not found"})
+        return redirect("/users")
+
+    # Prevent the current administrator from deleting their own active session.
+    if target.get("id") == current.get("id") or target.get("username") == current.get("username"):
+        audit("Delete User Blocked", {"username": target.get("username"), "reason": "self delete"})
+        return redirect("/users")
+
+    # Prevent deleting the last active admin account.
+    active_admins = [
+        u for u in users
+        if u.get("role") == "Admin" and u.get("active", True)
+        and not (u.get("id") == target.get("id") or u.get("username") == target.get("username"))
+    ]
+    if target.get("role") == "Admin" and target.get("active", True) and not active_admins:
+        audit("Delete User Blocked", {"username": target.get("username"), "reason": "last active admin"})
+        return redirect("/users")
+
+    data["users"] = [
+        u for u in users
+        if not (u.get("id") == target.get("id") or u.get("username") == target.get("username"))
+    ]
+    save_users_payload(data)
+    audit("Delete User", {"username": target.get("username"), "role": target.get("role")})
     return redirect("/users")
 
 @app.route("/settings", methods=["GET", "POST"])
