@@ -38,6 +38,8 @@
 - Operations Dashboard includes an Admin-only Auto Grab BOLs button.
   - It calls the RMS full import engine directly from the dashboard.
   - It reports found/imported/updated/failed results and refreshes the page after success.
+  - It now detects login-page, missing-endpoint, and Azure/server HTML responses instead of showing `Unexpected token '<'`.
+  - The server endpoint returns a JSON error even if the RMS automation raises an exception.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.

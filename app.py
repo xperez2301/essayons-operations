@@ -2257,7 +2257,18 @@ def api_rms_sync_open_bols():
     payload = request.get_json(silent=True) or {}
     max_bols = int(payload.get("max_bols") or 0)
 
-    result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+    try:
+        result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+    except Exception as exc:
+        result = {
+            "ok": False,
+            "status": "AUTO GRAB ERROR",
+            "message": f"Auto Grab failed before RMS import completed: {str(exc)[:500]}",
+            "found": 0,
+            "imported": 0,
+            "updated": 0,
+            "failed": 1,
+        }
     result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
