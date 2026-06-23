@@ -6,6 +6,8 @@ import re
 import shutil
 import requests
 import zipfile
+import subprocess
+import sys
 from io import BytesIO
 from functools import wraps
 import secrets
@@ -304,6 +306,35 @@ def path_health(path):
     except Exception as exc:
         info["error"] = str(exc)[:180]
     return info
+
+def install_playwright_chromium():
+    """Install Chromium into persistent Azure storage when Playwright has no browser binary yet."""
+    browser_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or "/home/playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browser_path
+    Path(browser_path).mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Playwright Chromium install failed. "
+            f"stdout: {(result.stdout or '')[-800:]} stderr: {(result.stderr or '')[-1200:]}"
+        )
+    return True
+
+def launch_chromium_with_repair(playwright, headless=True):
+    try:
+        return playwright.chromium.launch(headless=headless)
+    except Exception as exc:
+        message = str(exc)
+        if "Executable doesn't exist" not in message and "playwright install" not in message:
+            raise
+        install_playwright_chromium()
+        return playwright.chromium.launch(headless=headless)
 
 def miles_between(lat1, lng1, lat2, lng2):
     radius = 3958.8
@@ -1106,7 +1137,7 @@ def rms_login_with_playwright(headless=True):
         }
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
         try:
             page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
@@ -1544,7 +1575,7 @@ def scan_rms_queue_with_playwright(headless=True):
     queue_by_bol = {clean(q.get("bol")): q for q in current_queue if clean(q.get("bol"))}
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
 
         try:
@@ -1701,7 +1732,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
     errors = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
 
         try:
@@ -1825,7 +1856,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     errors = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = launch_chromium_with_repair(p, headless=headless)
         page = browser.new_page()
         try:
             page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
@@ -1926,7 +1957,7 @@ def bol_live_printable(bol_number):
     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = launch_chromium_with_repair(p, headless=True)
         page = browser.new_page()
 
         try:
@@ -2108,7 +2139,7 @@ def api_rms_repair_bol(bol_number):
         return jsonify({"ok": False, "message": "Save RMS credentials first."})
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = launch_chromium_with_repair(p, headless=True)
         page = browser.new_page()
         try:
             page.goto(login_url, wait_until="domcontentloaded", timeout=60000)
