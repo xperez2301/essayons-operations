@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -56,6 +57,28 @@ class AuthenticationTests(unittest.TestCase):
         message = "Executable doesn't exist at /home/playwright/chromium. Please run playwright install"
         self.assertTrue(eoms.is_missing_browser_binary(message))
         self.assertFalse(eoms.is_missing_browser_deps(message))
+
+    def test_printable_bol_saves_as_pdf_when_browser_supports_pdf(self):
+        class FakePage:
+            def emulate_media(self, media):
+                self.media = media
+
+            def pdf(self, path, **kwargs):
+                Path(path).write_bytes(b"%PDF-1.4\n% test\n")
+
+        original_bol_dir = eoms.BOL_DIR
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                eoms.BOL_DIR = Path(tmp)
+                path = eoms.save_printable_pdf(
+                    FakePage(),
+                    {"bol": "950225", "origin": "Test", "store_name": "Store", "city": "San Antonio", "state": "TX", "status": "Unassigned"},
+                    "<html></html>",
+                )
+                self.assertTrue(path.endswith(".pdf"))
+                self.assertTrue(Path(path).exists())
+        finally:
+            eoms.BOL_DIR = original_bol_dir
 
 
 if __name__ == "__main__":

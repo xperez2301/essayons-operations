@@ -58,6 +58,9 @@
   - BOL list URL: `https://rms.reusability.com/bills-of-lading`
   - Printable URL pattern: `https://rms.reusability.com/bills-of-lading/<BOL>/print`
   - Auto Grab now detects BOL numbers from anchor text, BOL link URLs, and table row text.
+- RMS printable BOL pages are saved as PDFs.
+  - Auto Grab, RMS Queue import, and Repair BOL now open the printable URL and save it as a `.pdf` under `BOL_DIR/Imported` or `BOL_DIR/Need_Review`.
+  - If Chromium cannot export PDF for any reason, EOMS falls back to the previous HTML snapshot instead of losing the BOL.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.

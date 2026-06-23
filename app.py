@@ -1374,6 +1374,21 @@ def save_printable_snapshot(item, html):
     final_path.write_text(html, encoding="utf-8", errors="ignore")
     return str(final_path)
 
+def save_printable_pdf(page, item, html=None):
+    root = "Need_Review" if item.get("status") == "Need Review" else "Imported"
+    filename = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
+    final_path = month_folder(root) / filename
+    if final_path.exists():
+        final_path = final_path.with_name(final_path.stem + "_" + datetime.now().strftime("%H%M%S") + final_path.suffix)
+    try:
+        page.emulate_media(media="print")
+        page.pdf(path=str(final_path), format="Letter", print_background=True, margin={"top": "0.25in", "right": "0.25in", "bottom": "0.25in", "left": "0.25in"})
+        return str(final_path)
+    except Exception:
+        if html is None:
+            html = page.content()
+        return save_printable_snapshot(item, html)
+
 
 def extract_date_from_text(text):
     text = clean(text)
@@ -1716,7 +1731,7 @@ def open_printable_and_extract(page, bol_link):
         item["bol"] = bol
         item["review_reasons"].append("BOL fallback from list")
         item["status"] = "Need Review"
-    item["pdf_path"] = save_printable_snapshot(item, html)
+    item["pdf_path"] = save_printable_pdf(page, item, html)
     return item
 
 
@@ -1928,7 +1943,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
                     if not item.get("assigned_date") and queue_item.get("assigned_date"):
                         item["assigned_date"] = queue_item.get("assigned_date")
 
-                    item["pdf_path"] = save_printable_snapshot(item, html)
+                    item["pdf_path"] = save_printable_pdf(page, item, html)
 
                     # Force automatic geocoding during every Import/Re-import.
                     # This replaces city-center fallback coordinates when a Google Maps API key is saved.
@@ -2054,7 +2069,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         item["review_reasons"].append("BOL fallback from list")
                         item["status"] = "Need Review"
 
-                    item["pdf_path"] = save_printable_snapshot(item, html)
+                    item["pdf_path"] = save_printable_pdf(detail_page, item, html)
                     action = import_printable_bol_item(item, existing_keys, existing_bols)
                     if action == "updated":
                         updated += 1
@@ -2314,7 +2329,7 @@ def api_rms_repair_bol(bol_number):
             body_text = page.locator("body").inner_text(timeout=60000)
             html = page.content()
             item = extract_printable_bol_from_text(body_text, page.url)
-            item["pdf_path"] = save_printable_snapshot(item, html)
+            item["pdf_path"] = save_printable_pdf(page, item, html)
 
             stores = read_json(STORES_FILE)
             replaced = False
