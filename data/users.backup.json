@@ -3,7 +3,7 @@
     {
       "id": "admin",
       "username": "admin",
-      "password": "scrypt:32768:8:1$qr7ymGEwd8BQoHzH$2031504c433858050673eaa178ba91941370d3f1df97f66ae0f8606caa7098c7ed00e6618415a71499b863ef03d4310207e1317e3dadeeb0d5d28b33fef4e487",
+      "password": "scrypt:32768:8:1$4X5UiQVidWU9SaLb$7cc01237686118c085562d8ef0715c515e1936ed217cc9dd7924b564f2c34230cfa36f691b1f2dfd6f4fbe0e891f0f271f875f32b90be779beb1fed91bd39cbe",
       "role": "Admin",
       "assigned_cities": [
         "All"

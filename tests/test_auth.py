@@ -47,6 +47,16 @@ class AuthenticationTests(unittest.TestCase):
         self.assertEqual(eoms.safe_next_url("//attacker.example"), "/dashboard")
         self.assertEqual(eoms.safe_next_url("/dispatch-map"), "/dispatch-map")
 
+    def test_playwright_dependency_error_is_repairable(self):
+        message = "Host system is missing dependencies to run browsers. Please install them with playwright install-deps"
+        self.assertTrue(eoms.is_missing_browser_deps(message))
+        self.assertFalse(eoms.is_missing_browser_binary(message))
+
+    def test_playwright_missing_browser_error_is_repairable(self):
+        message = "Executable doesn't exist at /home/playwright/chromium. Please run playwright install"
+        self.assertTrue(eoms.is_missing_browser_binary(message))
+        self.assertFalse(eoms.is_missing_browser_deps(message))
+
 
 if __name__ == "__main__":
     unittest.main()

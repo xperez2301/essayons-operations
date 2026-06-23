@@ -42,8 +42,11 @@
 - The server endpoint returns a JSON error even if the RMS automation raises an exception.
 - Playwright browser self-repair added.
   - If Chromium is missing, EOMS attempts `python -m playwright install chromium` automatically.
+  - If Azure reports missing Linux browser dependencies, EOMS attempts `python -m playwright install-deps chromium` automatically, then retries Chromium.
   - It installs into `PLAYWRIGHT_BROWSERS_PATH`, recommended as `/home/playwright` on Azure.
-  - The first Auto Grab after deployment may take several minutes while Chromium downloads.
+  - The first Auto Grab after deployment may take several minutes while Chromium and the Linux dependencies install.
+- RMS full import pagination is more resilient.
+  - BOL list links are captured as a single browser-side snapshot, avoiding `Locator.all: Execution context was destroyed` when RMS refreshes or navigates during pagination.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.
@@ -79,8 +82,9 @@ SESSION_COOKIE_SECURE=1
 ## If RMS/BOL auto-grab still does not work
 
 The RMS auto-grabber uses Playwright/Chromium. If the portal shows an error like
-`Playwright is not installed`, `Executable doesn't exist`, or `please run playwright install`,
-then Azure needs Chromium installed for the App Service worker.
+`Playwright is not installed`, `Executable doesn't exist`, `please run playwright install`,
+or `Host system is missing dependencies`, then Azure needs Chromium and its Linux
+shared libraries installed for the App Service worker.
 
 Recommended Azure App Service setting:
 
@@ -88,14 +92,21 @@ Recommended Azure App Service setting:
 PLAYWRIGHT_BROWSERS_PATH=/home/playwright
 ```
 
-Then use a startup command that installs Chromium before Gunicorn starts:
+Then use a startup command that installs Chromium and its Linux dependencies before Gunicorn starts:
 
 ```bash
-python -m playwright install chromium && gunicorn --bind=0.0.0.0 --timeout 600 --workers 2 app:app
+python -m playwright install --with-deps chromium && gunicorn --bind=0.0.0.0 --timeout 600 --workers 2 app:app
 ```
 
-If this startup command is too slow on every restart, install Chromium once through SSH/Kudu with the same
-`PLAYWRIGHT_BROWSERS_PATH=/home/playwright` setting, then return the startup command to normal Gunicorn.
+If this startup command is too slow on every restart, install Chromium and dependencies once through
+SSH/Kudu with the same `PLAYWRIGHT_BROWSERS_PATH=/home/playwright` setting:
+
+```bash
+python -m playwright install-deps chromium
+python -m playwright install chromium
+```
+
+Then return the startup command to normal Gunicorn.
 
 ## What non-admin users can see
 

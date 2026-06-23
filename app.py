@@ -307,32 +307,52 @@ def path_health(path):
         info["error"] = str(exc)[:180]
     return info
 
+def run_playwright_install_command(args, timeout=300):
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", *args],
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Playwright command failed: python -m playwright {' '.join(args)}. "
+            f"stdout: {(result.stdout or '')[-800:]} stderr: {(result.stderr or '')[-1200:]}"
+        )
+    return True
+
 def install_playwright_chromium():
     """Install Chromium into persistent Azure storage when Playwright has no browser binary yet."""
     browser_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or "/home/playwright"
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browser_path
     Path(browser_path).mkdir(parents=True, exist_ok=True)
-    result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        env=os.environ.copy(),
-        capture_output=True,
-        text=True,
-        timeout=300,
+    return run_playwright_install_command(["install", "chromium"])
+
+def install_playwright_system_deps():
+    """Install Linux shared libraries needed by Chromium on fresh App Service workers."""
+    return run_playwright_install_command(["install-deps", "chromium"], timeout=600)
+
+def is_missing_browser_binary(message):
+    return "Executable doesn't exist" in message or "please run playwright install" in message
+
+def is_missing_browser_deps(message):
+    return (
+        "Host system is missing dependencies" in message or
+        "playwright install-deps" in message or
+        "libglib2.0-0" in message or
+        "libnss3" in message
     )
-    if result.returncode != 0:
-        raise RuntimeError(
-            "Playwright Chromium install failed. "
-            f"stdout: {(result.stdout or '')[-800:]} stderr: {(result.stderr or '')[-1200:]}"
-        )
-    return True
 
 def launch_chromium_with_repair(playwright, headless=True):
     try:
         return playwright.chromium.launch(headless=headless)
     except Exception as exc:
         message = str(exc)
-        if "Executable doesn't exist" not in message and "playwright install" not in message:
+        if not is_missing_browser_binary(message) and not is_missing_browser_deps(message):
             raise
+        if is_missing_browser_deps(message):
+            install_playwright_system_deps()
         install_playwright_chromium()
         return playwright.chromium.launch(headless=headless)
 
@@ -1394,25 +1414,30 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
     seen = set()
 
     def harvest_current_page():
-        anchors = page.locator("a").all()
         found = []
-        for a in anchors:
+        try:
+            anchors = page.evaluate(
+                """() => Array.from(document.querySelectorAll('a')).map((anchor) => {
+                    const row = anchor.closest('tr');
+                    return {
+                        text: (anchor.innerText || anchor.textContent || '').trim(),
+                        href: anchor.getAttribute('href') || '',
+                        rowText: row ? (row.innerText || row.textContent || '').trim() : ''
+                    };
+                })"""
+            )
+        except Exception:
+            anchors = []
+
+        for anchor in anchors:
             try:
-                text = clean(a.inner_text())
-                href = a.get_attribute("href") or ""
+                text = clean(anchor.get("text"))
+                href = anchor.get("href") or ""
                 if re.fullmatch(r"\d{4,}", text) and text not in seen:
                     seen.add(text)
-
-                    row_text = ""
+                    row_text = clean(anchor.get("rowText"))
                     due_date = ""
                     assigned_date = ""
-
-                    try:
-                        row = a.locator("xpath=ancestor::tr[1]")
-                        if row.count():
-                            row_text = clean(row.first.inner_text())
-                    except Exception:
-                        row_text = ""
 
                     # RMS list row usually contains assigned/due dates. Capture first/last date as fallback.
                     dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b", row_text)
@@ -1438,21 +1463,34 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 
     # Try setting rows per page to largest available value first.
     try:
-        selects = page.locator("select").all()
-        for sel in selects:
-            try:
-                options_text = sel.inner_text()
-                if "20" in options_text and ("50" in options_text or "100" in options_text):
-                    if "100" in options_text:
-                        sel.select_option(label="100")
-                    elif "50" in options_text:
-                        sel.select_option(label="50")
-                    page.wait_for_timeout(1500)
-                    break
-            except Exception:
-                pass
+        page.evaluate(
+            """() => {
+                const selects = Array.from(document.querySelectorAll('select'));
+                for (const select of selects) {
+                    const labels = Array.from(select.options).map((option) => option.textContent || '');
+                    const values = Array.from(select.options).map((option) => option.value || '');
+                    const joined = labels.join(' ');
+                    if (joined.includes('20') && (joined.includes('50') || joined.includes('100'))) {
+                        const targetIndex = labels.findIndex((label) => label.includes('100'));
+                        const fallbackIndex = labels.findIndex((label) => label.includes('50'));
+                        const index = targetIndex >= 0 ? targetIndex : fallbackIndex;
+                        if (index >= 0) {
+                            select.value = values[index];
+                            select.dispatchEvent(new Event('input', { bubbles: true }));
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }"""
+        )
+        page.wait_for_load_state("networkidle", timeout=10000)
     except Exception:
-        pass
+        try:
+            page.wait_for_timeout(1500)
+        except Exception:
+            pass
 
     for page_index in range(max_pages):
         page.wait_for_timeout(800)
