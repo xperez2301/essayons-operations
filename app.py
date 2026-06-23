@@ -5,6 +5,8 @@ import math
 import re
 import shutil
 import requests
+import zipfile
+from io import BytesIO
 from functools import wraps
 import secrets
 from datetime import datetime
@@ -124,7 +126,7 @@ CITY_COORDS = {
 def ensure_dirs():
     DATA_DIR.mkdir(exist_ok=True)
     UPLOAD_DIR.mkdir(exist_ok=True)
-    for root in ["Imported", "Assigned", "Completed", "Need_Review", "RMS_Backup"]:
+    for root in ["Imported", "Assigned", "Dispatched", "Completed", "Need_Review", "RMS_Backup"]:
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     if not USERS_FILE.exists() and not ADMIN_PASSWORD:
         raise RuntimeError(
@@ -242,6 +244,51 @@ def move_pdf(current_path, destination_root):
         dest = dest.with_name(dest.stem + "_" + datetime.now().strftime("%H%M%S") + dest.suffix)
     shutil.move(str(current), str(dest))
     return str(dest)
+
+def bol_duplicate_key(item):
+    bol = clean(item.get("bol"))
+    origin = clean(item.get("origin"))
+    return bol, origin
+
+def is_duplicate_bol(item, existing_keys, existing_bols):
+    bol, origin = bol_duplicate_key(item)
+    if bol and origin and (bol, origin) in existing_keys:
+        return True
+    # Also protect against the same BOL coming back with a missing/changed origin.
+    if bol and bol in existing_bols:
+        return True
+    return False
+
+def track_bol_key(item, existing_keys, existing_bols):
+    bol, origin = bol_duplicate_key(item)
+    if bol or origin:
+        existing_keys.add((bol, origin))
+    if bol:
+        existing_bols.add(bol)
+
+def completion_summary_for_stores(stores):
+    expected = round(sum(num(s.get("expected_racks")) for s in stores), 2)
+    collected = round(sum(num(s.get("collected_racks")) for s in stores), 2)
+    return {
+        "stores": len(stores),
+        "expected_racks": expected,
+        "collected_racks": collected,
+        "variance": round(collected - expected, 2),
+        "completed_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+def path_health(path):
+    info = {"path": str(path), "exists": path.exists(), "writable": False, "error": ""}
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        test_file = path / f".health_{uuid4().hex}"
+        test_file.write_text("ok", encoding="utf-8")
+        test_file.unlink(missing_ok=True)
+        info["exists"] = True
+        info["writable"] = True
+    except Exception as exc:
+        info["error"] = str(exc)[:180]
+    return info
 
 def miles_between(lat1, lng1, lat2, lng2):
     radius = 3958.8
@@ -948,7 +995,8 @@ def rms_import():
             return render_template("rms_import.html", message="Choose RMS PDF, Excel, or CSV files first.")
 
         existing = read_json(STORES_FILE)
-        existing_keys = {(s.get("bol"), s.get("origin")) for s in existing}
+        existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
+        existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
         added, duplicates, review = 0, 0, 0
 
         for uploaded in files:
@@ -973,12 +1021,11 @@ def rms_import():
                 continue
 
             for item in imported:
-                key = (item.get("bol"), item.get("origin"))
-                if key in existing_keys and any(key):
+                if is_duplicate_bol(item, existing_keys, existing_bols):
                     duplicates += 1
                     continue
                 existing.append(item)
-                existing_keys.add(key)
+                track_bol_key(item, existing_keys, existing_bols)
                 added += 1
                 if item.get("status") == "Need Review":
                     review += 1
@@ -1744,7 +1791,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
         }
 
     existing = read_json(STORES_FILE)
-    existing_keys = {(s.get("bol"), s.get("origin")) for s in existing if s.get("bol") or s.get("origin")}
+    existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
+    existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
 
     imported = 0
     skipped = 0
@@ -1788,15 +1836,14 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         item["review_reasons"].append("BOL fallback from list")
                         item["status"] = "Need Review"
 
-                    key = (item.get("bol"), item.get("origin"))
-                    if key in existing_keys and any(key):
+                    if is_duplicate_bol(item, existing_keys, existing_bols):
                         skipped += 1
                         detail_page.close()
                         continue
 
                     item["pdf_path"] = save_printable_snapshot(item, html)
                     existing.append(item)
-                    existing_keys.add(key)
+                    track_bol_key(item, existing_keys, existing_bols)
                     imported += 1
                     if item.get("status") == "Need Review":
                         need_review += 1
@@ -2222,6 +2269,153 @@ def api_rms_auto_grab_bols():
 
     return jsonify({"ok": result.get("ok", False), "result": result})
 
+@app.route("/archive")
+@dispatch_required
+def archive():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+
+    q = clean(request.args.get("q")).lower()
+    city = clean(request.args.get("city"))
+    driver = clean(request.args.get("driver"))
+    date_from = clean(request.args.get("from"))
+    date_to = clean(request.args.get("to"))
+
+    completed_stores = [s for s in stores if (s.get("status") or "") == "Completed"]
+    completed_routes = [r for r in routes if (r.get("status") or "") == "Completed"]
+
+    def date_in_range(value):
+        value = clean(value)[:10]
+        if date_from and value and value < date_from:
+            return False
+        if date_to and value and value > date_to:
+            return False
+        return True
+
+    def store_matches(store):
+        haystack = " ".join([
+            clean(store.get("bol")), clean(store.get("origin")),
+            clean(store.get("store_name")), clean(store.get("city")),
+            clean(store.get("assigned_driver")), clean(store.get("due_date")),
+            clean(store.get("completed_at")),
+        ]).lower()
+        if q and q not in haystack:
+            return False
+        if city and city != clean(store.get("city")) and city != clean(store.get("hub")):
+            return False
+        if driver and driver.lower() not in clean(store.get("assigned_driver")).lower():
+            return False
+        if not date_in_range(store.get("completed_at")):
+            return False
+        return True
+
+    def route_matches(route):
+        haystack = " ".join([
+            clean(route.get("route_number")), clean(route.get("driver")),
+            clean(route.get("hub")), clean(route.get("completed_at")),
+        ]).lower()
+        if q and q not in haystack:
+            return False
+        if driver and driver.lower() not in clean(route.get("driver")).lower():
+            return False
+        if city and city != clean(route.get("hub")):
+            return False
+        if not date_in_range(route.get("completed_at")):
+            return False
+        return True
+
+    completed_stores = [s for s in completed_stores if store_matches(s)]
+    completed_routes = [r for r in completed_routes if route_matches(r)]
+
+    completed_stores.sort(key=lambda s: clean(s.get("completed_at")) or clean(s.get("created_at")), reverse=True)
+    completed_routes.sort(key=lambda r: clean(r.get("completed_at")) or clean(r.get("created_at")), reverse=True)
+
+    city_options = sorted({
+        clean(s.get("city")) for s in stores if clean(s.get("city"))
+    } | {
+        clean(s.get("hub")) for s in stores if clean(s.get("hub"))
+    })
+    driver_options = sorted({
+        clean(s.get("assigned_driver")) for s in stores if clean(s.get("assigned_driver"))
+    } | {
+        clean(r.get("driver")) for r in routes if clean(r.get("driver"))
+    })
+
+    totals = {
+        "stores": len(completed_stores),
+        "routes": len(completed_routes),
+        "expected_racks": round(sum(num(s.get("expected_racks")) for s in completed_stores), 2),
+        "collected_racks": round(sum(num(s.get("collected_racks")) for s in completed_stores), 2),
+        "variance": round(sum(num(s.get("variance")) for s in completed_stores), 2),
+    }
+
+    return render_template(
+        "archive.html",
+        stores=completed_stores[:500],
+        routes=completed_routes[:200],
+        totals=totals,
+        city_options=city_options,
+        driver_options=driver_options,
+        filters={"q": q, "city": city, "driver": driver, "date_from": date_from, "date_to": date_to},
+        can_export=is_admin(),
+    )
+
+@app.route("/api/system-health")
+@admin_required
+def api_system_health():
+    settings_data = read_json(SETTINGS_FILE)
+    health = {
+        "ok": True,
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "paths": {
+            "DATA_DIR": path_health(DATA_DIR),
+            "UPLOAD_DIR": path_health(UPLOAD_DIR),
+            "BOL_DIR": path_health(BOL_DIR),
+            "Completed": path_health(BOL_DIR / "Completed"),
+            "Dispatched": path_health(BOL_DIR / "Dispatched"),
+        },
+        "playwright": {
+            "python_package_available": bool(PLAYWRIGHT_AVAILABLE),
+            "browser_path_setting": os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
+        },
+        "rms": {
+            "username_saved": bool(clean(settings_data.get("rms_username"))),
+            "password_saved": bool(clean(settings_data.get("rms_password"))),
+            "last_login": settings_data.get("last_rms_login", ""),
+            "connection_status": settings_data.get("rms_connection_status", ""),
+        },
+    }
+    health["ok"] = all(item.get("writable") for item in health["paths"].values()) and health["playwright"]["python_package_available"]
+    return jsonify(health)
+
+@app.route("/api/export/data")
+@admin_required
+def api_export_data():
+    buffer = BytesIO()
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    files = [
+        ("stores.json", STORES_FILE),
+        ("routes.json", ROUTES_FILE),
+        ("audit_log.json", AUDIT_FILE),
+        ("sync_history.json", SYNC_HISTORY_FILE),
+        ("rms_queue.json", RMS_QUEUE_FILE),
+        ("users.json", USERS_FILE),
+        ("settings.json", SETTINGS_FILE),
+    ]
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, path in files:
+            if path.exists():
+                zf.write(path, f"data/{name}")
+        zf.writestr("README.txt", "EOMS operational data export. Store securely; this may include usernames, routes, BOL metadata, and audit history.\n")
+    buffer.seek(0)
+    audit("Export Data", {"filename": f"eoms-data-export-{now}.zip"})
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"eoms-data-export-{now}.zip",
+    )
+
 
 @app.route("/users")
 @admin_required
@@ -2613,6 +2807,7 @@ def api_update_route_driver():
 def api_complete_route():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
+    force = bool(data.get("force"))
 
     routes = read_json(ROUTES_FILE)
     stores = read_json(STORES_FILE)
@@ -2629,12 +2824,32 @@ def api_complete_route():
         return jsonify({"ok": False, "message": "Route not found."})
 
     route_store_ids = set(route.get("store_ids", []))
+    route_stores = [s for s in stores if s.get("id") in route_store_ids]
+    missing_closeout = [
+        s for s in route_stores
+        if s.get("collected_racks") in (None, "")
+    ]
+
+    if missing_closeout and not force:
+        return jsonify({
+            "ok": False,
+            "code": "CLOSEOUT_REQUIRED",
+            "message": f"{len(missing_closeout)} stop(s) do not have collected rack counts. Complete driver closeout first or confirm manager override.",
+            "missing": [{"bol": s.get("bol"), "store": s.get("store_name"), "city": s.get("city")} for s in missing_closeout[:10]],
+        })
+
     for store in stores:
         if store.get("id") in route_store_ids:
             store["status"] = "Completed"
             store["completed_at"] = route.get("completed_at")
+            if store.get("collected_racks") in (None, ""):
+                store["collected_racks"] = num(store.get("expected_racks"))
+                store["variance"] = 0
+                store["closeout_override"] = True
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
+
+    route["completion_summary"] = completion_summary_for_stores([s for s in stores if s.get("id") in route_store_ids])
 
     write_json(ROUTES_FILE, routes)
     write_json(STORES_FILE, stores)
@@ -2782,7 +2997,11 @@ def driver_portal():
 def api_driver_complete():
     data = request.get_json(force=True)
     store_id = data.get("store_id")
+    if data.get("collected_racks") in (None, ""):
+        return jsonify({"ok": False, "message": "Enter collected rack count before completing this stop."}), 400
     collected_racks = num(data.get("collected_racks"))
+    if collected_racks < 0:
+        return jsonify({"ok": False, "message": "Collected rack count cannot be negative."}), 400
     stores = read_json(STORES_FILE)
     updated = None
     for store in stores:
@@ -2795,12 +3014,27 @@ def api_driver_complete():
             store["collected_racks"] = collected_racks
             store["variance"] = collected_racks - num(store.get("expected_racks"))
             store["status"] = "Completed"
+            store["completed_at"] = datetime.now().isoformat(timespec="seconds")
+            if abs(num(store.get("variance"))) >= 2:
+                store["variance_review"] = True
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
             updated = store
             break
     write_json(STORES_FILE, stores)
+    routes = read_json(ROUTES_FILE)
+    for route in routes:
+        route_store_ids = set(route.get("store_ids", []))
+        if store_id in route_store_ids:
+            route_stores = [s for s in stores if s.get("id") in route_store_ids]
+            if route_stores and all((s.get("status") == "Completed") for s in route_stores):
+                route["status"] = "Completed"
+                route["completed_at"] = datetime.now().isoformat(timespec="seconds")
+                route["completion_summary"] = completion_summary_for_stores(route_stores)
+    write_json(ROUTES_FILE, routes)
     audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks})
+    if not updated:
+        return jsonify({"ok": False, "message": "Stop not found."}), 404
     return jsonify({"ok": True, "store": updated})
 
 # Run startup tasks at import time so this works under gunicorn (which imports

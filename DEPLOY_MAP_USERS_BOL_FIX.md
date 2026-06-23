@@ -1,4 +1,4 @@
-# EOMS map pins, user deletion, and BOL auto-grab notes
+# EOMS reliability upgrade: map pins, archive, closeout, users, drivers, and BOL notes
 
 ## Included code changes
 
@@ -8,10 +8,35 @@
   - Green: more than 7 days remaining, or no due date captured.
 - User Management now has a Delete button for each user.
 - Driver Management now has a Delete Driver button for driver accounts.
+- Archive/History page added at `/archive`.
+  - Shows completed BOLs and completed routes.
+  - Search by BOL, route, driver, store, city, and completed date range.
+  - Keeps saved/print/live BOL links available for completed work.
+- Admin backup export added at `/api/export/data`.
+  - Downloads a ZIP of the core JSON data files.
+  - The button appears on the Archive page for admins.
+- Closeout validation added.
+  - Drivers must enter collected rack count before completing a stop.
+  - Dispatch route closeout warns if stops are missing rack closeout.
+  - Route completion saves a summary of expected racks, collected racks, variance, and completion time.
+- System Health check added in Settings.
+  - Confirms writable data/upload/BOL folders.
+  - Shows whether Playwright is importable.
+  - Shows RMS setting status without exposing passwords.
+- Duplicate BOL import protection improved.
+  - Import now checks BOL plus origin and BOL number to reduce duplicate assignments.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.
 - Deleting a driver removes the driver login/contact record. Existing route history remains available.
+
+## Where completed history lives
+
+- Store/BOL records are saved in `DATA_DIR/stores.json`.
+- Route records are saved in `DATA_DIR/routes.json`.
+- Completed BOL PDF files are moved under `BOL_DIR/Completed/YYYY/MM_Month/`.
+- Admin/user actions are recorded in `DATA_DIR/audit_log.json`.
+- On Azure, use the `/archive` page to search history and the `Download Backup` button to export the core history files.
 
 ## Azure settings required for BOL auto-grab persistence
 

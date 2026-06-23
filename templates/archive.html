@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+  <div>
+    <span class="eyebrow">History & Closeout</span>
+    <h2>Archive</h2>
+    <p>Search completed BOLs and routes. This view uses the saved operational history in stores.json, routes.json, and completed BOL files.</p>
+  </div>
+  <div>
+    {% if can_export %}<a class="link-btn" href="/api/export/data">Download Backup</a>{% endif %}
+    <a class="link-btn" href="/dispatch-map">Dispatch Map</a>
+  </div>
+</header>
+
+<section class="metrics blueprint">
+  <div class="metric"><span>Completed BOLs</span><strong>{{ totals.stores }}</strong></div>
+  <div class="metric"><span>Completed Routes</span><strong>{{ totals.routes }}</strong></div>
+  <div class="metric"><span>Expected Racks</span><strong>{{ totals.expected_racks }}</strong></div>
+  <div class="metric"><span>Collected Racks</span><strong>{{ totals.collected_racks }}</strong></div>
+  <div class="metric"><span>Variance</span><strong>{{ totals.variance }}</strong></div>
+</section>
+
+<section class="panel">
+  <h3>Filters</h3>
+  <form method="GET" action="/archive" class="user-form">
+    <input name="q" value="{{ filters.q }}" placeholder="BOL, route, driver, store, city">
+    <select name="city">
+      <option value="">All cities/hubs</option>
+      {% for option in city_options %}<option value="{{ option }}" {% if filters.city == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+    </select>
+    <select name="driver">
+      <option value="">All drivers</option>
+      {% for option in driver_options %}<option value="{{ option }}" {% if filters.driver == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+    </select>
+    <label>From <input type="date" name="from" value="{{ filters.date_from }}"></label>
+    <label>To <input type="date" name="to" value="{{ filters.date_to }}"></label>
+    <button class="primary-btn">Search Archive</button>
+    <a class="secondary-btn small-btn" href="/archive">Clear</a>
+  </form>
+</section>
+
+<section class="panel">
+  <h3>Completed BOLs</h3>
+  <table class="queue-table">
+    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>Completed</th><th>Expected</th><th>Collected</th><th>Variance</th><th>Links</th></tr></thead>
+    <tbody>
+      {% for store in stores %}
+      <tr>
+        <td><b>{{ store.bol }}</b></td>
+        <td>{{ store.store_name or store.origin }}</td>
+        <td>{{ store.city }}, {{ store.state }}</td>
+        <td>{{ store.assigned_driver or "" }}</td>
+        <td>{{ store.due_date or "" }}</td>
+        <td>{{ store.completed_at or "" }}</td>
+        <td>{{ store.expected_racks or 0 }}</td>
+        <td>{{ store.collected_racks if store.collected_racks is defined else "" }}</td>
+        <td><span class="{{ 'over' if store.variance_review else 'safe' }}">{{ store.variance if store.variance is defined else "" }}</span></td>
+        <td>
+          <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
+          <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
+          {% if store.bol %}<a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live</a>{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10">No completed BOLs match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h3>Completed Routes</h3>
+  <table class="queue-table">
+    <thead><tr><th>Route</th><th>Driver</th><th>Hub</th><th>Stops</th><th>Completed</th><th>Expected</th><th>Collected</th><th>Variance</th><th>View</th></tr></thead>
+    <tbody>
+      {% for route in routes %}
+      {% set summary = route.completion_summary or {} %}
+      <tr>
+        <td><b>{{ route.route_number }}</b></td>
+        <td>{{ route.driver }}</td>
+        <td>{{ route.hub }}</td>
+        <td>{{ (route.store_ids or [])|length }}</td>
+        <td>{{ route.completed_at or "" }}</td>
+        <td>{{ summary.expected_racks or "" }}</td>
+        <td>{{ summary.collected_racks or "" }}</td>
+        <td>{{ summary.variance or "" }}</td>
+        <td><a class="mini-link" href="/route-view/{{ route.id }}" target="_blank">Route</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No completed routes match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

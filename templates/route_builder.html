@@ -273,7 +273,13 @@ async function dispatchRoute(routeId){
 
 async function completeRoute(routeId){
     if(!confirm("Mark this route as COMPLETED?")) return;
-    const data = await postJson("/api/complete-route", {route_id:routeId});
+    let data = await postJson("/api/complete-route", {route_id:routeId});
+    if(!data.ok && data.code === "CLOSEOUT_REQUIRED"){
+        const proceed = confirm((data.message || "Some stops are missing closeout counts.") + "\n\nOverride and complete using expected rack counts for missing stops?");
+        if(proceed){
+            data = await postJson("/api/complete-route", {route_id:routeId, force:true});
+        }
+    }
     if(!data.ok){ alert(data.message || "Unable to complete route."); return; }
     alert("Route completed.");
     location.reload();

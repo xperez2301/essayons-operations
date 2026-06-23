@@ -17,7 +17,7 @@
         <p><b>Location:</b> {{ store.city }}, {{ store.state }}</p>
         <p><b>Expected Racks:</b> {{ store.expected_racks }}</p>
         <label>Racks Collected</label>
-        <input id="collected-{{ store.id }}" type="number" min="0" step="1">
+        <input id="collected-{{ store.id }}" type="number" min="0" step="1" required>
         <button onclick="completeStop('{{ store.id }}')">Complete Stop</button>
     </div>
 {% else %}
@@ -31,6 +31,10 @@
 <script>
 async function completeStop(storeId){
     const value = document.getElementById("collected-" + storeId).value;
+    if(value === ""){
+        alert("Enter collected rack count before completing this stop.");
+        return;
+    }
     const response = await fetch("/api/driver/complete", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
