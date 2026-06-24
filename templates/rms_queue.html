@@ -27,7 +27,7 @@
         <button class="small-btn" onclick="markSelected('Ignored')">Ignore Selected</button>
         <button class="small-btn" onclick="markSelected('Need Review')">Send To Need Review</button>
 
-        <select id="filter-status" onchange="filterRows()">
+        <select id="filter-status" onchange="filterRows()" data-current="{{ request.args.get('status','All') }}">
             <option value="All">All Status</option>
             <option value="New">New</option>
             <option value="Imported">Imported</option>
@@ -185,5 +185,12 @@ function dueColor(dueValue){
 }
 document.querySelectorAll(".due-chip").forEach(chip => {
     chip.classList.add("due-" + dueColor(chip.dataset.due || ""));
+});
+document.addEventListener("DOMContentLoaded", function(){
+    const filter = document.getElementById("filter-status");
+    if(filter && filter.dataset.current){
+        filter.value = filter.dataset.current;
+        filterRows();
+    }
 });
 </script>

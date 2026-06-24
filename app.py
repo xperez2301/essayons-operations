@@ -549,16 +549,7 @@ def parse_rms_pdf(path):
     lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
     hub, hub_reason = assign_hub(lat, lng, destination)
 
-    review_reasons = []
-    if not bol: review_reasons.append("Missing BOL")
-    if not origin: review_reasons.append("Missing origin/store number")
-    if not city: review_reasons.append("Missing city")
-    if expected_racks <= 0: review_reasons.append('Missing 84" Corner Post quantity')
-    if hub == "Manual Review": review_reasons.append("Hub outside 100 miles")
-
-    status = "Need Review" if review_reasons else "Unassigned"
-
-    return {
+    item = {
         "id": str(uuid4()),
         "bol": bol,
         "origin": origin,
@@ -588,6 +579,10 @@ def parse_rms_pdf(path):
         "pdf_path": "",
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
+    item["review_reasons"] = essential_review_reasons(item)
+    item["review_warnings"] = ["Missing origin/store number"] if not origin else []
+    item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
+    return item
 
 def normalize_row(row):
     bol = clean(row.get("BOL #") or row.get("BOL") or row.get("BOL Number"))
@@ -722,6 +717,64 @@ def active_map_stores(stores):
         if (s.get("status") or "Unassigned") not in hidden_statuses
         and clean(s.get("rms_status")) not in hidden_rms
     ]
+
+def today_iso():
+    return datetime.now().date().isoformat()
+
+def date_value(value):
+    value = clean(value)
+    if not value:
+        return ""
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(value[:10], fmt).date().isoformat()
+        except Exception:
+            pass
+    return value[:10]
+
+def item_touched_today(item):
+    today = today_iso()
+    for key in ("updated_at", "imported_at", "created_at", "completed_at", "last_seen", "last_seen_in_rms_at"):
+        if date_value(item.get(key)) == today:
+            return True
+    return False
+
+def essential_review_reasons(item):
+    reasons = []
+    if not clean(item.get("bol")):
+        reasons.append("Missing BOL")
+    if not (clean(item.get("store_name")) or clean(item.get("origin_name")) or clean(item.get("origin"))):
+        reasons.append("Missing store/customer name")
+    if not clean(item.get("city")):
+        reasons.append("Missing city")
+    if num(item.get("expected_racks")) <= 0:
+        reasons.append('Missing 84" Corner Post quantity')
+    if clean(item.get("hub")) == "Manual Review":
+        reasons.append("Hub outside 100 miles")
+    return reasons
+
+def filtered_bols(stores):
+    status_filter = clean(request.args.get("status"))
+    imported_today = clean(request.args.get("imported")).lower() == "today"
+    updated_today = clean(request.args.get("updated")).lower() == "today"
+    completed_today = clean(request.args.get("today")).lower() in {"1", "true", "yes"}
+    q = clean(request.args.get("q")).lower()
+
+    rows = list(stores)
+    if status_filter:
+        rows = [s for s in rows if clean(s.get("status") or "Unassigned") == status_filter]
+    if imported_today:
+        rows = [s for s in rows if date_value(s.get("created_at") or s.get("imported_at")) == today_iso()]
+    if updated_today:
+        rows = [s for s in rows if item_touched_today(s)]
+    if completed_today:
+        rows = [s for s in rows if date_value(s.get("completed_at")) == today_iso()]
+    if q:
+        rows = [
+            s for s in rows
+            if q in " ".join(clean(s.get(k)).lower() for k in ("bol", "store_name", "origin", "city", "hub", "status"))
+        ]
+    return sorted(rows, key=lambda s: clean(s.get("updated_at") or s.get("created_at")), reverse=True)
 
 def admin_required(f):
     @wraps(f)
@@ -1078,6 +1131,9 @@ def api_geocode_stores():
 @dispatch_required
 def dispatch_map():
     stores = active_map_stores(filter_stores_for_user(read_json(STORES_FILE)))
+    status_filter = clean(request.args.get("status"))
+    if status_filter:
+        stores = [s for s in stores if clean(s.get("status") or "Unassigned") == status_filter]
     settings_data = read_json(SETTINGS_FILE)
     maps_key = clean(settings_data.get("google_maps_api_key"))
     return render_template(
@@ -1090,6 +1146,9 @@ def dispatch_map():
 @app.route("/route-builder")
 def route_builder():
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    status_filter = clean(request.args.get("status"))
+    if status_filter:
+        routes = [r for r in routes if clean(r.get("status") or "Assigned") == status_filter]
     return render_template("route_builder.html", routes=routes)
 
 @app.route("/rms-import", methods=["GET", "POST"])
@@ -1145,6 +1204,20 @@ def rms_import():
 def need_review():
     stores = [s for s in filter_stores_for_user(read_json(STORES_FILE)) if s.get("status") == "Need Review"]
     return render_template("need_review.html", stores=stores, hubs=HUBS)
+
+@app.route("/all-bols")
+@dispatch_required
+def all_bols():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    rows = filtered_bols(stores)
+    return render_template(
+        "all_bols.html",
+        stores=rows,
+        hubs=HUBS,
+        status_options=["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"],
+        current_status=clean(request.args.get("status")),
+        q=clean(request.args.get("q")),
+    )
 
 @app.route("/api/approve-review", methods=["POST"])
 def api_approve_review():
@@ -1359,16 +1432,7 @@ def extract_printable_bol_from_text(text, source_url=""):
     lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
     hub, hub_reason = assign_hub(lat, lng, destination)
 
-    review_reasons = []
-    if not bol: review_reasons.append("Missing BOL")
-    if not origin: review_reasons.append("Missing origin/store number")
-    if not city: review_reasons.append("Missing city")
-    if expected_racks <= 0: review_reasons.append('Missing 84" Corner Post quantity')
-    if hub == "Manual Review": review_reasons.append("Hub outside 100 miles")
-
-    status = "Need Review" if review_reasons else "Unassigned"
-
-    return {
+    item = {
         "id": str(uuid4()),
         "bol": bol,
         "origin": origin,
@@ -1411,6 +1475,10 @@ def extract_printable_bol_from_text(text, source_url=""):
         "rms_url": source_url,
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
+    item["review_reasons"] = essential_review_reasons(item)
+    item["review_warnings"] = ["Missing origin/store number"] if not origin else []
+    item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
+    return item
 
 def save_printable_snapshot(item, html):
     root = "Need_Review" if item.get("status") == "Need Review" else "Imported"
@@ -3531,6 +3599,74 @@ def api_unassign_route():
     audit("Unassign Entire Route", {"route_id": route_id, "restored": restored})
 
     return jsonify({"ok": True, "message": f"Route unassigned. {restored} stores returned to Dispatch Map."})
+
+@app.route("/api/bol/<store_id>", methods=["POST"])
+@dispatch_required
+def api_update_bol(store_id):
+    data = request.get_json(force=True)
+    allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"}
+    editable = [
+        "bol", "origin", "store_name", "address", "city", "state", "zip",
+        "contact", "hub", "due_date", "assigned_date", "expected_racks",
+        "weight", "status", "dispatch_group"
+    ]
+
+    stores = read_json(STORES_FILE)
+    updated = None
+    for store in stores:
+        if store.get("id") == store_id or clean(store.get("bol")) == store_id:
+            before_location = tuple(clean(store.get(k)) for k in ("address", "city", "state", "zip", "hub"))
+            for key in editable:
+                if key not in data:
+                    continue
+                value = clean(data.get(key))
+                if key in {"expected_racks", "weight"}:
+                    store[key] = num(value)
+                elif key == "status":
+                    if value in allowed_statuses:
+                        store[key] = value
+                else:
+                    store[key] = value
+
+            after_location = tuple(clean(store.get(k)) for k in ("address", "city", "state", "zip", "hub"))
+            if after_location != before_location:
+                lat, lng, geocode_status, full_address = resolve_store_coordinates(
+                    store.get("address"), store.get("city"), store.get("state") or "TX", store.get("zip")
+                )
+                store["lat"] = lat
+                store["lng"] = lng
+                store["full_address"] = full_address
+                store["geocode_status"] = geocode_status
+                if not clean(data.get("hub")):
+                    hub, hub_reason = assign_hub(lat, lng, store.get("dispatch_group"))
+                    store["hub"] = hub
+                    store["hub_reason"] = hub_reason
+
+            if clean(store.get("status")) != "Completed":
+                store["review_reasons"] = essential_review_reasons(store)
+                if store["review_reasons"] and clean(store.get("status")) == "Unassigned":
+                    store["status"] = "Need Review"
+            store["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            updated = store
+            break
+
+    if not updated:
+        return jsonify({"ok": False, "message": "BOL not found."}), 404
+
+    write_json(STORES_FILE, stores)
+
+    queue = read_json(RMS_QUEUE_FILE)
+    for q in queue:
+        if clean(q.get("bol")) == clean(updated.get("bol")):
+            for key in editable:
+                if key in updated:
+                    q[key] = updated.get(key)
+            q["queue_status"] = "Imported" if updated.get("status") != "Need Review" else "Need Review"
+            q["updated_at"] = updated.get("updated_at")
+    write_json(RMS_QUEUE_FILE, queue)
+
+    audit("Update BOL", {"store_id": updated.get("id"), "bol": updated.get("bol"), "status": updated.get("status")})
+    return jsonify({"ok": True, "store": updated})
 
 
 @app.route("/api/store-status", methods=["POST"])

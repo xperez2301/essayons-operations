@@ -25,18 +25,18 @@
 
   {% set last_sync = sync_history[-1] if sync_history else {} %}
   <section class="rms-sync-strip">
-    <span><b>{{ last_sync.imported or last_sync.added or 0 }}</b> Imported</span>
-    <span><b>{{ last_sync.updated or 0 }}</b> Updated</span>
-    <span class="sync-failed"><b>{{ last_sync.failed or (last_sync.errors|length if last_sync.errors else 0) }}</b> Failed</span>
+    <a href="/all-bols?imported=today"><b>{{ last_sync.imported or last_sync.added or 0 }}</b> Imported</a>
+    <a href="/all-bols?updated=today"><b>{{ last_sync.updated or 0 }}</b> Updated</a>
+    <a class="sync-failed" href="/rms-queue?status=Need%20Review"><b>{{ last_sync.failed or (last_sync.errors|length if last_sync.errors else 0) }}</b> Failed</a>
     <small>Automation target: 06:00 daily</small>
   </section>
 
   <section class="command-kpis">
-    <div class="kpi-card"><span>Need Review</span><strong class="red">{{ metrics.by_status.get('Need Review', 0) }}</strong><small>BOLs</small></div>
-    <div class="kpi-card"><span>Ready to Route</span><strong class="yellow">{{ metrics.by_status.get('Unassigned', 0) }}</strong><small>BOLs</small></div>
-    <div class="kpi-card"><span>Assigned</span><strong class="blue">{{ metrics.by_status.get('Assigned', 0) }}</strong><small>BOLs</small></div>
-    <div class="kpi-card"><span>Dispatched</span><strong class="purple">{{ metrics.by_status.get('Dispatched', 0) }}</strong><small>BOLs</small></div>
-    <div class="kpi-card"><span>Completed Today</span><strong class="green">{{ metrics.by_status.get('Completed', 0) }}</strong><small>BOLs</small></div>
+    <a class="kpi-card" href="/need-review"><span>Need Review</span><strong class="red">{{ metrics.by_status.get('Need Review', 0) }}</strong><small>BOLs</small></a>
+    <a class="kpi-card" href="/dispatch-map?status=Unassigned"><span>Ready to Route</span><strong class="yellow">{{ metrics.by_status.get('Unassigned', 0) }}</strong><small>BOLs</small></a>
+    <a class="kpi-card" href="/route-builder?status=Assigned"><span>Assigned</span><strong class="blue">{{ metrics.by_status.get('Assigned', 0) }}</strong><small>BOLs</small></a>
+    <a class="kpi-card" href="/route-builder?status=Dispatched"><span>Dispatched</span><strong class="purple">{{ metrics.by_status.get('Dispatched', 0) }}</strong><small>BOLs</small></a>
+    <a class="kpi-card" href="/all-bols?status=Completed&today=1"><span>Completed Today</span><strong class="green">{{ metrics.by_status.get('Completed', 0) }}</strong><small>BOLs</small></a>
     <div class="kpi-card"><span>Today's Rack Count</span><strong>{{ metrics.racks }}</strong><small>racks</small></div>
     <div class="kpi-card"><span>Today's Weight</span><strong>{{ metrics.weight }}</strong><small>lbs</small></div>
     {% if can_view_financials %}<div class="kpi-card"><span>Today's Revenue</span><strong class="green">${{ metrics.revenue }}</strong><small>estimated</small></div>{% endif %}
@@ -131,7 +131,11 @@ function gm_authFailure(){
       const needReview = result.need_review ?? 0;
       const rmsMissing = result.rms_missing ?? 0;
       const failed = result.failed ?? (result.errors ? result.errors.length : 0);
-      let message = result.message || `Auto grab complete. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. RMS missing/closed ${rmsMissing}. Failed ${failed}.`;
+      const completed = imported + updated + skipped + needReview + rmsMissing;
+      const denominator = found || completed || (failed ? completed + failed : 0);
+      const pct = denominator ? Math.round((completed / denominator) * 100) : (data.ok ? 100 : 0);
+      let message = result.message || `Auto grab complete ${pct}%. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. RMS missing/closed ${rmsMissing}. Failed ${failed}.`;
+      if(result.message) message += ` Completion: ${pct}%.`;
       if(result.errors && result.errors.length) message += ' Errors: ' + result.errors.join(' | ');
       statusBox.textContent = message + ' Refreshing...';
       setTimeout(()=>window.location.reload(),1800);
