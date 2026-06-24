@@ -44,15 +44,15 @@
             </thead>
             <tbody>
                 {% for store in stores %}
-                <tr id="bol-row-{{ store.id }}" data-store-id="{{ store.id }}">
+                <tr id="bol-row-{{ store._edit_id }}" data-store-id="{{ store._edit_id }}">
                     <td>
                         <input data-field="bol" value="{{ store.bol or '' }}" aria-label="BOL">
-                        <small>{{ store.created_at or '' }}</small>
+                        <small>{{ store._source|upper }}{% if store.last_seen %} • Seen {{ store.last_seen }}{% elif store.created_at %} • {{ store.created_at }}{% endif %}</small>
                     </td>
                     <td>
                         <select data-field="status" aria-label="Status">
                             {% for status in status_options %}
-                            <option value="{{ status }}" {% if (store.status or 'Unassigned') == status %}selected{% endif %}>{{ status }}</option>
+                            <option value="{{ status }}" {% if (store.queue_status or store.status or 'Unassigned') == status %}selected{% endif %}>{{ status }}</option>
                             {% endfor %}
                         </select>
                         <input data-field="hub" value="{{ store.hub or '' }}" placeholder="Hub">
@@ -90,7 +90,7 @@
                         <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
                         <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
                     </td>
-                    <td><button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store.id }}')">Save</button></td>
+                    <td><button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store._edit_id }}')">Save</button></td>
                 </tr>
                 {% else %}
                 <tr><td colspan="10" class="muted">No BOLs match this view.</td></tr>

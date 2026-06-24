@@ -25,6 +25,7 @@
         </select>
 
         <button onclick="approveReview('{{ store.id }}')">Approve to Dispatch Map</button>
+        <button class="danger-btn" onclick="deleteBol('{{ store.id }}', '{{ store.bol }}')">Delete and Regrab</button>
     </div>
 {% else %}
     <div class="panel">
@@ -46,6 +47,23 @@ async function approveReview(storeId){
         document.getElementById("review-" + storeId).remove();
         alert("Approved");
     }
+}
+
+async function deleteBol(storeId, bol){
+    if(!confirm("Delete BOL " + (bol || storeId) + " from Need Review, RMS Queue, and saved BOL files so Auto Grab can pull it fresh?")) return;
+    const response = await fetch("/api/delete-bol", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({store_id:storeId, bol:bol})
+    });
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to delete BOL.");
+        return;
+    }
+    const card = document.getElementById("review-" + storeId);
+    if(card) card.remove();
+    alert(data.message || "Deleted. Run Auto Grab again to reload it fresh.");
 }
 </script>
 {% endblock %}

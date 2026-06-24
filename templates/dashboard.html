@@ -25,9 +25,9 @@
 
   {% set last_sync = sync_history[-1] if sync_history else {} %}
   <section class="rms-sync-strip">
-    <a href="/all-bols?imported=today"><b>{{ last_sync.imported or last_sync.added or 0 }}</b> Imported</a>
-    <a href="/all-bols?updated=today"><b>{{ last_sync.updated or 0 }}</b> Updated</a>
-    <a class="sync-failed" href="/rms-queue?status=Need%20Review"><b>{{ last_sync.failed or (last_sync.errors|length if last_sync.errors else 0) }}</b> Failed</a>
+    <a class="sync-action-btn" href="/all-bols?status=Imported"><b>{{ last_sync.imported or last_sync.added or 0 }}</b><span>Imported</span><em>Open</em></a>
+    <a class="sync-action-btn" href="/all-bols?updated=today"><b>{{ last_sync.updated or 0 }}</b><span>Updated</span><em>Open</em></a>
+    <a class="sync-action-btn sync-failed" href="/all-bols?status=Need%20Review"><b>{{ last_sync.failed or (last_sync.errors|length if last_sync.errors else 0) }}</b><span>Failed</span><em>Review</em></a>
     <small>Automation target: 06:00 daily</small>
   </section>
 
@@ -36,7 +36,7 @@
     <a class="kpi-card" href="/dispatch-map?status=Unassigned"><span>Ready to Route</span><strong class="yellow">{{ metrics.by_status.get('Unassigned', 0) }}</strong><small>BOLs</small></a>
     <a class="kpi-card" href="/route-builder?status=Assigned"><span>Assigned</span><strong class="blue">{{ metrics.by_status.get('Assigned', 0) }}</strong><small>BOLs</small></a>
     <a class="kpi-card" href="/route-builder?status=Dispatched"><span>Dispatched</span><strong class="purple">{{ metrics.by_status.get('Dispatched', 0) }}</strong><small>BOLs</small></a>
-    <a class="kpi-card" href="/all-bols?status=Completed&today=1"><span>Completed Today</span><strong class="green">{{ metrics.by_status.get('Completed', 0) }}</strong><small>BOLs</small></a>
+    <a class="kpi-card" href="/all-bols?status=Completed&today=1"><span>Completed Today</span><strong class="green">{{ metrics.completed_today or 0 }}</strong><small>BOLs</small></a>
     <div class="kpi-card"><span>Today's Rack Count</span><strong>{{ metrics.racks }}</strong><small>racks</small></div>
     <div class="kpi-card"><span>Today's Weight</span><strong>{{ metrics.weight }}</strong><small>lbs</small></div>
     {% if can_view_financials %}<div class="kpi-card"><span>Today's Revenue</span><strong class="green">${{ metrics.revenue }}</strong><small>estimated</small></div>{% endif %}
@@ -69,6 +69,7 @@
 
     <aside class="command-right">
       <div class="right-card route-preview-card"><h3>Route Preview</h3><b>No route selected</b><p>Select stores on the map to build a route preview.</p><a href="/dispatch-map">Open Dispatch Map</a></div>
+      <div class="right-card"><div class="right-head"><h3>All BOLs</h3><a href="/all-bols">Open</a></div><p>View every grabbed or imported BOL and edit captured RMS details.</p></div>
       <div class="right-card"><div class="right-head"><h3>Assigned Queue</h3><a href="/route-builder">View All</a></div>
         <table class="mini-table"><tbody>
         {% for route in metrics.recent_routes[:5] %}

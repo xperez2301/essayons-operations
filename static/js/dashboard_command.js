@@ -10,7 +10,7 @@ function parseDashboardDueDate(value){
 
 function dashboardDueStatus(store){
   const due = parseDashboardDueDate(store.due_date);
-  if(!due) return "green";
+  if(!due) return "none";
   const today = new Date();
   today.setHours(0,0,0,0);
   due.setHours(0,0,0,0);
@@ -23,7 +23,7 @@ function dashboardDueStatus(store){
 }
 
 function dashClusterIcon(number, color){
-  const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d"};
+  const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d", none:"#596064"};
   const fill = colors[color] || colors.green;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
     <circle cx="24" cy="24" r="20" fill="${fill}" stroke="#f4efe6" stroke-width="2"/>

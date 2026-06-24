@@ -1,4 +1,4 @@
-let map;
+﻿let map;
 let markers = {};
 const stores = window.EOMS_STORES || [];
 const hubs = window.EOMS_HUBS || {};
@@ -20,7 +20,7 @@ function parseDueDate(value){
 
 function dueStatus(store){
     const due = parseDueDate(store.due_date);
-    if(!due) return "green";
+    if(!due) return "none";
     const today = new Date();
     today.setHours(0,0,0,0);
     due.setHours(0,0,0,0);
@@ -32,8 +32,21 @@ function dueStatus(store){
     return "green";
 }
 
+function dueLabel(store){
+    const status = dueStatus(store);
+    const text = store.due_date || "Not captured";
+    const label = status === "none" ? "NO DATE" : status.toUpperCase();
+    return `<span class="route-due-chip due-${status}">Due: ${text} (${label})</span>`;
+}
+
+function rackFormula(store){
+    const posts = Number(store.corner_posts || 0);
+    const racks = Number(store.expected_racks || 0);
+    return `${posts.toLocaleString()} corner posts / 4 = ${racks.toLocaleString()} racks`;
+}
+
 function pinIcon(number, color){
-    const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d"};
+    const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d", none:"#596064"};
     const fill = colors[color] || colors.green;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
       <circle cx="24" cy="24" r="20" fill="${fill}" stroke="#f4efe6" stroke-width="2"/>
@@ -151,7 +164,7 @@ async function loadDrivers(){
             const option = document.createElement("option");
             option.value = driver.name || driver.username;
             option.dataset.phone = driver.phone || "";
-            option.textContent = (driver.name || driver.username) + (driver.cities && driver.cities.length ? " — " + driver.cities.join(", ") : "");
+            option.textContent = (driver.name || driver.username) + (driver.cities && driver.cities.length ? " â€” " + driver.cities.join(", ") : "");
             if(existing && option.value === existing) option.selected = true;
             select.appendChild(option);
         });
@@ -176,9 +189,9 @@ function renderStores(){
             <input type="checkbox" class="store-box" data-store-id="${store.id}" data-racks="${store.expected_racks || 0}" data-weight="${store.weight || 0}">
             <div>
                 <strong>${store.store_name || store.origin || "Unknown Store"}</strong>
-                <span>BOL ${store.bol || ""} • Origin ${store.origin || ""}</span>
-                <span>${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
-                <span>${store.due_date ? "Due: " + store.due_date : "Due: Not captured"} • <b class="due-${dueStatus(store)}">${dueStatus(store).toUpperCase()}</b></span>
+                <span>BOL ${store.bol || ""} â€¢ Origin ${store.origin || ""}</span>
+                <span>${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks</span>
+                <span>${dueLabel(store)}</span>
                 <small>${store.hub || "Manual Review"}</small><br><a class="mini-link" href="/bol-live/${store.bol}" target="_blank" onclick="event.stopPropagation()">Live BOL</a> <a class="mini-link" href="/bol-view/${store.id}" target="_blank" onclick="event.stopPropagation()">Saved Copy</a> <a class="mini-link" href="/bol-print/${store.id}" target="_blank" onclick="event.stopPropagation()">Print</a>
             </div>
         `;
@@ -217,7 +230,7 @@ function updateTotals(){
     if(preview && selectedOrder.length){
         preview.innerHTML = selectedOrder.map((id, index) => {
             const store = stores.find(item => item.id === id);
-            return store ? `<div class="preview-stop"><b>${index + 1}</b> ${store.store_name || store.origin || "Store"}<small>BOL ${store.bol || ""} &middot; Status ${store.status || "Unassigned"} &middot; Due ${store.due_date || "Not captured"} &middot; ${store.expected_racks || 0} racks &middot; ${Number(store.weight || 0).toLocaleString()} lbs</small></div>` : "";
+            return store ? `<div class="preview-stop"><b>${index + 1}</b><div><strong>${store.store_name || store.origin || "Store"}</strong>${dueLabel(store)}<small>BOL ${store.bol || ""} &middot; Status ${store.status || "Unassigned"} &middot; ${rackFormula(store)} &middot; ${Number(store.weight || 0).toLocaleString()} lbs</small></div></div>` : "";
         }).join("");
     }else if(preview){
         preview.innerHTML = "<p class='muted'>Select stores to build the route. The first store selected becomes stop 1.</p>";
@@ -270,7 +283,7 @@ function renderPreview(data){
     `;
 
     data.stores.forEach((s, index) => {
-        html += `<div class="preview-stop"><b>${index + 1}</b> ${s.store_name || s.origin || "Store"}<small>BOL ${s.bol || ""} &middot; Status ${s.status || "Unassigned"} &middot; Due ${s.due_date || "Not captured"} &middot; ${s.expected_racks || 0} racks &middot; ${Number(s.weight || 0).toLocaleString()} lbs</small></div>`;
+        html += `<div class="preview-stop"><b>${index + 1}</b><div><strong>${s.store_name || s.origin || "Store"}</strong>${dueLabel(s)}<small>BOL ${s.bol || ""} &middot; Status ${s.status || "Unassigned"} &middot; ${rackFormula(s)} &middot; ${Number(s.weight || 0).toLocaleString()} lbs</small></div></div>`;
     });
 
     html += "</div>";
@@ -402,8 +415,8 @@ function hoverStorePreview(store, stopNumber){
             <p><b>Store:</b> ${store.store_name || store.origin || "Store"}</p>
             <p><b>City:</b> ${store.city || ""}${store.city && store.state ? ", " : ""}${store.state || ""}</p>
             <p><b>Status:</b> ${store.status || "Unassigned"}</p>
-            <p><b>Due:</b> ${store.due_date || "Not captured"}</p>
-            <p><b>Racks:</b> ${store.expected_racks || 0}</p>
+            <p>${dueLabel(store)}</p>
+            <p><b>Racks:</b> ${rackFormula(store)}</p>
             <p><b>Weight:</b> ${Number(store.weight || 0).toLocaleString()} lbs</p>
             <p><b>Hub:</b> ${store.hub || "Manual Review"}</p>
             <small>Move off the pin to return to route preview. Click the pin to select the stop.</small>
@@ -476,7 +489,7 @@ function initMap(){
         markers[store.id] = new google.maps.Marker({
             position: pos,
             map,
-            title: `${thisPinNumber}. BOL ${store.bol || ""} • Due ${store.due_date || "Not captured"} • ${color.toUpperCase()}`,
+            title: `${thisPinNumber}. BOL ${store.bol || ""} - Due ${store.due_date || "Not captured"} - ${color === "none" ? "NO DATE" : color.toUpperCase()}`,
             icon: pinIcon(thisPinNumber, color)
         });
 
@@ -629,12 +642,13 @@ function renderMapDispatchBoard(){
                         <span class="due-chip due-${color}">${store.due_date || "No Due"}</span>
                     </div>
                     <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
-                    <div class="map-board-sub">${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks • ${store.weight || 0} lbs</div>
+                    <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
                     ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                     <div class="map-board-actions">
                         <a class="mini-link" href="/bol-live/${store.bol}" target="_blank">Live</a>
                         <a class="mini-link" href="/bol-view/${store.id}" target="_blank">Saved</a>
                         <a class="mini-link" href="/bol-print/${store.id}" target="_blank">Print</a>
+                        <a class="mini-link" href="/all-bols?q=${encodeURIComponent(store.bol || store.id)}">Edit</a>
                         ${actions}
                     </div>
                 </div>
@@ -743,12 +757,13 @@ async function renderMapDispatchBoardLive(){
                             <span class="due-chip due-${color}">${store.due_date || "No Due"}</span>
                         </div>
                         <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
-                        <div class="map-board-sub">${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks • ${store.weight || 0} lbs</div>
+                        <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
                         ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                         <div class="map-board-actions">
                             <a class="mini-link" href="/bol-live/${store.bol}" target="_blank">Live</a>
                             <a class="mini-link" href="/bol-view/${store.id}" target="_blank">Saved</a>
                             <a class="mini-link" href="/bol-print/${store.id}" target="_blank">Print</a>
+                            <a class="mini-link" href="/all-bols?q=${encodeURIComponent(store.bol || store.id)}">Edit</a>
                             ${actions}
                         </div>
                     </div>
@@ -797,3 +812,4 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 
 window.initMap = initMap;
+

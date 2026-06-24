@@ -258,6 +258,42 @@ def move_pdf(current_path, destination_root):
     shutil.move(str(current), str(dest))
     return str(dest)
 
+def path_inside(child, parent):
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except Exception:
+        return False
+
+def delete_saved_bol_files(item):
+    deleted = []
+    candidates = []
+    for key in ("pdf_path", "printable_path"):
+        path = clean(item.get(key))
+        if path:
+            candidates.append(Path(path))
+
+    bol = safe_part(item.get("bol"))
+    if bol and bol != "Unknown":
+        candidates.extend(BOL_DIR.rglob(f"*{bol}*.pdf"))
+        candidates.extend(BOL_DIR.rglob(f"*{bol}*.html"))
+
+    seen = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except Exception:
+            continue
+        if str(resolved) in seen:
+            continue
+        seen.add(str(resolved))
+        if not (path_inside(resolved, BOL_DIR) or path_inside(resolved, UPLOAD_DIR)):
+            continue
+        if resolved.exists() and resolved.is_file():
+            resolved.unlink()
+            deleted.append(str(resolved))
+    return deleted
+
 def bol_duplicate_key(item):
     bol = clean(item.get("bol"))
     origin = clean(item.get("origin"))
@@ -514,6 +550,24 @@ def find_match(pattern, text, default=""):
     m = re.search(pattern, text, re.I | re.S)
     return clean(m.group(1)) if m else default
 
+def find_corner_post_qty(text):
+    text = text or ""
+    patterns = [
+        r'84"\s*Corner Post Only\s+R-CPH84\s+\d+\s+[\d,]+\s+([\d,]+)',
+        r'84\s*"?\s*Corner Post Only.*?R-CPH84.*?([\d,]+)\s*(?:$|\n)',
+        r'R-CPH84[^\n]*?([\d,]+)\s*(?:$|\n)',
+    ]
+    for pattern in patterns:
+        value = num(find_match(pattern, text))
+        if value:
+            return value
+    for line in text.splitlines():
+        if "corner post" in line.lower() and ("84" in line or "R-CPH84" in line.upper()):
+            nums = re.findall(r"\d[\d,]*", line.replace('"', " "))
+            if nums:
+                return num(nums[-1])
+    return 0
+
 def parse_city_state_zip(value):
     value = clean(value).replace("\n", " ")
     m = re.search(r"(.+?),\s*([A-Za-z]+)\s+(\d{5})", value)
@@ -537,7 +591,7 @@ def parse_rms_pdf(path):
     destination = find_match(r"Destination:\s*([A-Z0-9_-]+)", text)
     city, state, zip_code = parse_city_state_zip(city_state_zip)
 
-    corner_posts = num(find_match(r'84"\s*Corner Post Only\s+R-CPH84\s+\d+\s+[\d,]+\s+([\d,]+)', text))
+    corner_posts = find_corner_post_qty(text)
     drb40 = num(find_match(r'40"\s*DRB\s+R-DRB40\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     drb48 = num(find_match(r'48"\s*DRB\s+R-DRB48\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     wood_shelf = num(find_match(r'Wood Shelf\s+R-W4048\s+\d+\s+[\d,]+\s+([\d,]+)', text))
@@ -573,14 +627,14 @@ def parse_rms_pdf(path):
         "drb48": drb48,
         "wood_shelf": wood_shelf,
         "weight": bol_weight or round(expected_racks * DEFAULT_RACK_WEIGHT, 2),
-        "status": status,
-        "review_reasons": review_reasons,
         "assigned_driver": "",
         "pdf_path": "",
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
     item["review_reasons"] = essential_review_reasons(item)
-    item["review_warnings"] = ["Missing origin/store number"] if not origin else []
+    item["review_warnings"] = []
+    if not origin:
+        item["review_warnings"].append("Missing origin/store number")
     item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
     return item
 
@@ -762,7 +816,11 @@ def filtered_bols(stores):
 
     rows = list(stores)
     if status_filter:
-        rows = [s for s in rows if clean(s.get("status") or "Unassigned") == status_filter]
+        rows = [
+            s for s in rows
+            if clean(s.get("status") or "Unassigned") == status_filter
+            or clean(s.get("queue_status")) == status_filter
+        ]
     if imported_today:
         rows = [s for s in rows if date_value(s.get("created_at") or s.get("imported_at")) == today_iso()]
     if updated_today:
@@ -895,6 +953,10 @@ def dashboard_metrics():
         status = store.get("status") or "Unassigned"
         by_status[status] = by_status.get(status, 0) + 1
     active = active_map_stores(stores)
+    completed_today = [
+        s for s in stores
+        if (s.get("status") or "") == "Completed" and date_value(s.get("completed_at")) == today_iso()
+    ]
     racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
     weight = round(sum(num(s.get("weight")) for s in active), 1)
     pieces = round(racks * PIECES_PER_RACK, 1)
@@ -902,6 +964,7 @@ def dashboard_metrics():
     recent_routes = sorted(routes, key=lambda r: r.get("created_at", ""), reverse=True)[:8]
     return {
         "by_status": by_status,
+        "completed_today": len(completed_today),
         "active_stores": len(active),
         "open_routes": len(open_routes),
         "racks": racks,
@@ -1209,12 +1272,29 @@ def need_review():
 @dispatch_required
 def all_bols():
     stores = filter_stores_for_user(read_json(STORES_FILE))
-    rows = filtered_bols(stores)
+    queue = filter_queue_for_user(read_json(RMS_QUEUE_FILE))
+    rows_by_bol = {}
+    for store in stores:
+        bol = clean(store.get("bol")) or store.get("id")
+        store["_source"] = "store"
+        store["_edit_id"] = store.get("id")
+        rows_by_bol[bol] = store
+    for q in queue:
+        bol = clean(q.get("bol")) or q.get("id")
+        if bol in rows_by_bol:
+            rows_by_bol[bol]["queue_status"] = q.get("queue_status", rows_by_bol[bol].get("queue_status", ""))
+            rows_by_bol[bol]["last_seen"] = q.get("last_seen", rows_by_bol[bol].get("last_seen", ""))
+            continue
+        q["_source"] = "queue"
+        q["_edit_id"] = q.get("id") or bol
+        q["status"] = q.get("queue_status") or "New"
+        rows_by_bol[bol] = q
+    rows = filtered_bols(list(rows_by_bol.values()))
     return render_template(
         "all_bols.html",
         stores=rows,
         hubs=HUBS,
-        status_options=["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"],
+        status_options=["New", "Imported", "Need Review", "Unassigned", "Assigned", "Dispatched", "Completed", "Ignored"],
         current_status=clean(request.args.get("status")),
         q=clean(request.args.get("q")),
     )
@@ -1238,6 +1318,56 @@ def api_approve_review():
     write_json(STORES_FILE, stores)
     audit("Approve Need Review", {"store_id": store_id, "hub": hub})
     return jsonify({"ok": True, "store": updated})
+
+@app.route("/api/delete-bol", methods=["POST"])
+@dispatch_required
+def api_delete_bol():
+    data = request.get_json(force=True)
+    store_id = clean(data.get("store_id"))
+    bol = clean(data.get("bol"))
+
+    stores = read_json(STORES_FILE)
+    queue = read_json(RMS_QUEUE_FILE)
+    removed_store = None
+    kept_stores = []
+
+    for store in stores:
+        matches_id = store_id and store.get("id") == store_id
+        matches_bol = bol and clean(store.get("bol")) == bol
+        if matches_id or matches_bol:
+            removed_store = store
+        else:
+            kept_stores.append(store)
+
+    if not removed_store:
+        return jsonify({"ok": False, "message": "BOL not found in Need Review or store records."}), 404
+
+    target_bol = clean(removed_store.get("bol")) or bol
+    deleted_files = delete_saved_bol_files(removed_store)
+    kept_queue = []
+    removed_queue = 0
+    for q in queue:
+        if target_bol and clean(q.get("bol")) == target_bol:
+            deleted_files.extend(delete_saved_bol_files(q))
+            removed_queue += 1
+        else:
+            kept_queue.append(q)
+
+    write_json(STORES_FILE, kept_stores)
+    write_json(RMS_QUEUE_FILE, kept_queue)
+    audit("Delete BOL For Regrab", {
+        "store_id": store_id,
+        "bol": target_bol,
+        "removed_queue": removed_queue,
+        "deleted_files": deleted_files,
+    })
+    return jsonify({
+        "ok": True,
+        "message": f"Deleted BOL {target_bol or store_id}. It can be grabbed fresh on the next RMS scan.",
+        "bol": target_bol,
+        "deleted_files": deleted_files,
+        "removed_queue": removed_queue,
+    })
 
 
 
@@ -1414,7 +1544,7 @@ def extract_printable_bol_from_text(text, source_url=""):
                     return num(nums[-1])
         return 0
 
-    corner_posts = item_qty('84" Corner Post Only')
+    corner_posts = item_qty('84" Corner Post Only') or item_qty("84 Corner Post Only") or find_corner_post_qty(joined)
     drb40 = item_qty('40" DRB')
     drb48 = item_qty('48" DRB')
     wood_shelf = item_qty('Wood Shelf')
@@ -1476,7 +1606,9 @@ def extract_printable_bol_from_text(text, source_url=""):
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
     item["review_reasons"] = essential_review_reasons(item)
-    item["review_warnings"] = ["Missing origin/store number"] if not origin else []
+    item["review_warnings"] = []
+    if not origin:
+        item["review_warnings"].append("Missing origin/store number")
     item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
     return item
 
@@ -2011,8 +2143,9 @@ def open_printable_and_extract(page, bol_link):
     item = extract_printable_bol_from_text(text, page.url)
     if not item.get("bol"):
         item["bol"] = bol
-        item["review_reasons"].append("BOL fallback from list")
-        item["status"] = "Need Review"
+        item.setdefault("review_warnings", []).append("BOL fallback from RMS list")
+        item["review_reasons"] = essential_review_reasons(item)
+        item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
     item["pdf_path"] = save_printable_pdf(page, item, html)
     return item
 
@@ -2370,8 +2503,9 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                     item = extract_printable_bol_from_text(text, detail_page.url)
                     if not item.get("bol"):
                         item["bol"] = link["bol"]
-                        item["review_reasons"].append("BOL fallback from list")
-                        item["status"] = "Need Review"
+                        item.setdefault("review_warnings", []).append("BOL fallback from RMS list")
+                        item["review_reasons"] = essential_review_reasons(item)
+                        item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
 
                     item["pdf_path"] = save_printable_pdf(detail_page, item, html)
                     action = import_printable_bol_item(item, existing_keys, existing_bols)
@@ -3651,7 +3785,30 @@ def api_update_bol(store_id):
             break
 
     if not updated:
-        return jsonify({"ok": False, "message": "BOL not found."}), 404
+        queue = read_json(RMS_QUEUE_FILE)
+        for q in queue:
+            if q.get("id") == store_id or clean(q.get("bol")) == store_id:
+                for key in editable:
+                    if key not in data:
+                        continue
+                    value = clean(data.get(key))
+                    if key in {"expected_racks", "weight"}:
+                        q[key] = num(value)
+                    elif key == "status":
+                        q["queue_status"] = value or q.get("queue_status") or "New"
+                    else:
+                        q[key] = value
+                q["updated_at"] = datetime.now().isoformat(timespec="seconds")
+                updated = q
+                break
+
+        if not updated:
+            return jsonify({"ok": False, "message": "BOL not found."}), 404
+
+        write_json(RMS_QUEUE_FILE, queue)
+        audit("Update Queue BOL", {"queue_id": updated.get("id"), "bol": updated.get("bol"), "status": updated.get("queue_status")})
+        updated["status"] = updated.get("queue_status", updated.get("status", "New"))
+        return jsonify({"ok": True, "store": updated})
 
     write_json(STORES_FILE, stores)
 
