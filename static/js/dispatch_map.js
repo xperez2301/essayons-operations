@@ -417,8 +417,6 @@ function initMap(){
     let pinNumber = 1;
 
     stores.forEach(store => {
-        if(store.status !== "Unassigned") return;
-
         let lat = Number(store.lat);
         let lng = Number(store.lng);
         if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
@@ -435,7 +433,15 @@ function initMap(){
         });
 
         bounds.extend(pos);
-        markers[store.id].addListener("click", () => focusStoreCard(store.id));
+        const info = new google.maps.InfoWindow({
+            content: `<div style="font-family:Arial"><b>STOP ${thisPinNumber} - BOL ${store.bol || ""}</b><br>${store.store_name || store.origin || "Store"}<br>${store.city || ""}, ${store.state || ""}<br>Status: ${store.status || "Unassigned"}<br>Due: ${store.due_date || "Not captured"}</div>`
+        });
+        markers[store.id].addListener("click", () => {
+            if((store.status || "Unassigned") === "Unassigned"){
+                focusStoreCard(store.id);
+            }
+            info.open(map, markers[store.id]);
+        });
     });
 
     renderStores();

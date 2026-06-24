@@ -129,7 +129,7 @@ CITY_COORDS = {
 def ensure_dirs():
     DATA_DIR.mkdir(exist_ok=True)
     UPLOAD_DIR.mkdir(exist_ok=True)
-    for root in ["Imported", "Assigned", "Dispatched", "Completed", "Need_Review", "RMS_Backup"]:
+    for root in ["Imported", "Assigned", "Dispatched", "Completed", "Need_Review", "RMS_Backup", "RMS_Closed"]:
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     if not USERS_FILE.exists() and not ADMIN_PASSWORD:
         raise RuntimeError(
@@ -356,6 +356,20 @@ def launch_chromium_with_repair(playwright, headless=True):
             install_playwright_system_deps()
         install_playwright_chromium()
         return playwright.chromium.launch(headless=headless)
+
+def rms_headless(default=True):
+    value = clean(os.environ.get("RMS_HEADLESS"))
+    if value == "":
+        return default
+    return value.lower() not in {"0", "false", "no", "off"}
+
+def rms_debug_hold(page):
+    try:
+        seconds = int(os.environ.get("RMS_DEBUG_HOLD_SECONDS", "0") or 0)
+    except Exception:
+        seconds = 0
+    if seconds > 0:
+        page.wait_for_timeout(seconds * 1000)
 
 def miles_between(lat1, lng1, lat2, lng2):
     radius = 3958.8
@@ -689,6 +703,26 @@ def filter_queue_for_user(queue):
         return queue
     return [q for q in queue if any(a in {clean(q.get("city")), clean(q.get("hub")), clean(q.get("dispatch_group")), clean(q.get("origin_city"))} for a in allowed)]
 
+def map_settings_payload():
+    settings_data = read_json(SETTINGS_FILE)
+    return {
+        "map_default_type": clean(settings_data.get("map_default_type")) or "satellite",
+        "map_default_zoom": int(num(settings_data.get("map_default_zoom")) or 7),
+        "map_board_default_open": bool(settings_data.get("map_board_default_open")),
+        "map_live_refresh_seconds": int(num(settings_data.get("map_live_refresh_seconds")) or 30),
+        "due_red_days": int(num(settings_data.get("due_red_days")) or 4),
+        "due_amber_days": int(num(settings_data.get("due_amber_days")) or 7),
+    }
+
+def active_map_stores(stores):
+    hidden_statuses = {"Completed", "RMS Closed"}
+    hidden_rms = {"Closed in RMS", "Missing from RMS"}
+    return [
+        s for s in stores
+        if (s.get("status") or "Unassigned") not in hidden_statuses
+        and clean(s.get("rms_status")) not in hidden_rms
+    ]
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -807,7 +841,7 @@ def dashboard_metrics():
     for store in stores:
         status = store.get("status") or "Unassigned"
         by_status[status] = by_status.get(status, 0) + 1
-    active = [s for s in stores if (s.get("status") or "Unassigned") != "Completed"]
+    active = active_map_stores(stores)
     racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
     weight = round(sum(num(s.get("weight")) for s in active), 1)
     pieces = round(racks * PIECES_PER_RACK, 1)
@@ -831,15 +865,17 @@ def dashboard():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
     sync_history = read_json(SYNC_HISTORY_FILE)
-    maps_key = clean(read_json(SETTINGS_FILE).get("google_maps_api_key"))
+    settings_data = read_json(SETTINGS_FILE)
+    maps_key = clean(settings_data.get("google_maps_api_key"))
     return render_template(
         "dashboard.html",
         metrics=dashboard_metrics(),
-        stores=stores,
+        stores=active_map_stores(stores),
         routes=routes,
         hubs=HUBS,
         sync_history=sync_history[-5:] if isinstance(sync_history, list) else [],
         google_maps_api_key=maps_key,
+        map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"},
     )
 
@@ -1041,21 +1077,13 @@ def api_geocode_stores():
 @app.route("/dispatch-map")
 @dispatch_required
 def dispatch_map():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
+    stores = active_map_stores(filter_stores_for_user(read_json(STORES_FILE)))
     settings_data = read_json(SETTINGS_FILE)
     maps_key = clean(settings_data.get("google_maps_api_key"))
-    map_settings = {
-        "map_default_type": clean(settings_data.get("map_default_type")) or "satellite",
-        "map_default_zoom": int(num(settings_data.get("map_default_zoom")) or 7),
-        "map_board_default_open": bool(settings_data.get("map_board_default_open")),
-        "map_live_refresh_seconds": int(num(settings_data.get("map_live_refresh_seconds")) or 30),
-        "due_red_days": int(num(settings_data.get("due_red_days")) or 4),
-        "due_amber_days": int(num(settings_data.get("due_amber_days")) or 7),
-    }
     return render_template(
         "dispatch_map.html", stores=stores, hubs=HUBS,
         max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key,
-        map_settings=map_settings,
+        map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"}
     )
 
@@ -1159,11 +1187,18 @@ def rms_login_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        page = browser.new_page()
+        context = browser.new_context()
+        page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            if is_rms_login_page(page):
+                raise RuntimeError(
+                    "RMS redirected back to login when opening the BOL list. "
+                    "Verify RMS credentials and that the account can access Bills of Lading. "
+                    + page_excerpt(page)
+                )
 
             # Detect BOL links across all pages
             bol_links = collect_bol_links_from_all_pages(page)
@@ -1174,6 +1209,8 @@ def rms_login_with_playwright(headless=True):
             screenshot_path = diag_dir / f"rms_sync_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
             page.screenshot(path=str(screenshot_path), full_page=True)
 
+            rms_debug_hold(page)
+            context.close()
             browser.close()
 
             return {
@@ -1186,6 +1223,10 @@ def rms_login_with_playwright(headless=True):
             }
 
         except PlaywrightTimeoutError as e:
+            try:
+                context.close()
+            except Exception:
+                pass
             browser.close()
             return {
                 "ok": False,
@@ -1195,6 +1236,10 @@ def rms_login_with_playwright(headless=True):
                 "sample_bols": []
             }
         except Exception as e:
+            try:
+                context.close()
+            except Exception:
+                pass
             browser.close()
             return {
                 "ok": False,
@@ -1434,6 +1479,25 @@ def page_excerpt(page):
         body = ""
     return f"url={page.url} title={title} body={body[:350]}"
 
+def is_rms_login_page(page):
+    try:
+        url = clean(page.url).lower()
+    except Exception:
+        url = ""
+    try:
+        title = clean(page.title()).lower()
+    except Exception:
+        title = ""
+    try:
+        body = clean(page.locator("body").inner_text(timeout=5000)).lower()
+    except Exception:
+        body = ""
+    return (
+        "/login" in url or
+        "login" in title or
+        ("sign in" in body and "username" in body and "password" in body)
+    )
+
 def fill_first_visible(page, selector, value, label, timeout_ms=90000):
     deadline = time.time() + (timeout_ms / 1000)
     last_error = ""
@@ -1445,8 +1509,22 @@ def fill_first_visible(page, selector, value, label, timeout_ms=90000):
                 field = locator.nth(idx)
                 try:
                     if field.is_visible(timeout=1000) and field.is_enabled(timeout=1000):
+                        field.click(timeout=5000)
+                        try:
+                            field.press("Control+A", timeout=3000)
+                            field.press("Backspace", timeout=3000)
+                        except Exception:
+                            field.fill("", timeout=5000)
+                        field.type(value, delay=35, timeout=30000)
+                        page.wait_for_timeout(250)
+                        entered_length = field.evaluate("(el) => (el.value || '').length", timeout=5000)
+                        if entered_length > 0:
+                            return True
                         field.fill(value, timeout=15000)
-                        return True
+                        entered_length = field.evaluate("(el) => (el.value || '').length", timeout=5000)
+                        if entered_length > 0:
+                            return True
+                        last_error = f"{label} field stayed empty after typing"
                 except Exception as exc:
                     last_error = str(exc)[:160]
         except Exception as exc:
@@ -1478,6 +1556,21 @@ def click_first_visible(page, selector, label, timeout_ms=45000):
         f"Timed out waiting for RMS {label}. {page_excerpt(page)} last_error={last_error}"
     )
 
+def wait_for_rms_login_result(page, timeout_ms=30000):
+    deadline = time.time() + (timeout_ms / 1000)
+    while time.time() < deadline:
+        try:
+            if "/login" not in clean(page.url).lower():
+                return True
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+    try:
+        page.wait_for_load_state("domcontentloaded", timeout=5000)
+    except Exception:
+        pass
+    return "/login" not in clean(page.url).lower()
+
 def login_to_rms(page, login_url, username, password):
     page.goto(login_url, wait_until="domcontentloaded", timeout=90000)
     try:
@@ -1486,15 +1579,32 @@ def login_to_rms(page, login_url, username, password):
         pass
     fill_first_visible(page, RMS_USERNAME_SELECTOR, username, "username")
     fill_first_visible(page, RMS_PASSWORD_SELECTOR, password, "password")
+    page.wait_for_timeout(500)
     click_first_visible(
         page,
-        'button:has-text("Sign In"), button:has-text("Login"), input[type="submit"], button[type="submit"], button',
+        'button[type="submit"]:has-text("Sign In"), button:has-text("Sign In"), button:has-text("Login"), input[type="submit"], input[value*="Sign"], button[type="submit"]',
         "login button"
     )
-    try:
-        page.wait_for_load_state("networkidle", timeout=90000)
-    except Exception:
-        page.wait_for_timeout(3000)
+    wait_for_rms_login_result(page, timeout_ms=30000)
+    if is_rms_login_page(page):
+        # Some RMS builds do not fire the button handler reliably in headless Chromium.
+        # Re-fill and press Enter from the password field before treating it as a failed login.
+        fill_first_visible(page, RMS_USERNAME_SELECTOR, username, "username", timeout_ms=15000)
+        fill_first_visible(page, RMS_PASSWORD_SELECTOR, password, "password", timeout_ms=15000)
+        try:
+            page.locator(RMS_PASSWORD_SELECTOR).first.press("Enter", timeout=5000)
+            wait_for_rms_login_result(page, timeout_ms=30000)
+        except Exception:
+            try:
+                page.keyboard.press("Enter")
+                wait_for_rms_login_result(page, timeout_ms=30000)
+            except Exception:
+                page.wait_for_timeout(3000)
+    if is_rms_login_page(page):
+        raise RuntimeError(
+            "RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. "
+            + page_excerpt(page)
+        )
 
 def write_rms_diagnostic(page, prefix):
     diag_dir = BASE_DIR / "diagnostics"
@@ -1679,9 +1789,23 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 def import_printable_bol_item(item, existing_keys=None, existing_bols=None):
     stores = read_json(STORES_FILE)
     replaced = False
+    now = datetime.now().isoformat(timespec="seconds")
+    item["last_seen_in_rms_at"] = now
+    item["rms_status"] = "Open in RMS"
+    item["rms_missing_since"] = ""
     for idx, existing in enumerate(stores):
         if clean(existing.get("bol")) == clean(item.get("bol")):
             item["id"] = existing.get("id", item.get("id"))
+            for key in [
+                "assigned_driver", "assigned_driver_phone", "assigned_at",
+                "collected_racks", "collected_pieces", "variance",
+                "variance_review", "pieces_variance", "completed_at",
+                "closeout_updated_at", "closeout_updated_by"
+            ]:
+                if existing.get(key) not in (None, "") and item.get(key) in (None, ""):
+                    item[key] = existing.get(key)
+            if existing.get("status") in {"Assigned", "Dispatched", "Completed"}:
+                item["status"] = existing.get("status")
             stores[idx] = item
             replaced = True
             break
@@ -1692,6 +1816,42 @@ def import_printable_bol_item(item, existing_keys=None, existing_bols=None):
         track_bol_key(item, existing_keys, existing_bols)
     update_queue_from_item(item)
     return "updated" if replaced else "imported"
+
+def mark_stores_missing_from_rms(open_bols):
+    open_bols = {clean(b) for b in open_bols if clean(b)}
+    stores = read_json(STORES_FILE)
+    now = datetime.now().isoformat(timespec="seconds")
+    marked = 0
+    both_closed = 0
+
+    for store in stores:
+        bol = clean(store.get("bol"))
+        if not bol or bol in open_bols:
+            if bol in open_bols:
+                store["last_seen_in_rms_at"] = now
+                store["rms_status"] = "Open in RMS"
+                store["rms_missing_since"] = ""
+            continue
+
+        if not (store.get("rms_url") or store.get("pdf_path") or store.get("printable_path")):
+            continue
+
+        if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
+            continue
+
+        store["rms_status"] = "Closed in RMS" if store.get("status") == "Completed" else "Missing from RMS"
+        store["rms_missing_since"] = store.get("rms_missing_since") or now
+        store["closed_source"] = "Both" if store.get("status") == "Completed" else "RMS"
+        store["updated_at"] = now
+        if store.get("pdf_path"):
+            store["pdf_path"] = move_pdf(store["pdf_path"], "RMS_Closed")
+        marked += 1
+        if store.get("closed_source") == "Both":
+            both_closed += 1
+
+    if marked:
+        write_json(STORES_FILE, stores)
+    return {"rms_missing": marked, "both_closed": both_closed}
 
 def open_printable_and_extract(page, bol_link):
     bol = bol_link.get("bol")
@@ -1766,6 +1926,12 @@ def scan_rms_queue_with_playwright(headless=True):
             login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            if is_rms_login_page(page):
+                raise RuntimeError(
+                    "RMS redirected back to login when opening the BOL list. "
+                    "Verify RMS credentials and that the account can access Bills of Lading. "
+                    + page_excerpt(page)
+                )
             bol_links = collect_bol_links_from_all_pages(page)
 
             new_count = 0
@@ -1823,6 +1989,7 @@ def scan_rms_queue_with_playwright(headless=True):
             diag_dir.mkdir(exist_ok=True)
             page.screenshot(path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
 
+            rms_debug_hold(page)
             browser.close()
 
             return {
@@ -1849,9 +2016,15 @@ def scan_rms_queue_with_playwright(headless=True):
 def upsert_store_by_bol(item):
     stores = read_json(STORES_FILE)
     replaced = False
+    now = datetime.now().isoformat(timespec="seconds")
+    item["last_seen_in_rms_at"] = now
+    item["rms_status"] = "Open in RMS"
+    item["rms_missing_since"] = ""
     for idx, existing in enumerate(stores):
         if clean(existing.get("bol")) == clean(item.get("bol")):
             item["id"] = existing.get("id", item.get("id"))
+            if existing.get("status") in {"Assigned", "Dispatched", "Completed"}:
+                item["status"] = existing.get("status")
             stores[idx] = item
             replaced = True
             break
@@ -2034,11 +2207,18 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        page = browser.new_page()
+        context = browser.new_context()
+        page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
             page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            if is_rms_login_page(page):
+                raise RuntimeError(
+                    "RMS redirected back to login when opening the BOL list. "
+                    "Verify RMS credentials and that the account can access Bills of Lading. "
+                    + page_excerpt(page)
+                )
             bol_links = collect_bol_links_from_all_pages(page)
 
             diagnostic = None
@@ -2047,6 +2227,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
             if max_bols and max_bols > 0:
                 bol_links = bol_links[:max_bols]
+            open_bols = {clean(link.get("bol")) for link in bol_links if clean(link.get("bol"))}
 
             # Diagnostic screenshot after pagination scan.
             diag_dir = BASE_DIR / "diagnostics"
@@ -2055,11 +2236,12 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
             for link in bol_links:
                 try:
-                    # Open each BOL in a fresh page to avoid losing pagination state.
-                    detail_page = browser.new_page()
-                    detail_page.goto(bol_url, wait_until="networkidle", timeout=60000)
+                    # Open each BOL in the same authenticated browser context.
+                    detail_page = context.new_page()
                     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{link['bol']}/print"
                     detail_page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+                    if is_rms_login_page(detail_page):
+                        raise RuntimeError("RMS redirected printable BOL back to login. " + page_excerpt(detail_page))
 
                     text = detail_page.locator("body").inner_text(timeout=60000)
                     html = detail_page.content()
@@ -2083,14 +2265,20 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 except Exception as e:
                     errors.append(f"{link.get('bol')}: {str(e)[:120]}")
 
+            rms_closeout = mark_stores_missing_from_rms(open_bols) if bol_links else {"rms_missing": 0, "both_closed": 0}
+            rms_debug_hold(page)
+            context.close()
             browser.close()
 
-            message = f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}."
+            message = f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
+            all_failed = bool(bol_links) and not imported and not updated and bool(errors)
+            if all_failed:
+                message = f"RMS import scanned {len(bol_links)} BOLs but could not download any printable BOLs. First error: {errors[0]}"
 
             return {
-                "ok": True,
+                "ok": not all_failed,
                 "status": "IMPORT COMPLETE",
                 "message": message,
                 "bol_count": len(bol_links),
@@ -2099,12 +2287,19 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 "updated": updated,
                 "skipped": skipped,
                 "need_review": need_review,
+                "rms_missing": rms_closeout["rms_missing"],
+                "both_closed": rms_closeout["both_closed"],
                 "failed": len(errors),
                 "diagnostic": diagnostic,
                 "errors": errors[:10]
             }
 
         except Exception as e:
+            rms_debug_hold(page)
+            try:
+                context.close()
+            except Exception:
+                pass
             browser.close()
             return {
                 "ok": False,
@@ -2141,7 +2336,7 @@ def bol_live_printable(bol_number):
     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=True)
+        browser = launch_chromium_with_repair(p, headless=rms_headless(True))
         page = browser.new_page()
 
         try:
@@ -2157,6 +2352,7 @@ def bol_live_printable(bol_number):
             backup_file = backup_dir / f"DIRECT_PRINTABLE_BOL_{safe_part(bol_number)}_{datetime.now().strftime('%H%M%S')}.html"
             backup_file.write_text(html, encoding="utf-8", errors="ignore")
 
+            rms_debug_hold(page)
             browser.close()
 
             return html
@@ -2370,7 +2566,7 @@ def rms_queue():
 
 @app.route("/api/rms/queue-refresh", methods=["POST"])
 def api_rms_queue_refresh():
-    result = scan_rms_queue_with_playwright(headless=True)
+    result = scan_rms_queue_with_playwright(headless=rms_headless(True))
 
     history = read_json(SYNC_HISTORY_FILE)
     result.update({
@@ -2392,7 +2588,7 @@ def api_rms_queue_import_selected():
     if not bol_numbers:
         return jsonify({"ok": False, "result": {"message": "Select at least one BOL."}})
 
-    result = import_selected_queue_bols(bol_numbers, headless=True)
+    result = import_selected_queue_bols(bol_numbers, headless=rms_headless(True))
 
     history = read_json(SYNC_HISTORY_FILE)
     result.update({
@@ -2436,7 +2632,7 @@ def rms_sync():
 def api_rms_test_connection():
     history = read_json(SYNC_HISTORY_FILE)
 
-    result = rms_login_with_playwright(headless=True)
+    result = rms_login_with_playwright(headless=rms_headless(True))
     result.update({
         "id": str(uuid4()),
         "time": datetime.now().isoformat(timespec="seconds"),
@@ -2464,7 +2660,7 @@ def api_rms_sync_open_bols():
     max_bols = int(payload.get("max_bols") or 0)
 
     try:
-        result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+        result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
     except Exception as exc:
         result = {
             "ok": False,
@@ -2500,7 +2696,7 @@ def api_rms_auto_grab_bols():
         max_bols = int(payload.get("max_bols") or 0)
 
         try:
-            result = rms_full_import_with_playwright(headless=True, max_bols=max_bols)
+            result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
         except Exception as exc:
             result = {
                 "ok": False,
@@ -2547,8 +2743,13 @@ def archive():
     driver = clean(request.args.get("driver"))
     date_from = clean(request.args.get("from"))
     date_to = clean(request.args.get("to"))
+    archive_type = clean(request.args.get("type")) or "all"
 
-    completed_stores = [s for s in stores if (s.get("status") or "") == "Completed"]
+    archived_stores = [
+        s for s in stores
+        if (s.get("status") or "") == "Completed"
+        or clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}
+    ]
     completed_routes = [r for r in routes if (r.get("status") or "") == "Completed"]
 
     def date_in_range(value):
@@ -2560,11 +2761,19 @@ def archive():
         return True
 
     def store_matches(store):
+        rms_status = clean(store.get("rms_status"))
+        eoms_completed = (store.get("status") or "") == "Completed"
+        if archive_type == "eoms_completed" and not eoms_completed:
+            return False
+        if archive_type == "rms_missing" and rms_status not in {"Missing from RMS", "Closed in RMS"}:
+            return False
+        if archive_type == "both" and not (eoms_completed and rms_status in {"Missing from RMS", "Closed in RMS"}):
+            return False
         haystack = " ".join([
             clean(store.get("bol")), clean(store.get("origin")),
             clean(store.get("store_name")), clean(store.get("city")),
             clean(store.get("assigned_driver")), clean(store.get("due_date")),
-            clean(store.get("completed_at")),
+            clean(store.get("completed_at")), rms_status,
         ]).lower()
         if q and q not in haystack:
             return False
@@ -2572,7 +2781,8 @@ def archive():
             return False
         if driver and driver.lower() not in clean(store.get("assigned_driver")).lower():
             return False
-        if not date_in_range(store.get("completed_at")):
+        archive_date = store.get("completed_at") or store.get("rms_missing_since") or store.get("updated_at")
+        if not date_in_range(archive_date):
             return False
         return True
 
@@ -2591,10 +2801,10 @@ def archive():
             return False
         return True
 
-    completed_stores = [s for s in completed_stores if store_matches(s)]
+    completed_stores = [s for s in archived_stores if store_matches(s)]
     completed_routes = [r for r in completed_routes if route_matches(r)]
 
-    completed_stores.sort(key=lambda s: clean(s.get("completed_at")) or clean(s.get("created_at")), reverse=True)
+    completed_stores.sort(key=lambda s: clean(s.get("completed_at")) or clean(s.get("rms_missing_since")) or clean(s.get("created_at")), reverse=True)
     completed_routes.sort(key=lambda r: clean(r.get("completed_at")) or clean(r.get("created_at")), reverse=True)
 
     city_options = sorted({
@@ -2611,6 +2821,9 @@ def archive():
     totals = {
         "stores": len(completed_stores),
         "routes": len(completed_routes),
+        "eoms_completed": len([s for s in completed_stores if (s.get("status") or "") == "Completed"]),
+        "rms_missing": len([s for s in completed_stores if clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}]),
+        "both_closed": len([s for s in completed_stores if (s.get("status") or "") == "Completed" and clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}]),
         "expected_racks": round(sum(num(s.get("expected_racks")) for s in completed_stores), 2),
         "collected_racks": round(sum(num(s.get("collected_racks")) for s in completed_stores), 2),
         "variance": round(sum(num(s.get("variance")) for s in completed_stores), 2),
@@ -2625,7 +2838,7 @@ def archive():
         totals=totals,
         city_options=city_options,
         driver_options=driver_options,
-        filters={"q": q, "city": city, "driver": driver, "date_from": date_from, "date_to": date_to},
+        filters={"q": q, "city": city, "driver": driver, "date_from": date_from, "date_to": date_to, "type": archive_type},
         can_export=is_admin(),
         can_edit_closeout=current_role() in {"Admin", "Operations Manager", "Dispatcher"},
     )
@@ -3161,6 +3374,10 @@ def api_complete_route():
         if store.get("id") in route_store_ids:
             store["status"] = "Completed"
             store["completed_at"] = route.get("completed_at")
+            if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
+                store["closed_source"] = "Both"
+            else:
+                store["closed_source"] = "EOMS"
             if store.get("collected_racks") in (None, ""):
                 store["collected_racks"] = num(store.get("expected_racks"))
                 store["variance"] = 0
@@ -3259,6 +3476,10 @@ def api_store_status():
                 if store.get("pdf_path"):
                     store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             elif new_status == "Completed":
+                if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
+                    store["closed_source"] = "Both"
+                else:
+                    store["closed_source"] = "EOMS"
                 if store.get("pdf_path"):
                     store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
             elif new_status == "Assigned":
@@ -3344,6 +3565,10 @@ def api_driver_complete():
             store["pieces_variance"] = num(store.get("collected_pieces")) - expected_pieces
             store["status"] = "Completed"
             store["completed_at"] = datetime.now().isoformat(timespec="seconds")
+            if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
+                store["closed_source"] = "Both"
+            else:
+                store["closed_source"] = "EOMS"
             if abs(num(store.get("variance"))) >= 2:
                 store["variance_review"] = True
             if store.get("pdf_path"):

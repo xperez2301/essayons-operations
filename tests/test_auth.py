@@ -80,6 +80,52 @@ class AuthenticationTests(unittest.TestCase):
         finally:
             eoms.BOL_DIR = original_bol_dir
 
+    def test_rms_login_page_detector_matches_login_screen(self):
+        class FakeLocator:
+            def inner_text(self, timeout=0):
+                return "Sign In Username Password Forgot your password?"
+
+        class FakePage:
+            url = "https://rms.reusability.com/login"
+
+            def title(self):
+                return "RMS - LoginPage"
+
+            def locator(self, selector):
+                return FakeLocator()
+
+        self.assertTrue(eoms.is_rms_login_page(FakePage()))
+
+    def test_missing_rms_bols_are_archived_without_deleting_store(self):
+        original_stores_file = eoms.STORES_FILE
+        original_bol_dir = eoms.BOL_DIR
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                eoms.BOL_DIR = root / "bol_files"
+                eoms.STORES_FILE = root / "stores.json"
+                pdf = eoms.BOL_DIR / "Imported" / "2026" / "06_June" / "BOL_950225.pdf"
+                pdf.parent.mkdir(parents=True, exist_ok=True)
+                pdf.write_bytes(b"%PDF-1.4\n")
+                eoms.STORES_FILE.write_text(
+                    '[{"id":"s1","bol":"950225","status":"Unassigned","pdf_path":"%s"}]' % str(pdf).replace("\\", "\\\\"),
+                    encoding="utf-8",
+                )
+
+                result = eoms.mark_stores_missing_from_rms({"111111"})
+                stores = eoms.read_json(eoms.STORES_FILE)
+
+                self.assertEqual(result["rms_missing"], 1)
+                self.assertEqual(stores[0]["rms_status"], "Missing from RMS")
+                self.assertEqual(stores[0]["closed_source"], "RMS")
+                self.assertTrue(stores[0]["pdf_path"].endswith(".pdf"))
+                self.assertIn("RMS_Closed", stores[0]["pdf_path"])
+                self.assertTrue(Path(stores[0]["pdf_path"]).exists())
+                self.assertEqual(eoms.active_map_stores(stores), [])
+        finally:
+            eoms.STORES_FILE = original_stores_file
+            eoms.BOL_DIR = original_bol_dir
+
 
 if __name__ == "__main__":
     unittest.main()

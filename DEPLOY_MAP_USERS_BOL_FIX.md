@@ -61,6 +61,16 @@
 - RMS printable BOL pages are saved as PDFs.
   - Auto Grab, RMS Queue import, and Repair BOL now open the printable URL and save it as a `.pdf` under `BOL_DIR/Imported` or `BOL_DIR/Need_Review`.
   - If Chromium cannot export PDF for any reason, EOMS falls back to the previous HTML snapshot instead of losing the BOL.
+- RMS authentication is verified before scanning or downloading.
+  - If RMS stays on `/login` after submit, EOMS now reports that login did not complete and includes the page summary.
+  - Full Auto Grab opens printable BOL pages in the same authenticated browser context, so URLs like `/bills-of-lading/<BOL>/print` keep the RMS session cookies.
+- RMS login typing is more browser-like.
+  - Username and password fields are clicked, cleared, typed with a short delay, and verified before submit.
+  - This addresses RMS validation responses such as `Enter a password` after automation submit.
+- Local visible-browser testing confirmed the end-to-end BOL PDF save path.
+  - RMS login reached the BOL list and discovered BOL links.
+  - Full Auto Grab uses `browser.new_context()` and shared context pages for printable BOL downloads.
+  - Local test saved real `.pdf` BOL files under `bol_files/Imported/YYYY/MM_Month/`.
 - Delete safeguards:
   - An admin cannot delete their own currently logged-in user.
   - The system will not delete the last active admin account.

@@ -88,6 +88,7 @@
 <script>
 window.EOMS_DASHBOARD_STORES = {{ stores | tojson }};
 window.EOMS_DASHBOARD_HUBS = {{ hubs | tojson }};
+window.EOMS_MAP_SETTINGS = {{ map_settings | tojson }};
 function gm_authFailure(){
   var el=document.getElementById('dashboard-map');
   if(el) el.innerHTML='<div class="map-missing-key"><b>Google Maps key rejected.</b><br>Dashboard still works. Check Settings.</div>';
@@ -128,8 +129,9 @@ function gm_authFailure(){
       const updated = result.updated ?? 0;
       const skipped = result.skipped ?? 0;
       const needReview = result.need_review ?? 0;
+      const rmsMissing = result.rms_missing ?? 0;
       const failed = result.failed ?? (result.errors ? result.errors.length : 0);
-      let message = result.message || `Auto grab complete. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. Failed ${failed}.`;
+      let message = result.message || `Auto grab complete. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. RMS missing/closed ${rmsMissing}. Failed ${failed}.`;
       if(result.errors && result.errors.length) message += ' Errors: ' + result.errors.join(' | ');
       statusBox.textContent = message + ' Refreshing...';
       setTimeout(()=>window.location.reload(),1800);

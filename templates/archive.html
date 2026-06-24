@@ -4,7 +4,7 @@
   <div>
     <span class="eyebrow">History & Closeout</span>
     <h2>Archive</h2>
-    <p>Search completed BOLs and routes. This view uses the saved operational history in stores.json, routes.json, and completed BOL files.</p>
+    <p>Search completed BOLs, RMS closed/missing BOLs, routes, and closeout counts.</p>
   </div>
   <div>
     {% if can_export %}<a class="link-btn" href="/api/export/data">Download Backup</a>{% endif %}
@@ -13,7 +13,10 @@
 </header>
 
 <section class="metrics blueprint">
-  <div class="metric"><span>Completed BOLs</span><strong>{{ totals.stores }}</strong></div>
+  <div class="metric"><span>Archived BOLs</span><strong>{{ totals.stores }}</strong></div>
+  <div class="metric"><span>EOMS Completed</span><strong>{{ totals.eoms_completed }}</strong></div>
+  <div class="metric"><span>RMS Missing/Closed</span><strong>{{ totals.rms_missing }}</strong></div>
+  <div class="metric"><span>Closed Both</span><strong>{{ totals.both_closed }}</strong></div>
   <div class="metric"><span>Completed Routes</span><strong>{{ totals.routes }}</strong></div>
   <div class="metric"><span>Expected Racks</span><strong>{{ totals.expected_racks }}</strong></div>
   <div class="metric"><span>Collected Racks</span><strong>{{ totals.collected_racks }}</strong></div>
@@ -34,6 +37,12 @@
       <option value="">All drivers</option>
       {% for option in driver_options %}<option value="{{ option }}" {% if filters.driver == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
     </select>
+    <select name="type">
+      <option value="all" {% if filters.type == 'all' %}selected{% endif %}>All archived BOLs</option>
+      <option value="eoms_completed" {% if filters.type == 'eoms_completed' %}selected{% endif %}>EOMS completed</option>
+      <option value="rms_missing" {% if filters.type == 'rms_missing' %}selected{% endif %}>Missing/closed in RMS</option>
+      <option value="both" {% if filters.type == 'both' %}selected{% endif %}>Closed in both</option>
+    </select>
     <label>From <input type="date" name="from" value="{{ filters.date_from }}"></label>
     <label>To <input type="date" name="to" value="{{ filters.date_to }}"></label>
     <button class="primary-btn">Search Archive</button>
@@ -42,9 +51,9 @@
 </section>
 
 <section class="panel">
-  <h3>Completed BOLs</h3>
+  <h3>Archived BOLs</h3>
   <table class="queue-table">
-    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>Completed</th><th>Expected Racks</th><th>Collected Racks</th><th>Rack Var</th><th>PCS</th><th>Links</th></tr></thead>
+    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>EOMS Status</th><th>RMS Status</th><th>Completed/Missing</th><th>Expected Racks</th><th>Collected Racks</th><th>Rack Var</th><th>PCS</th><th>Links</th></tr></thead>
     <tbody>
       {% for store in stores %}
       <tr>
@@ -53,7 +62,9 @@
         <td>{{ store.city }}, {{ store.state }}</td>
         <td>{{ store.assigned_driver or "" }}</td>
         <td>{{ store.due_date or "" }}</td>
-        <td>{{ store.completed_at or "" }}</td>
+        <td>{{ store.status or "Unassigned" }}</td>
+        <td>{{ store.rms_status or "Not tracked" }}{% if store.closed_source %}<br><small>{{ store.closed_source }}</small>{% endif %}</td>
+        <td>{{ store.completed_at or store.rms_missing_since or "" }}</td>
         <td>{{ store.expected_racks or 0 }}</td>
         <td>
           {% if can_edit_closeout %}
@@ -78,7 +89,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="11">No completed BOLs match these filters.</td></tr>
+      <tr><td colspan="13">No archived BOLs match these filters.</td></tr>
       {% endfor %}
     </tbody>
   </table>

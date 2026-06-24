@@ -1,1 +1,215 @@
-[]
+[
+  {
+    "id": "19ae170b-16f2-43a3-ae6f-fe4bea35ba09",
+    "time": "2026-06-23T18:48:40",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "4d8e83a1-03c1-4c7d-a3d1-431ea17da18a",
+    "time": "2026-06-23T18:49:05",
+    "action": "Dashboard Auto Grab BOLs",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS full import error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "imported": 0,
+      "updated": 0,
+      "skipped": 0,
+      "need_review": 0,
+      "bol_count": 0,
+      "found": 0,
+      "failed": 1,
+      "errors": [],
+      "id": "0adb8f1e-3c40-4c1a-abd5-cc8ccad45cf7",
+      "time": "2026-06-23T18:49:04",
+      "action": "Dashboard Auto Grab BOLs"
+    }
+  },
+  {
+    "id": "9cc5b901-8152-4ef3-8f8f-012da23f894c",
+    "time": "2026-06-23T18:49:28",
+    "action": "Dashboard Auto Grab BOLs",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS full import error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "imported": 0,
+      "updated": 0,
+      "skipped": 0,
+      "need_review": 0,
+      "bol_count": 0,
+      "found": 0,
+      "failed": 1,
+      "errors": [],
+      "id": "06b2d78b-9241-41e8-8d84-a0afb1469752",
+      "time": "2026-06-23T18:49:28",
+      "action": "Dashboard Auto Grab BOLs"
+    }
+  },
+  {
+    "id": "e87cdf21-66b5-4779-9d6d-bac03ba9d4b5",
+    "time": "2026-06-23T18:51:37",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "2bf321dc-c498-47e4-80e1-fe152c410656",
+      "time": "2026-06-23T18:51:36",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "d9bb24b5-e19c-4468-8498-59995b789f6d",
+    "time": "2026-06-23T18:52:35",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "d6680847-244c-4ce3-b930-7685de6891c5",
+    "time": "2026-06-23T18:52:46",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "af312dc6-675a-409d-bdbe-a2431c49bddc",
+      "time": "2026-06-23T18:52:45",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "6daa2d84-1111-4b0c-bbc2-8895685e7571",
+    "time": "2026-06-23T18:52:48",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "5a5e60b5-39d8-42fe-b66b-bdceff221c2e",
+    "time": "2026-06-23T18:52:57",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "45648721-e9cc-462e-95f6-fcf3f3a4003c",
+      "time": "2026-06-23T18:52:56",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "7abde375-a136-4820-abe4-af7dac2731ba",
+    "time": "2026-06-23T18:52:59",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "836cb37c-6557-4d2a-93ea-705c72b77522",
+    "time": "2026-06-23T18:53:03",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "1070ec1a-9ac4-45b7-93fd-d8f070d41a5a",
+    "time": "2026-06-23T18:53:10",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "93ee0eae-1920-47fb-84e0-7c0b719eaad4",
+      "time": "2026-06-23T18:53:10",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "3f9f81ed-2afc-4346-8dc4-34ed80ec86ad",
+    "time": "2026-06-23T18:53:12",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "5f61db79-fd88-4560-b5a8-7a1142faf03a",
+    "time": "2026-06-23T18:53:42",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "168b2923-5056-4dfd-8d35-1e77d62ccfa6",
+    "time": "2026-06-23T18:53:56",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "eb80cda6-01e2-497c-9fb1-7a0043d6277b",
+    "time": "2026-06-23T18:54:03",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "254ca9d2-e704-4834-8b8a-8eb55302d21c",
+      "time": "2026-06-23T18:54:03",
+      "action": "Test RMS Login"
+    }
+  },
+  {
+    "id": "459f03ef-e703-479c-a82b-b1a488b7eaf4",
+    "time": "2026-06-23T18:54:06",
+    "action": "Update RMS Settings",
+    "details": {
+      "username": "jperez+Texas@lkotrucking.com",
+      "password_saved": true
+    }
+  },
+  {
+    "id": "a040d176-97da-4ec5-9d22-7dc29134d5bc",
+    "time": "2026-06-23T18:55:48",
+    "action": "RMS Login Test",
+    "details": {
+      "ok": false,
+      "status": "ERROR",
+      "message": "RMS login automation error: RMS login did not complete. Verify the RMS username/password saved in EOMS Settings. url=https://rms.reusability.com/login title=RMS - LoginPage body=Sign In\nUsername\nPassword\nEnter a password\nSign In\nForgot your password?",
+      "bol_count": 0,
+      "sample_bols": [],
+      "id": "cc203050-f0fa-42e3-a2b2-a22402ce8a0c",
+      "time": "2026-06-23T18:55:48",
+      "action": "Test RMS Login"
+    }
+  }
+]
