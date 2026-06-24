@@ -67,6 +67,14 @@ function mapInfoHtml(title, lines){
     </div>`;
 }
 
+function syncSelectedMarkerVisibility(){
+    if(!map || !markers) return;
+    Object.keys(markers).forEach(id => {
+        if(!markers[id]) return;
+        markers[id].setMap(selectedOrder.includes(id) ? null : map);
+    });
+}
+
 function focusStoreCard(storeId){
     document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
     const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
@@ -81,6 +89,7 @@ function focusStoreCard(storeId){
         }
     }
     renderStores();
+    syncSelectedMarkerVisibility();
     updateTotals();
 }
 
@@ -108,11 +117,13 @@ function updateSelectionOrder(){
 function selectAllVisible(){
     visibleUnassignedStores().forEach(store => { if(!selectedOrder.includes(store.id)) selectedOrder.push(store.id); });
     renderStores();
+    syncSelectedMarkerVisibility();
     updateTotals();
 }
 function clearSelection(){
     selectedOrder = [];
     renderStores();
+    syncSelectedMarkerVisibility();
     updateTotals();
 }
 function selectDueToday(){
@@ -124,6 +135,7 @@ function selectDueToday(){
         if(shouldSelect && !selectedOrder.includes(store.id)) selectedOrder.push(store.id);
     });
     renderStores();
+    syncSelectedMarkerVisibility();
     updateTotals();
 }
 async function loadDrivers(){
@@ -322,6 +334,7 @@ async function assignDriver(){
     document.getElementById("driver-results").appendChild(routeBlock);
     selectedOrder = [];
     renderStores();
+    syncSelectedMarkerVisibility();
     renderMapDispatchBoardLive();
     updateTotals();
     document.getElementById("route-preview").innerHTML = "<p class='safe'>Route assigned. Dispatch it from the Assigned Queue below.</p>";
@@ -454,6 +467,8 @@ function initMap(){
         markers[store.id].addListener("click", () => {
             if((store.status || "Unassigned") === "Unassigned"){
                 focusStoreCard(store.id);
+                info.close();
+                return;
             }
             info.open(map, markers[store.id]);
         });
@@ -533,6 +548,7 @@ document.addEventListener("change", function(e){
             selectedOrder = selectedOrder.filter(x => x !== id);
         }
         renderStores();
+        syncSelectedMarkerVisibility();
         updateTotals();
     }
 });

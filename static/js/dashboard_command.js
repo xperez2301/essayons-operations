@@ -81,7 +81,9 @@ function initDashboardMap(){
         store.store_name || store.origin || 'Store',
         `${store.city || ''}, ${store.state || ''}`,
         `Status: ${store.status || 'Unassigned'}`,
-        `Due: ${store.due_date || 'Not captured'}`
+        `Due: ${store.due_date || 'Not captured'}`,
+        `Racks: ${store.expected_racks || 0}`,
+        `Weight: ${Number(store.weight || 0).toLocaleString()} lbs`
       ])
     });
     marker.addListener('click',()=>info.open(map,marker));
