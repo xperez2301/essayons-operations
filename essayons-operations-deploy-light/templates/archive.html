@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+  <div>
+    <span class="eyebrow">History & Closeout</span>
+    <h2>Archive</h2>
+    <p>Search completed BOLs, RMS closed/missing BOLs, routes, and closeout counts.</p>
+  </div>
+  <div>
+    {% if can_export %}<a class="link-btn" href="/api/export/data">Download Backup</a>{% endif %}
+    <a class="link-btn" href="/dispatch-map">Dispatch Map</a>
+  </div>
+</header>
+
+<section class="metrics blueprint">
+  <div class="metric"><span>Archived BOLs</span><strong>{{ totals.stores }}</strong></div>
+  <div class="metric"><span>EOMS Completed</span><strong>{{ totals.eoms_completed }}</strong></div>
+  <div class="metric"><span>RMS Missing/Closed</span><strong>{{ totals.rms_missing }}</strong></div>
+  <div class="metric"><span>Closed Both</span><strong>{{ totals.both_closed }}</strong></div>
+  <div class="metric"><span>Completed Routes</span><strong>{{ totals.routes }}</strong></div>
+  <div class="metric"><span>Expected Racks</span><strong>{{ totals.expected_racks }}</strong></div>
+  <div class="metric"><span>Collected Racks</span><strong>{{ totals.collected_racks }}</strong></div>
+  <div class="metric"><span>Variance</span><strong>{{ totals.variance }}</strong></div>
+  <div class="metric"><span>Expected PCS</span><strong>{{ totals.expected_pieces }}</strong></div>
+  <div class="metric"><span>Collected PCS</span><strong>{{ totals.collected_pieces }}</strong></div>
+</section>
+
+<section class="panel">
+  <h3>Filters</h3>
+  <form method="GET" action="/archive" class="user-form">
+    <input name="q" value="{{ filters.q }}" placeholder="BOL, route, driver, store, city">
+    <select name="city">
+      <option value="">All cities/hubs</option>
+      {% for option in city_options %}<option value="{{ option }}" {% if filters.city == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+    </select>
+    <select name="driver">
+      <option value="">All drivers</option>
+      {% for option in driver_options %}<option value="{{ option }}" {% if filters.driver == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+    </select>
+    <select name="type">
+      <option value="all" {% if filters.type == 'all' %}selected{% endif %}>All archived BOLs</option>
+      <option value="eoms_completed" {% if filters.type == 'eoms_completed' %}selected{% endif %}>EOMS completed</option>
+      <option value="rms_missing" {% if filters.type == 'rms_missing' %}selected{% endif %}>Missing/closed in RMS</option>
+      <option value="both" {% if filters.type == 'both' %}selected{% endif %}>Closed in both</option>
+    </select>
+    <label>From <input type="date" name="from" value="{{ filters.date_from }}"></label>
+    <label>To <input type="date" name="to" value="{{ filters.date_to }}"></label>
+    <button class="primary-btn">Search Archive</button>
+    <a class="secondary-btn small-btn" href="/archive">Clear</a>
+  </form>
+</section>
+
+<section class="panel">
+  <h3>Archived BOLs</h3>
+  <table class="queue-table">
+    <thead><tr><th>BOL</th><th>Store</th><th>City</th><th>Driver</th><th>Due</th><th>EOMS Status</th><th>RMS Status</th><th>Completed/Missing</th><th>Expected Racks</th><th>Collected Racks</th><th>Rack Var</th><th>PCS</th><th>Links</th></tr></thead>
+    <tbody>
+      {% for store in stores %}
+      <tr>
+        <td><b>{{ store.bol }}</b></td>
+        <td>{{ store.store_name or store.origin }}</td>
+        <td>{{ store.city }}, {{ store.state }}</td>
+        <td>{{ store.assigned_driver or "" }}</td>
+        <td>{{ store.due_date or "" }}</td>
+        <td>{{ store.status or "Unassigned" }}</td>
+        <td>{{ store.rms_status or "Not tracked" }}{% if store.closed_source %}<br><small>{{ store.closed_source }}</small>{% endif %}</td>
+        <td>{{ store.completed_at or store.rms_missing_since or "" }}</td>
+        <td>{{ store.expected_racks or 0 }}</td>
+        <td>
+          {% if can_edit_closeout %}
+          <input class="closeout-input" id="racks-{{ store.id }}" type="number" min="0" step="1" value="{{ store.collected_racks if store.collected_racks is defined else '' }}">
+          {% else %}
+          {{ store.collected_racks if store.collected_racks is defined else "" }}
+          {% endif %}
+        </td>
+        <td><span class="{{ 'over' if store.variance_review else 'safe' }}">{{ store.variance if store.variance is defined else "" }}</span></td>
+        <td>
+          {% if can_edit_closeout %}
+          <input class="closeout-input" id="pieces-{{ store.id }}" type="number" min="0" step="1" value="{{ store.collected_pieces if store.collected_pieces is defined else '' }}">
+          <button class="tiny-btn" onclick="saveCloseout('{{ store.id }}')">Save</button>
+          {% else %}
+          {{ store.collected_pieces if store.collected_pieces is defined else "" }}
+          {% endif %}
+        </td>
+        <td>
+          <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
+          <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
+          {% if store.bol %}<a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live</a>{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="13">No archived BOLs match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h3>Completed Routes</h3>
+  <table class="queue-table">
+    <thead><tr><th>Route</th><th>Driver</th><th>Hub</th><th>Stops</th><th>Completed</th><th>Expected</th><th>Collected</th><th>Variance</th><th>View</th></tr></thead>
+    <tbody>
+      {% for route in routes %}
+      {% set summary = route.completion_summary or {} %}
+      <tr>
+        <td><b>{{ route.route_number }}</b></td>
+        <td>{{ route.driver }}</td>
+        <td>{{ route.hub }}</td>
+        <td>{{ (route.store_ids or [])|length }}</td>
+        <td>{{ route.completed_at or "" }}</td>
+        <td>{{ summary.expected_racks or "" }}</td>
+        <td>{{ summary.collected_racks or "" }}</td>
+        <td>{{ summary.variance or "" }}</td>
+        <td><a class="mini-link" href="/route-view/{{ route.id }}" target="_blank">Route</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No completed routes match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<script>
+async function saveCloseout(storeId){
+  const racks = document.getElementById("racks-" + storeId).value;
+  const pieces = document.getElementById("pieces-" + storeId).value;
+  const response = await fetch("/api/store-closeout/" + storeId, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({collected_racks:racks, collected_pieces:pieces})
+  });
+  const data = await response.json();
+  if(!data.ok){
+    alert(data.message || "Unable to save closeout.");
+    return;
+  }
+  alert("Closeout updated.");
+  location.reload();
+}
+</script>
+{% endblock %}

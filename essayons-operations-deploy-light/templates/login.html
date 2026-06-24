@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Essayons BAX Command Login | EOMS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/essayons-bax-mark.png') }}">
+</head>
+<body class="login-body">
+  <form class="login-card" method="POST" action="/login">
+    <div class="login-crest">
+      <img class="login-logo-img" src="{{ url_for('static', filename='img/essayons-bax-logo-web.png') }}" alt="Essayons BAX Recovery & Logistics">
+      <div>
+        <h1>Command</h1>
+        <p>Essayons BAX</p>
+      </div>
+    </div>
+    <div class="login-banner">Recovery & Logistics Command - import, map, assign, dispatch, complete.</div>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next" value="{{ next or '/dispatch-map' }}">
+    <label for="username">Username</label>
+    <input id="username" name="username" placeholder="Enter username" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" placeholder="Enter password" required>
+    <button class="primary-btn login-btn" type="submit">Enter Dispatch Portal</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>All BOLs</h2>
+        <p>Review and edit captured RMS details before routing, assigning, dispatching, or closing.</p>
+    </div>
+    <div>
+        <a class="link-btn" href="/dispatch-map?status=Unassigned">Ready to Route</a>
+        <a class="link-btn" href="/need-review">Need Review</a>
+    </div>
+</header>
+
+<section class="panel bol-command-panel">
+    <form class="bol-filter-form" method="get" action="/all-bols">
+        <input type="search" name="q" value="{{ q }}" placeholder="Search BOL, store, city, status">
+        <select name="status">
+            <option value="">All Statuses</option>
+            {% for status in status_options %}
+            <option value="{{ status }}" {% if current_status == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+        </select>
+        <button class="secondary-btn small-btn" type="submit">Filter</button>
+        <a class="link-btn small-btn" href="/all-bols">Clear</a>
+    </form>
+
+    <div id="bol-save-result" class="notice hidden"></div>
+
+    <div class="bol-table-wrap">
+        <table class="queue-table bol-edit-table">
+            <thead>
+                <tr>
+                    <th>BOL</th>
+                    <th>Status</th>
+                    <th>Store / Origin</th>
+                    <th>Location</th>
+                    <th>Racks</th>
+                    <th>Weight</th>
+                    <th>Due</th>
+                    <th>Review</th>
+                    <th>Files</th>
+                    <th>Save</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for store in stores %}
+                <tr id="bol-row-{{ store.id }}" data-store-id="{{ store.id }}">
+                    <td>
+                        <input data-field="bol" value="{{ store.bol or '' }}" aria-label="BOL">
+                        <small>{{ store.created_at or '' }}</small>
+                    </td>
+                    <td>
+                        <select data-field="status" aria-label="Status">
+                            {% for status in status_options %}
+                            <option value="{{ status }}" {% if (store.status or 'Unassigned') == status %}selected{% endif %}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                        <input data-field="hub" value="{{ store.hub or '' }}" placeholder="Hub">
+                    </td>
+                    <td>
+                        <input data-field="store_name" value="{{ store.store_name or store.origin_name or '' }}" placeholder="Store name">
+                        <input data-field="origin" value="{{ store.origin or '' }}" placeholder="Origin/store #">
+                        <input data-field="contact" value="{{ store.contact or store.origin_contact or '' }}" placeholder="Contact">
+                    </td>
+                    <td>
+                        <input data-field="address" value="{{ store.address or store.origin_address or '' }}" placeholder="Address">
+                        <div class="bol-location-row">
+                            <input data-field="city" value="{{ store.city or '' }}" placeholder="City">
+                            <input data-field="state" value="{{ store.state or 'TX' }}" placeholder="State">
+                            <input data-field="zip" value="{{ store.zip or '' }}" placeholder="ZIP">
+                        </div>
+                    </td>
+                    <td><input data-field="expected_racks" value="{{ store.expected_racks or 0 }}" inputmode="decimal"></td>
+                    <td><input data-field="weight" value="{{ store.weight or 0 }}" inputmode="decimal"></td>
+                    <td>
+                        <input data-field="due_date" value="{{ store.due_date or '' }}" placeholder="MM/DD/YYYY">
+                        <input data-field="assigned_date" value="{{ store.assigned_date or '' }}" placeholder="Assigned date">
+                    </td>
+                    <td>
+                        {% if store.review_reasons %}
+                        <span class="status-chip Need-Review">{{ store.review_reasons|join(', ') }}</span>
+                        {% elif store.review_warnings %}
+                        <span class="status-chip warning">{{ store.review_warnings|join(', ') }}</span>
+                        {% else %}
+                        <span class="status-chip completed">Ready</span>
+                        {% endif %}
+                    </td>
+                    <td class="action-cell">
+                        <a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live</a>
+                        <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
+                        <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
+                    </td>
+                    <td><button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store.id }}')">Save</button></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="10" class="muted">No BOLs match this view.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+function bolResult(message, isError){
+    const box = document.getElementById("bol-save-result");
+    box.classList.remove("hidden", "err");
+    if(isError) box.classList.add("err");
+    box.textContent = message;
+}
+
+async function saveBol(storeId){
+    const row = document.getElementById("bol-row-" + storeId);
+    const payload = {};
+    row.querySelectorAll("[data-field]").forEach(input => {
+        payload[input.dataset.field] = input.value;
+    });
+
+    const response = await fetch("/api/bol/" + encodeURIComponent(storeId), {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if(!data.ok){
+        bolResult(data.message || "Unable to save BOL.", true);
+        return;
+    }
+    bolResult("Saved BOL " + (data.store.bol || storeId) + ". Status: " + (data.store.status || "Unassigned") + ".", false);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{
+  "_comment": "This is an EXAMPLE. A real data/users.json is created automatically on first run with a hashed admin password from ADMIN_USERNAME/ADMIN_PASSWORD. Passwords here are hashed, never plaintext.",
+  "users": [
+    {
+      "id": "admin",
+      "username": "admin",
+      "password": "<set via ADMIN_PASSWORD env on first run>",
+      "role": "Admin",
+      "assigned_cities": ["All"],
+      "active": true,
+      "created_at": "system"
+    }
+  ]
+}

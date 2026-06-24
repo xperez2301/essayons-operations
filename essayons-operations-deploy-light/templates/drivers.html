@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="drivers-page">
+  <header class="topbar">
+    <div><span class="eyebrow">Driver Operations</span><h2>Drivers</h2><p>Manage driver contact details, city coverage, assignments, and route notifications.</p></div>
+    <a class="link-btn" href="/dispatch-map">Open Dispatch Map</a>
+  </header>
+
+  {% if request.args.get('created') %}<div class="notice">Driver created and is now available in Dispatch Map assignments.</div>{% endif %}
+  {% if request.args.get('deleted') %}<div class="notice">Driver account deleted. Existing route history remains available.</div>{% endif %}
+  {% if request.args.get('error') == 'missing' %}<div class="err">Name, username, temporary password, and mobile number are required.</div>{% endif %}
+  {% if request.args.get('error') == 'duplicate' %}<div class="err">That username already exists.</div>{% endif %}
+  {% if request.args.get('error') == 'notfound' %}<div class="err">Driver was not found or is not a driver account.</div>{% endif %}
+  <div id="driver-send-status" class="notice hidden"></div>
+
+  {% if can_manage %}
+  <section class="panel driver-create-panel">
+    <div class="driver-section-head"><div><h3>Add Driver</h3><p class="muted">The driver uses this account to view only their assigned routes.</p></div><span class="status-pill safe">Admin</span></div>
+    <form method="POST" action="/drivers/create" class="driver-create-form">
+      <label>Driver Name<input name="display_name" placeholder="Marcus Reed" required></label>
+      <label>Username<input name="username" placeholder="mreed" required></label>
+      <label>Temporary Password<input name="password" type="password" required></label>
+      <label>Mobile Number<input name="phone" type="tel" placeholder="+12105551234" required></label>
+      <fieldset><legend>Operating Cities</legend><div class="city-checks">{% for city in city_options %}<label><input type="checkbox" name="assigned_cities" value="{{ city }}" {% if city == 'San Antonio' %}checked{% endif %}> {{ city }}</label>{% endfor %}</div></fieldset>
+      <button class="primary-btn" type="submit">Add Driver</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="driver-section-head"><div><h3>Driver Directory</h3><p class="muted">{{ drivers|length }} driver{{ '' if drivers|length == 1 else 's' }} visible for your cities.</p></div></div>
+    <div class="driver-directory">
+      {% for driver in drivers %}
+      {% set driver_name = driver.display_name or driver.username %}
+      <article class="driver-profile {{ '' if driver.active else 'driver-inactive' }}">
+        <div class="driver-avatar">{{ driver_name[:2]|upper }}</div>
+        <div class="driver-profile-main">
+          <div class="driver-profile-title"><h4>{{ driver_name }}</h4><span class="status-pill {{ 'safe' if driver.active else 'over' }}">{{ 'Active' if driver.active else 'Inactive' }}</span></div>
+          <p><b>{{ driver.phone or 'No mobile number' }}</b> &middot; @{{ driver.username }}</p>
+          <p class="muted">{{ ", ".join(driver.assigned_cities or []) }} &middot; {{ route_counts.get(driver_name, 0) }} route assignments</p>
+          {% if can_manage %}
+          <details><summary>Edit Driver</summary>
+            <form method="POST" action="/drivers/update/{{ driver.id or driver.username }}" class="driver-edit-form">
+              <input name="display_name" value="{{ driver_name }}" aria-label="Driver name"><input name="phone" value="{{ driver.phone or '' }}" placeholder="+12105551234" aria-label="Mobile number"><input name="password" type="password" placeholder="New password optional" aria-label="New password">
+              <div class="city-checks">{% for city in city_options if city != 'All' %}<label><input type="checkbox" name="assigned_cities" value="{{ city }}" {% if city in (driver.assigned_cities or []) %}checked{% endif %}> {{ city }}</label>{% endfor %}</div>
+              <label class="active-check"><input type="checkbox" name="active" value="1" {% if driver.active %}checked{% endif %}> Active</label><button class="secondary-btn small-btn">Save Driver</button>
+            </form>
+            <form method="POST" action="/drivers/delete/{{ driver.id or driver.username }}" onsubmit="return confirm('Delete driver {{ driver_name }}? This removes their login/contact record but keeps route history.');">
+              <button class="danger-btn small-btn" type="submit">Delete Driver</button>
+            </form>
+          </details>
+          {% endif %}
+        </div>
+      </article>
+      {% else %}<div class="empty-state"><h3>No drivers yet</h3><p>Add the first driver to begin assigning and sending routes.</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="driver-section-head"><div><h3>Route Notifications</h3><p class="muted">Send or resend route details through Telnyx to the saved driver mobile number.</p></div></div>
+    <div class="driver-route-list">
+      {% for route in routes|sort(attribute='created_at', reverse=true) %}
+      {% if route.status != 'Completed' %}
+      <div class="driver-route-row"><div><b>{{ route.route_number }}</b><span>{{ route.driver or 'No driver' }} &middot; {{ route.stops|length }} stops &middot; {{ route.status or 'Assigned' }}</span></div><button class="secondary-btn small-btn" type="button" onclick="sendDriverRoute('{{ route.id }}', this)" {% if not route.driver_phone %}disabled title="Add the driver's mobile number first"{% endif %}>Send Route SMS</button></div>
+      {% endif %}
+      {% else %}<p class="muted">No assigned routes are ready to send.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+<script>
+async function sendDriverRoute(routeId, button){
+  const status=document.getElementById('driver-send-status');
+  button.disabled=true; button.textContent='Sending...';
+  try{
+    const response=await fetch('/api/send-route-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({route_id:routeId})});
+    const data=await response.json();
+    status.classList.remove('hidden','err');
+    status.textContent=data.message || (data.ok ? 'Route sent.' : 'Unable to send route.');
+    button.textContent=data.ok ? 'SMS Sent' : 'Send Route SMS';
+    if(!data.ok){status.classList.add('err');button.disabled=false;}
+  }catch(err){status.classList.remove('hidden');status.classList.add('err');status.textContent='SMS failed: '+err.message;button.disabled=false;button.textContent='Send Route SMS';}
+}
+</script>
+{% endblock %}

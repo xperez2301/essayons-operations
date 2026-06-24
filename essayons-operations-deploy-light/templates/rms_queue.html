@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block content %}
+
+<header class="topbar">
+    <div>
+        <h2>RMS Queue Manager</h2>
+        <p>Scan RMS, review new BOLs, select only what you want, then import to Dispatch Map.</p>
+    </div>
+    <div>
+        <a class="link-btn" href="/rms-sync">RMS Sync</a>
+        <a class="link-btn" href="/dispatch-map">Dispatch Map</a>
+    </div>
+</header>
+
+<section class="metrics">
+    <div class="metric"><span>Total Queue</span><strong>{{ queue|length }}</strong></div>
+    <div class="metric"><span>New</span><strong>{{ queue|selectattr("queue_status","equalto","New")|list|length }}</strong></div>
+    <div class="metric"><span>Imported</span><strong>{{ queue|selectattr("queue_status","equalto","Imported")|list|length }}</strong></div>
+    <div class="metric"><span>Need Review</span><strong>{{ queue|selectattr("queue_status","equalto","Need Review")|list|length }}</strong></div>
+    <div class="metric"><span>Ignored</span><strong>{{ queue|selectattr("queue_status","equalto","Ignored")|list|length }}</strong></div>
+</section>
+
+<section class="panel">
+    <div class="queue-toolbar">
+        <button class="secondary-btn small-btn" onclick="refreshQueue()">Refresh RMS Queue</button>
+        <button class="primary-btn small-btn" onclick="importSelected()">Import/Re-import Selected</button>
+        <button class="small-btn" onclick="markSelected('Ignored')">Ignore Selected</button>
+        <button class="small-btn" onclick="markSelected('Need Review')">Send To Need Review</button>
+
+        <select id="filter-status" onchange="filterRows()" data-current="{{ request.args.get('status','All') }}">
+            <option value="All">All Status</option>
+            <option value="New">New</option>
+            <option value="Imported">Imported</option>
+            <option value="Need Review">Need Review</option>
+            <option value="Ignored">Ignored</option>
+        </select>
+    </div>
+
+    <div id="queue-result" class="notice" style="display:none;margin-top:12px;"></div>
+
+    <table class="queue-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" onclick="toggleAll(this)"></th>
+                <th>BOL</th>
+                <th>Status</th>
+                <th>Store</th>
+                <th>Origin</th>
+                <th>Address</th>
+                <th>City</th>
+                <th>Contact</th>
+                <th>Hub</th>
+                <th>Racks</th>
+                <th>Weight</th>
+                <th>Due</th>
+                <th>Last Seen</th>
+                <th>View</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in queue %}
+            <tr data-status="{{ q.queue_status }}">
+                <td><input type="checkbox" class="bol-check" value="{{ q.bol }}"></td>
+                <td><b>{{ q.bol }}</b></td>
+                <td><span class="status-chip {{ q.queue_status|replace(' ', '-') }}">{{ q.queue_status }}</span></td>
+                <td>{{ q.store_name or q.origin_name }}</td>
+                <td>{{ q.origin }}</td>
+                <td>{{ q.address or q.origin_address }}</td>
+                <td>{{ q.city }} {{ q.state }}</td>
+                <td>{{ q.contact or q.origin_contact }}</td>
+                <td>{{ q.hub }}</td>
+                <td>{{ q.expected_racks }}</td>
+                <td>{{ q.weight }}</td>
+                <td><span class="due-chip" data-due="{{ q.due_date or '' }}">{{ q.due_date or 'Not captured' }}</span></td>
+                <td>{{ q.last_seen }}</td>
+                <td><a class="mini-link" href="/bol-live/{{ q.bol }}" target="_blank">Live Printable</a><br><a class="mini-link" href="/bol-view/{{ q.bol }}" target="_blank">Saved Copy</a><br><button class="tiny-btn" onclick="repairBol('{{ q.bol }}')">Repair/Parse</button></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="12" class="muted">No queue records yet. Click Refresh RMS Queue.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<script>
+function selectedBols(){
+    return [...document.querySelectorAll(".bol-check:checked")].map(x => x.value);
+}
+
+function toggleAll(source){
+    document.querySelectorAll(".bol-check").forEach(x => {
+        if(x.closest("tr").style.display !== "none") x.checked = source.checked;
+    });
+}
+
+function showResult(msg){
+    const box = document.getElementById("queue-result");
+    box.style.display = "block";
+    box.innerText = msg;
+}
+
+async function refreshQueue(){
+    showResult("Refreshing RMS Queue. Browser automation may open...");
+    const response = await fetch("/api/rms/queue-refresh", {method:"POST"});
+    const data = await response.json();
+    showResult(data.result.message || "Queue refresh complete.");
+    setTimeout(() => location.reload(), 1200);
+}
+
+async function importSelected(){
+    const bols = selectedBols();
+    if(bols.length === 0){ alert("Select at least one BOL."); return; }
+
+    showResult("Importing selected BOLs using direct printable RMS parser...");
+    const response = await fetch("/api/rms/queue-import-selected", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({bols:bols})
+    });
+
+    const data = await response.json();
+    let msg = data.result.message || "Import complete.";
+    if(data.result.errors && data.result.errors.length){
+        msg += "\\nErrors: " + data.result.errors.join("; ");
+    }
+    showResult(msg);
+    setTimeout(() => location.reload(), 1500);
+}
+
+async function markSelected(status){
+    const bols = selectedBols();
+    if(bols.length === 0){ alert("Select at least one BOL."); return; }
+
+    const response = await fetch("/api/rms/queue-update-status", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({bols:bols, status:status})
+    });
+
+    const data = await response.json();
+    showResult("Updated " + data.updated + " BOLs to " + status + ".");
+    setTimeout(() => location.reload(), 800);
+}
+
+function filterRows(){
+    const status = document.getElementById("filter-status").value;
+    document.querySelectorAll(".queue-table tbody tr").forEach(row => {
+        if(status === "All" || row.dataset.status === status){
+            row.style.display = "";
+        }else{
+            row.style.display = "none";
+        }
+    });
+}
+
+async function repairBol(bol){
+    showResult("Repairing BOL " + bol + " from direct printable RMS page...");
+    const response = await fetch("/api/rms/repair-bol/" + bol, {method:"POST"});
+    const data = await response.json();
+    showResult(data.message || "Repair complete.");
+    setTimeout(() => location.reload(), 1500);
+}
+</script>
+
+{% endblock %}
+
+<script>
+function dueColor(dueValue){
+    if(!dueValue) return "green";
+    const parts = dueValue.split("/");
+    let due = null;
+    if(parts.length === 3){
+        due = new Date(Number(parts[2]), Number(parts[0])-1, Number(parts[1]));
+    }else{
+        due = new Date(dueValue);
+    }
+    if(!due || isNaN(due.getTime())) return "green";
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    due.setHours(0,0,0,0);
+    const diff = Math.ceil((due - today) / (1000*60*60*24));
+    if(diff < 0) return "red";
+    if(diff <= 4) return "amber";
+    return "green";
+}
+document.querySelectorAll(".due-chip").forEach(chip => {
+    chip.classList.add("due-" + dueColor(chip.dataset.due || ""));
+});
+document.addEventListener("DOMContentLoaded", function(){
+    const filter = document.getElementById("filter-status");
+    if(filter && filter.dataset.current){
+        filter.value = filter.dataset.current;
+        filterRows();
+    }
+});
+</script>
