@@ -390,6 +390,30 @@ async function unassignStore(storeId, row){
     }
 }
 
+
+function hoverStorePreview(store, stopNumber){
+    const preview = document.getElementById("route-preview");
+    if(!preview || !store) return;
+    preview.innerHTML = `
+        <div class="route-card hover-store-card">
+            <h4>Pin Details</h4>
+            <p><b>Stop:</b> ${stopNumber}</p>
+            <p><b>BOL:</b> ${store.bol || ""}</p>
+            <p><b>Store:</b> ${store.store_name || store.origin || "Store"}</p>
+            <p><b>City:</b> ${store.city || ""}${store.city && store.state ? ", " : ""}${store.state || ""}</p>
+            <p><b>Status:</b> ${store.status || "Unassigned"}</p>
+            <p><b>Due:</b> ${store.due_date || "Not captured"}</p>
+            <p><b>Racks:</b> ${store.expected_racks || 0}</p>
+            <p><b>Weight:</b> ${Number(store.weight || 0).toLocaleString()} lbs</p>
+            <p><b>Hub:</b> ${store.hub || "Manual Review"}</p>
+            <small>Move off the pin to return to route preview. Click the pin to select the stop.</small>
+        </div>`;
+}
+
+function restoreRoutePreviewAfterHover(){
+    updateTotals();
+}
+
 function initMap(){
     if(!window.google || !google.maps){
         const el = document.getElementById("map");
@@ -428,10 +452,13 @@ function initMap(){
             title: hubName + " Hub",
             icon: hubIcon()
         });
-        const info = new google.maps.InfoWindow({
-            content: mapInfoHtml(`${hubName.toUpperCase()} HUB`, [hub.address || ""])
+        marker.addListener("mouseover", () => {
+            const preview = document.getElementById("route-preview");
+            if(preview){
+                preview.innerHTML = `<div class="route-card"><h4>Hub Details</h4><p><b>${hubName.toUpperCase()} HUB</b></p><p>${hub.address || ""}</p></div>`;
+            }
         });
-        marker.addListener("click", () => info.open(map, marker));
+        marker.addListener("mouseout", restoreRoutePreviewAfterHover);
         bounds.extend(hubPos);
     });
 
@@ -454,23 +481,14 @@ function initMap(){
         });
 
         bounds.extend(pos);
-        const info = new google.maps.InfoWindow({
-            content: mapInfoHtml(`STOP ${thisPinNumber} - BOL ${store.bol || ""}`, [
-                store.store_name || store.origin || "Store",
-                `${store.city || ""}, ${store.state || ""}`,
-                `Status: ${store.status || "Unassigned"}`,
-                `Due: ${store.due_date || "Not captured"}`,
-                `Racks: ${store.expected_racks || 0}`,
-                `Weight: ${Number(store.weight || 0).toLocaleString()} lbs`
-            ])
-        });
+        markers[store.id].addListener("mouseover", () => hoverStorePreview(store, thisPinNumber));
+        markers[store.id].addListener("mouseout", restoreRoutePreviewAfterHover);
         markers[store.id].addListener("click", () => {
             if((store.status || "Unassigned") === "Unassigned"){
                 focusStoreCard(store.id);
-                info.close();
-                return;
+            }else{
+                hoverStorePreview(store, thisPinNumber);
             }
-            info.open(map, markers[store.id]);
         });
     });
 

@@ -48,6 +48,40 @@ function dashInfoHtml(title, lines){
   </div>`;
 }
 
+
+function dashStoreLines(store){
+  return [
+    store.store_name || store.origin || "Store",
+    `${store.city || ""}${store.city && store.state ? ", " : ""}${store.state || ""}`,
+    `Status: ${store.status || "Unassigned"}`,
+    `Due: ${store.due_date || "Not captured"}`,
+    `Racks: ${store.expected_racks || 0}`,
+    `Weight: ${Number(store.weight || 0).toLocaleString()} lbs`,
+    `Hub: ${store.hub || "Manual Review"}`
+  ];
+}
+
+function updateDashboardRoutePreview(store, stopNumber){
+  const panel = document.querySelector('.route-preview-card');
+  if(!panel) return;
+  if(!store){
+    panel.innerHTML = `<h3>Route Preview</h3><b>No route selected</b><p>Select stores on the map to build a route preview.</p><a href="/dispatch-map">Open Dispatch Map</a>`;
+    return;
+  }
+  const safe = value => String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  panel.innerHTML = `
+    <h3>Pin Details</h3>
+    <b>STOP ${stopNumber} - BOL ${safe(store.bol || '')}</b>
+    <p><b>Store:</b> ${safe(store.store_name || store.origin || 'Store')}</p>
+    <p><b>City:</b> ${safe(`${store.city || ''}${store.city && store.state ? ', ' : ''}${store.state || ''}`)}</p>
+    <p><b>Status:</b> ${safe(store.status || 'Unassigned')}</p>
+    <p><b>Due:</b> ${safe(store.due_date || 'Not captured')}</p>
+    <p><b>Racks:</b> ${safe(store.expected_racks || 0)}</p>
+    <p><b>Weight:</b> ${Number(store.weight || 0).toLocaleString()} lbs</p>
+    <p><b>Hub:</b> ${safe(store.hub || 'Manual Review')}</p>
+    <a href="/dispatch-map">Open Dispatch Map</a>`;
+}
+
 function initDashboardMap(){
   const el = document.getElementById('dashboard-map');
   if(!el || !window.google || !google.maps) return;
@@ -58,8 +92,11 @@ function initDashboardMap(){
   Object.keys(hubs).forEach(name=>{
     const h=hubs[name]; const pos={lat:Number(h.lat),lng:Number(h.lng)};
     const marker=new google.maps.Marker({position:pos,map,title:name+' Hub',icon:dashHubIcon()});
-    const info=new google.maps.InfoWindow({content:dashInfoHtml(`${name.toUpperCase()} HUB`, [h.address])});
-    marker.addListener('click',()=>info.open(map,marker));
+    marker.addListener('mouseover',()=>{
+      const panel = document.querySelector('.route-preview-card');
+      if(panel) panel.innerHTML = `<h3>Hub Details</h3><b>${String(name).toUpperCase()} HUB</b><p>${h.address || ''}</p><a href="/dispatch-map">Open Dispatch Map</a>`;
+    });
+    marker.addListener('mouseout',()=>updateDashboardRoutePreview(null));
     bounds.extend(pos);
   });
   const activeStores=stores.filter(s=>{
@@ -76,17 +113,9 @@ function initDashboardMap(){
       title:`${index+1}. BOL ${store.bol || ''} - ${store.store_name || store.origin || 'Store'}`,
       icon:dashClusterIcon(index+1, color)
     });
-    const info=new google.maps.InfoWindow({
-      content:dashInfoHtml(`STOP ${index+1} - BOL ${store.bol || ''}`, [
-        store.store_name || store.origin || 'Store',
-        `${store.city || ''}, ${store.state || ''}`,
-        `Status: ${store.status || 'Unassigned'}`,
-        `Due: ${store.due_date || 'Not captured'}`,
-        `Racks: ${store.expected_racks || 0}`,
-        `Weight: ${Number(store.weight || 0).toLocaleString()} lbs`
-      ])
-    });
-    marker.addListener('click',()=>info.open(map,marker));
+    marker.addListener('mouseover',()=>updateDashboardRoutePreview(store, index+1));
+    marker.addListener('mouseout',()=>updateDashboardRoutePreview(null));
+    marker.addListener('click',()=>{ window.location.href = '/dispatch-map'; });
     bounds.extend(pos);
   });
   if(!bounds.isEmpty()) map.fitBounds(bounds);
