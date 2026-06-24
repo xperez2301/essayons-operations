@@ -795,9 +795,6 @@ document.addEventListener("DOMContentLoaded", function(){
             renderStores();
             updateTotals();
         }
-        if (typeof renderMapDispatchBoardLive === "function") {
-            renderMapDispatchBoardLive();
-        }
         setTimeout(function(){
             var mapBox = document.getElementById("map");
             if (mapBox && !map) {

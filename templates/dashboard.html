@@ -22,6 +22,13 @@
   </header>
 
   <div id="autoGrabStatus" class="notice hidden">Standing by.</div>
+  <div id="autoGrabProgress" class="auto-grab-progress hidden" aria-live="polite">
+    <div class="auto-grab-progress-head">
+      <b>Auto Grab Progress</b>
+      <span id="autoGrabPercent">0%</span>
+    </div>
+    <div class="auto-grab-progress-track"><i id="autoGrabProgressFill"></i></div>
+  </div>
 
   {% set last_sync = sync_history[-1] if sync_history else {} %}
   <section class="rms-sync-strip">
@@ -106,11 +113,40 @@ function gm_authFailure(){
 (function(){
   const statusBox = document.getElementById('autoGrabStatus');
   const btn = document.getElementById('autoGrabBolBtn');
+  const progressBox = document.getElementById('autoGrabProgress');
+  const progressFill = document.getElementById('autoGrabProgressFill');
+  const progressPercent = document.getElementById('autoGrabPercent');
+  const originalButtonHtml = btn ? btn.innerHTML : '';
+  let progressTimer = null;
+  let progressValue = 0;
   if(!btn) return;
+  function setProgress(value){
+    progressValue = Math.max(0, Math.min(100, Math.round(value)));
+    if(progressFill) progressFill.style.width = progressValue + '%';
+    if(progressPercent) progressPercent.textContent = progressValue + '%';
+    if(btn.disabled) btn.innerHTML = 'Auto Grab BOLs<br><small>' + progressValue + '%</small>';
+  }
+  function startProgress(){
+    if(progressTimer) clearInterval(progressTimer);
+    if(progressBox) progressBox.classList.remove('hidden');
+    setProgress(2);
+    progressTimer = setInterval(function(){
+      if(progressValue < 60) setProgress(progressValue + 6);
+      else if(progressValue < 85) setProgress(progressValue + 3);
+      else if(progressValue < 96) setProgress(progressValue + 1);
+    }, 900);
+  }
+  function stopProgress(finalValue){
+    if(progressTimer) clearInterval(progressTimer);
+    progressTimer = null;
+    setProgress(finalValue);
+  }
   async function autoGrabBols(){
     statusBox.classList.remove('hidden','err');
     statusBox.textContent='Logging into RMS and grabbing open BOLs. Leave this window open...';
     btn.disabled=true;
+    let reloading = false;
+    startProgress();
     try{
       const response=await fetch('/api/rms/auto-grab-bols',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_bols:0})});
       const contentType=response.headers.get('content-type') || '';
@@ -124,7 +160,7 @@ function gm_authFailure(){
       }
       const data=await response.json();
       const result=data.result || {};
-      if(!data.ok){statusBox.classList.add('err'); statusBox.textContent=result.message || data.message || 'Auto grab failed.'; return;}
+      if(!data.ok){stopProgress(100); statusBox.classList.add('err'); statusBox.textContent=result.message || data.message || 'Auto grab failed.'; return;}
       const found = result.found ?? result.bol_count ?? result.total_found ?? 0;
       const imported = result.imported ?? result.added ?? 0;
       const updated = result.updated ?? 0;
@@ -138,10 +174,12 @@ function gm_authFailure(){
       let message = result.message || `Auto grab complete ${pct}%. Scanned ${found}. Imported ${imported}. Updated ${updated}. Skipped ${skipped}. Need Review ${needReview}. RMS missing/closed ${rmsMissing}. Failed ${failed}.`;
       if(result.message) message += ` Completion: ${pct}%.`;
       if(result.errors && result.errors.length) message += ' Errors: ' + result.errors.join(' | ');
+      stopProgress(100);
       statusBox.textContent = message + ' Refreshing...';
+      reloading = true;
       setTimeout(()=>window.location.reload(),1800);
-    }catch(err){statusBox.classList.add('err'); statusBox.textContent='Auto grab failed: '+err.message;}
-    finally{btn.disabled=false;}
+    }catch(err){stopProgress(100); statusBox.classList.add('err'); statusBox.textContent='Auto grab failed: '+err.message;}
+    finally{if(!reloading){btn.disabled=false; btn.innerHTML=originalButtonHtml;}}
   }
   btn.addEventListener('click',autoGrabBols);
 })();

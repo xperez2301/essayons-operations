@@ -82,6 +82,12 @@ h1,h2,h3,h4{font-family:var(--display);margin:0 0 .35em;line-height:1.12;color:v
 .auto-grab-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;}
 .auto-grab-head p{max-width:78ch;margin-bottom:0;}
 button:disabled{opacity:.65;cursor:not-allowed;transform:none!important;}
+.auto-grab-progress{margin:-6px 0 16px;padding:12px 14px;border:1px solid var(--cmd-line);border-radius:8px;background:linear-gradient(180deg,#10161b,#0b0f13);box-shadow:0 14px 34px rgba(0,0,0,.18)}
+.auto-grab-progress-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px;color:#fff}
+.auto-grab-progress-head b{font-size:12px;text-transform:uppercase}
+.auto-grab-progress-head span{font-family:var(--mono);color:var(--cmd-green);font-size:18px}
+.auto-grab-progress-track{height:13px;border-radius:999px;background:#242a31;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.auto-grab-progress-track i{display:block;width:0;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cmd-red),var(--cmd-yellow),var(--cmd-green));transition:width .35s ease}
 @media(max-width:760px){.auto-grab-head{align-items:stretch}.auto-grab-head .primary-btn{width:100%;}}
 
 /* V189 Command Center visual rebuild */

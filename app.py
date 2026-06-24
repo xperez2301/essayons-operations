@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, jsonify, render_template, request, send_file, abort, redirect, url_for, session
+from flask import Flask, jsonify, render_template, request, send_file, abort, redirect, url_for, session, g, has_request_context
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
@@ -66,6 +66,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "1") == "1",
+    SEND_FILE_MAX_AGE_DEFAULT=3600,
 )
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -126,7 +127,12 @@ CITY_COORDS = {
     "Lubbock": (33.5779, -101.8552)
 }
 
+DIRS_READY = False
+
 def ensure_dirs():
+    global DIRS_READY
+    if DIRS_READY:
+        return
     DATA_DIR.mkdir(exist_ok=True)
     UPLOAD_DIR.mkdir(exist_ok=True)
     for root in ["Imported", "Assigned", "Dispatched", "Completed", "Need_Review", "RMS_Backup", "RMS_Closed"]:
@@ -145,6 +151,7 @@ def ensure_dirs():
     ]:
         if not path.exists():
             path.write_text(json.dumps(default, indent=2), encoding="utf-8")
+    DIRS_READY = True
 
 def read_json(path):
     ensure_dirs()
@@ -676,23 +683,45 @@ def parse_csv(path):
     return rows
 
 def users_payload():
+    if has_request_context() and hasattr(g, "_users_payload"):
+        return g._users_payload
     data = read_json(USERS_FILE)
     if isinstance(data, dict) and "users" in data:
+        if has_request_context():
+            g._users_payload = data
         return data
-    return {"users": []}
+    fallback = {"users": []}
+    if has_request_context():
+        g._users_payload = fallback
+    return fallback
 
 def save_users_payload(data):
     write_json(USERS_FILE, data)
+    if has_request_context():
+        g._users_payload = data
+    if has_request_context() and hasattr(g, "_current_user"):
+        delattr(g, "_current_user")
 
 def current_user():
+    if has_request_context() and hasattr(g, "_current_user"):
+        return g._current_user
     username = session.get("username")
     if not username:
+        if has_request_context():
+            g._current_user = None
         return None
     for user in users_payload().get("users", []):
         if user.get("username") == username and user.get("active", True):
+            if has_request_context():
+                g._current_user = user
             return user
     if username == ADMIN_USERNAME:
-        return {"id":"admin","username":ADMIN_USERNAME,"role":"Admin","assigned_cities":["All"],"active":True}
+        admin = {"id":"admin","username":ADMIN_USERNAME,"role":"Admin","assigned_cities":["All"],"active":True}
+        if has_request_context():
+            g._current_user = admin
+        return admin
+    if has_request_context():
+        g._current_user = None
     return None
 
 def is_admin():
@@ -944,9 +973,9 @@ def home():
 
 
 
-def dashboard_metrics():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+def dashboard_metrics(stores=None, routes=None):
+    stores = stores if stores is not None else filter_stores_for_user(read_json(STORES_FILE))
+    routes = routes if routes is not None else filter_routes_for_user(read_json(ROUTES_FILE))
     statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"]
     by_status = {status: 0 for status in statuses}
     for store in stores:
@@ -985,7 +1014,7 @@ def dashboard():
     maps_key = clean(settings_data.get("google_maps_api_key"))
     return render_template(
         "dashboard.html",
-        metrics=dashboard_metrics(),
+        metrics=dashboard_metrics(stores, routes),
         stores=active_map_stores(stores),
         routes=routes,
         hubs=HUBS,
@@ -3358,12 +3387,17 @@ def api_dispatch_board_live():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     active_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched"}
     active = [s for s in stores if s.get("status", "Unassigned") in active_statuses]
+    completed_today = [
+        s for s in stores
+        if s.get("status") == "Completed" and date_value(s.get("completed_at")) == today_iso()
+    ]
+    board_stores = active + completed_today
     racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
     weight = round(sum(num(s.get("weight")) for s in active), 1)
     pieces = round(racks * PIECES_PER_RACK, 1)
     return jsonify({
         "ok": True,
-        "stores": stores,
+        "stores": board_stores,
         "metrics": {
             "stores": len(active),
             "racks": racks,
