@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EOMS | Essayons Operations</title>
+    <title>Essayons BAX Command | EOMS</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/essayons-bax-logo.png') }}">
 </head>
 <body>
     <div class="builder-bg" aria-hidden="true"></div>
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="logo" aria-label="Army Engineer Castle">
-                    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 5h10v9h9V5h10v9h9V5h10v20l-6 5v27H14V30l-6-5V5zm17 52h14V41c0-5-3-9-7-9s-7 4-7 9v16z"/></svg>
-                </div>
-                <div><h1>EOMS</h1><p>Essayons Operations</p></div>
+                <img class="brand-logo-img" src="{{ url_for('static', filename='img/essayons-bax-logo.png') }}" alt="Essayons BAX Recovery & Logistics">
+                <div><h1>Command</h1><p>Essayons BAX</p></div>
             </div>
-            <div class="motto"><span>ESSAYONS</span><small>Let Us Try &mdash; We Are Building</small></div>
+            <div class="motto"><span>ESSAYONS BAX</span><small>Recovery & Logistics Command</small></div>
             {% set role = session.get('role', 'Dispatcher') %}
             <nav>
                 {% if role == 'Driver' %}

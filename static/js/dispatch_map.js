@@ -70,18 +70,18 @@ function mapInfoHtml(title, lines){
 function focusStoreCard(storeId){
     document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
     const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
+    if(!selectedOrder.includes(storeId)){
+        selectedOrder.push(storeId);
+    }
     if(box){
-        box.checked = true;
-        if(!selectedOrder.includes(storeId)){
-            selectedOrder.push(storeId);
-        }
-        updateTotals();
         const card = box.closest(".store-card");
         if(card){
             card.classList.add("active-store");
             card.scrollIntoView({behavior:"smooth", block:"center"});
         }
     }
+    renderStores();
+    updateTotals();
 }
 
 function selectStoreFromMap(storeId){
@@ -92,10 +92,10 @@ function selectStoreFromMap(storeId){
 window.selectStoreFromMap = selectStoreFromMap;
 
 
-function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned"); }
+function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned" && !selectedOrder.includes(s.id)); }
 
 function selectedIds(){
-    return [...document.querySelectorAll(".store-box:checked")].map(b => b.dataset.storeId);
+    return [...selectedOrder];
 }
 
 function updateSelectionOrder(){
@@ -106,25 +106,24 @@ function updateSelectionOrder(){
 
 
 function selectAllVisible(){
-    document.querySelectorAll(".store-box").forEach(box => { box.checked = true; if(!selectedOrder.includes(box.dataset.storeId)) selectedOrder.push(box.dataset.storeId); });
+    visibleUnassignedStores().forEach(store => { if(!selectedOrder.includes(store.id)) selectedOrder.push(store.id); });
+    renderStores();
     updateTotals();
 }
 function clearSelection(){
-    document.querySelectorAll(".store-box").forEach(box => box.checked = false);
     selectedOrder = [];
+    renderStores();
     updateTotals();
 }
 function selectDueToday(){
     const today = new Date(); today.setHours(0,0,0,0);
-    document.querySelectorAll(".store-box").forEach(box => {
-        const store = stores.find(s => s.id === box.dataset.storeId);
-        const due = store ? parseDueDate(store.due_date) : null;
+    visibleUnassignedStores().forEach(store => {
+        const due = parseDueDate(store.due_date);
         if(due){ due.setHours(0,0,0,0); }
         const shouldSelect = due && due <= today;
-        box.checked = !!shouldSelect;
-        if(shouldSelect && !selectedOrder.includes(box.dataset.storeId)) selectedOrder.push(box.dataset.storeId);
+        if(shouldSelect && !selectedOrder.includes(store.id)) selectedOrder.push(store.id);
     });
-    selectedOrder = selectedOrder.filter(id => Array.from(document.querySelectorAll(".store-box:checked")).some(b => b.dataset.storeId === id));
+    renderStores();
     updateTotals();
 }
 async function loadDrivers(){
@@ -176,13 +175,14 @@ function renderStores(){
 }
 
 function updateTotals(){
-    updateSelectionOrder();
     let count = 0, racks = 0, weight = 0;
 
-    document.querySelectorAll(".store-box:checked").forEach(box => {
+    selectedOrder.forEach(id => {
+        const store = stores.find(item => item.id === id);
+        if(!store) return;
         count++;
-        racks += Number(box.dataset.racks || 0);
-        weight += Number(box.dataset.weight || 0);
+        racks += Number(store.expected_racks || 0);
+        weight += Number(store.weight || 0);
     });
 
     document.getElementById("store-count").innerText = count;
@@ -205,7 +205,7 @@ function updateTotals(){
     if(preview && selectedOrder.length){
         preview.innerHTML = selectedOrder.map((id, index) => {
             const store = stores.find(item => item.id === id);
-            return store ? `<div class="preview-stop"><b>${index + 1}</b> ${store.store_name || store.origin || "Store"}<small>BOL ${store.bol || ""} &middot; ${Number(store.weight || 0).toLocaleString()} lbs</small></div>` : "";
+            return store ? `<div class="preview-stop"><b>${index + 1}</b> ${store.store_name || store.origin || "Store"}<small>BOL ${store.bol || ""} &middot; Status ${store.status || "Unassigned"} &middot; Due ${store.due_date || "Not captured"} &middot; ${store.expected_racks || 0} racks &middot; ${Number(store.weight || 0).toLocaleString()} lbs</small></div>` : "";
         }).join("");
     }else if(preview){
         preview.innerHTML = "<p class='muted'>Select stores to build the route. The first store selected becomes stop 1.</p>";
@@ -258,7 +258,7 @@ function renderPreview(data){
     `;
 
     data.stores.forEach((s, index) => {
-        html += `<div class="preview-stop">${index + 1}. ${s.store_name || s.origin} — ${s.city}, ${s.state} — BOL ${s.bol || ""}</div>`;
+        html += `<div class="preview-stop"><b>${index + 1}</b> ${s.store_name || s.origin || "Store"}<small>BOL ${s.bol || ""} &middot; Status ${s.status || "Unassigned"} &middot; Due ${s.due_date || "Not captured"} &middot; ${s.expected_racks || 0} racks &middot; ${Number(s.weight || 0).toLocaleString()} lbs</small></div>`;
     });
 
     html += "</div>";
@@ -446,7 +446,9 @@ function initMap(){
                 store.store_name || store.origin || "Store",
                 `${store.city || ""}, ${store.state || ""}`,
                 `Status: ${store.status || "Unassigned"}`,
-                `Due: ${store.due_date || "Not captured"}`
+                `Due: ${store.due_date || "Not captured"}`,
+                `Racks: ${store.expected_racks || 0}`,
+                `Weight: ${Number(store.weight || 0).toLocaleString()} lbs`
             ])
         });
         markers[store.id].addListener("click", () => {
@@ -470,12 +472,7 @@ function initMap(){
 
 
 function getSelectedStoreIds(){
-    const checked = Array.from(document.querySelectorAll(".store-box:checked")).map(x => x.dataset.storeId);
-    const ordered = selectedOrder.filter(id => checked.includes(id));
-    checked.forEach(id => {
-        if(!ordered.includes(id)) ordered.push(id);
-    });
-    return ordered;
+    return [...selectedOrder];
 }
 
 async function buildRoute(mode){
@@ -535,6 +532,7 @@ document.addEventListener("change", function(e){
         }else{
             selectedOrder = selectedOrder.filter(x => x !== id);
         }
+        renderStores();
         updateTotals();
     }
 });

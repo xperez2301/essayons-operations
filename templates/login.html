@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EOMS Login | Essayons Operations</title>
+<title>Essayons BAX Command Login | EOMS</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/essayons-bax-logo.png') }}">
 </head>
 <body class="login-body">
   <form class="login-card" method="POST" action="/login">
     <div class="login-crest">
-      <div class="logo">⚒</div>
+      <img class="login-logo-img" src="{{ url_for('static', filename='img/essayons-bax-logo.png') }}" alt="Essayons BAX Recovery & Logistics">
       <div>
-        <h1>EOMS</h1>
-        <p>Essayons Operations</p>
+        <h1>Command</h1>
+        <p>Essayons BAX</p>
       </div>
     </div>
-    <div class="login-banner">We are building the route — import, map, assign, dispatch, complete.</div>
+    <div class="login-banner">Recovery & Logistics Command - import, map, assign, dispatch, complete.</div>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
     <input type="hidden" name="next" value="{{ next or '/dispatch-map' }}">
     <label for="username">Username</label>
