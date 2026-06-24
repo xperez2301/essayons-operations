@@ -96,6 +96,11 @@ class AuthenticationTests(unittest.TestCase):
 
         self.assertTrue(eoms.is_rms_login_page(FakePage()))
 
+    def test_rms_wait_page_detector_matches_transformation_shell(self):
+        html = "<html><head><title>Transformation</title></head><body>Please wait...</body></html>"
+        self.assertTrue(eoms.is_rms_wait_page("Please wait...", html))
+        self.assertFalse(eoms.is_rms_wait_page("Bill of Lading 950225\nOrigin HOUSTON", ""))
+
     def test_missing_rms_bols_are_archived_without_deleting_store(self):
         original_stores_file = eoms.STORES_FILE
         original_bol_dir = eoms.BOL_DIR

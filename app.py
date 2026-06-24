@@ -1435,6 +1435,60 @@ def save_printable_pdf(page, item, html=None):
         return save_printable_snapshot(item, html)
 
 
+def is_rms_wait_page(text, html=""):
+    body = clean(text).lower()
+    page = (html or "").lower()
+    if body in {"please wait", "please wait.", "please wait..."}:
+        return True
+    if "please wait" in body and len(body) < 250:
+        return True
+    if "transformation" in page and "please wait" in page and len(page) < 5000:
+        return True
+    return False
+
+def wait_for_printable_bol_content(page, bol_number, timeout_seconds=25):
+    deadline = time.time() + timeout_seconds
+    last_text = ""
+    last_html = ""
+    while time.time() < deadline:
+        try:
+            page.wait_for_load_state("networkidle", timeout=3000)
+        except Exception:
+            pass
+        try:
+            last_text = page.locator("body").inner_text(timeout=3000)
+            last_html = page.content()
+            if not is_rms_wait_page(last_text, last_html):
+                bol = clean(bol_number)
+                text_l = last_text.lower()
+                if not bol or bol in last_text or "bill of lading" in text_l or "origin" in text_l:
+                    return last_text, last_html
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+    return last_text, last_html
+
+def find_saved_bol_path(identifier):
+    target = clean(identifier)
+    stores = read_json(STORES_FILE)
+    queue = read_json(RMS_QUEUE_FILE)
+
+    for item in stores + queue:
+        if item.get("id") == target or clean(item.get("bol")) == target:
+            for key in ("pdf_path", "printable_path"):
+                path = clean(item.get(key))
+                if path and Path(path).exists():
+                    return Path(path)
+
+    bol = safe_part(target)
+    matches = list(BOL_DIR.rglob(f"*{bol}*.pdf")) + list(BOL_DIR.rglob(f"*{bol}*.html"))
+    matches = [p for p in matches if p.exists()]
+    if matches:
+        matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return matches[0]
+    return None
+
+
 def extract_date_from_text(text):
     text = clean(text)
     patterns = [
@@ -2337,7 +2391,8 @@ def bol_live_printable(bol_number):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=rms_headless(True))
-        page = browser.new_page()
+        context = browser.new_context()
+        page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -2345,7 +2400,20 @@ def bol_live_printable(bol_number):
             # Go straight to the RMS printable URL.
             page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
 
-            html = page.content()
+            body_text, html = wait_for_printable_bol_content(page, bol_number)
+            if is_rms_login_page(page):
+                raise RuntimeError("RMS redirected Live Print back to login. " + page_excerpt(page))
+
+            if is_rms_wait_page(body_text, html):
+                saved_path = find_saved_bol_path(bol_number)
+                if saved_path:
+                    try:
+                        context.close()
+                    except Exception:
+                        pass
+                    browser.close()
+                    return send_file(saved_path, as_attachment=False)
+                raise RuntimeError("RMS only returned its 'Please wait' print shell and no saved copy was found.")
 
             # Save backup snapshot.
             backup_dir = month_folder("RMS_Backup")
@@ -2353,15 +2421,27 @@ def bol_live_printable(bol_number):
             backup_file.write_text(html, encoding="utf-8", errors="ignore")
 
             rms_debug_hold(page)
+            try:
+                context.close()
+            except Exception:
+                pass
             browser.close()
 
             return html
 
         except Exception as e:
             try:
+                context.close()
+            except Exception:
+                pass
+            try:
                 browser.close()
             except Exception:
                 pass
+
+            saved_path = find_saved_bol_path(bol_number)
+            if saved_path:
+                return send_file(saved_path, as_attachment=False)
 
             return render_template(
                 "bol_not_found.html",

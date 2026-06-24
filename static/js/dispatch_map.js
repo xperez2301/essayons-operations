@@ -59,6 +59,14 @@ function hubIcon(){
     };
 }
 
+function mapInfoHtml(title, lines){
+    const safe = value => String(value || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    return `<div style="font-family:Arial,sans-serif;color:#111827;background:#ffffff;min-width:240px;max-width:320px;padding:10px 12px;line-height:1.4;font-size:14px;font-weight:600;">
+        <div style="font-size:16px;font-weight:900;color:#7f1d1d;margin-bottom:6px;">${safe(title)}</div>
+        ${lines.filter(Boolean).map(line => `<div style="color:#111827;margin-top:3px;">${safe(line)}</div>`).join("")}
+    </div>`;
+}
+
 function focusStoreCard(storeId){
     document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
     const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
@@ -408,7 +416,7 @@ function initMap(){
             icon: hubIcon()
         });
         const info = new google.maps.InfoWindow({
-            content: `<div style="font-family:Arial"><b>${hubName.toUpperCase()} HUB</b><br>${hub.address || ""}</div>`
+            content: mapInfoHtml(`${hubName.toUpperCase()} HUB`, [hub.address || ""])
         });
         marker.addListener("click", () => info.open(map, marker));
         bounds.extend(hubPos);
@@ -434,7 +442,12 @@ function initMap(){
 
         bounds.extend(pos);
         const info = new google.maps.InfoWindow({
-            content: `<div style="font-family:Arial"><b>STOP ${thisPinNumber} - BOL ${store.bol || ""}</b><br>${store.store_name || store.origin || "Store"}<br>${store.city || ""}, ${store.state || ""}<br>Status: ${store.status || "Unassigned"}<br>Due: ${store.due_date || "Not captured"}</div>`
+            content: mapInfoHtml(`STOP ${thisPinNumber} - BOL ${store.bol || ""}`, [
+                store.store_name || store.origin || "Store",
+                `${store.city || ""}, ${store.state || ""}`,
+                `Status: ${store.status || "Unassigned"}`,
+                `Due: ${store.due_date || "Not captured"}`
+            ])
         });
         markers[store.id].addListener("click", () => {
             if((store.status || "Unassigned") === "Unassigned"){

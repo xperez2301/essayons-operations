@@ -39,6 +39,15 @@ function dashHubIcon(){
   </svg>`;
   return {url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(52,52), anchor:new google.maps.Point(26,26)};
 }
+
+function dashInfoHtml(title, lines){
+  const safe = value => String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return `<div style="font-family:Arial,sans-serif;color:#111827;background:#ffffff;min-width:240px;max-width:320px;padding:10px 12px;line-height:1.4;font-size:14px;font-weight:600;">
+    <div style="font-size:16px;font-weight:900;color:#7f1d1d;margin-bottom:6px;">${safe(title)}</div>
+    ${lines.filter(Boolean).map(line => `<div style="color:#111827;margin-top:3px;">${safe(line)}</div>`).join('')}
+  </div>`;
+}
+
 function initDashboardMap(){
   const el = document.getElementById('dashboard-map');
   if(!el || !window.google || !google.maps) return;
@@ -49,7 +58,7 @@ function initDashboardMap(){
   Object.keys(hubs).forEach(name=>{
     const h=hubs[name]; const pos={lat:Number(h.lat),lng:Number(h.lng)};
     const marker=new google.maps.Marker({position:pos,map,title:name+' Hub',icon:dashHubIcon()});
-    const info=new google.maps.InfoWindow({content:`<div style="font-family:Arial"><b>${name.toUpperCase()} HUB</b><br>${h.address}</div>`});
+    const info=new google.maps.InfoWindow({content:dashInfoHtml(`${name.toUpperCase()} HUB`, [h.address])});
     marker.addListener('click',()=>info.open(map,marker));
     bounds.extend(pos);
   });
@@ -67,7 +76,14 @@ function initDashboardMap(){
       title:`${index+1}. BOL ${store.bol || ''} - ${store.store_name || store.origin || 'Store'}`,
       icon:dashClusterIcon(index+1, color)
     });
-    const info=new google.maps.InfoWindow({content:`<div style="font-family:Arial"><b>STOP ${index+1} - BOL ${store.bol || ''}</b><br>${store.store_name || store.origin || 'Store'}<br>${store.city || ''}, ${store.state || ''}<br>Status: ${store.status || 'Unassigned'}<br>Due: ${store.due_date || 'Not captured'}</div>`});
+    const info=new google.maps.InfoWindow({
+      content:dashInfoHtml(`STOP ${index+1} - BOL ${store.bol || ''}`, [
+        store.store_name || store.origin || 'Store',
+        `${store.city || ''}, ${store.state || ''}`,
+        `Status: ${store.status || 'Unassigned'}`,
+        `Due: ${store.due_date || 'Not captured'}`
+      ])
+    });
     marker.addListener('click',()=>info.open(map,marker));
     bounds.extend(pos);
   });
