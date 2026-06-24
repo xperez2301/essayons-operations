@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+    <title>{{ route.route_number }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body{font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:16px}
+        .card{background:#111827;border:1px solid #334155;border-radius:14px;padding:14px;margin-bottom:12px}
+        h1,h2,h3{margin:0 0 8px}
+        .metric{display:inline-block;background:#1e293b;border-radius:10px;padding:10px;margin:4px}
+        .stop{border-left:4px solid #60a5fa}
+        a{color:#93c5fd}
+        .btn{display:inline-block;padding:10px 12px;background:#2563eb;color:white;border-radius:10px;text-decoration:none;font-weight:800;margin-top:6px}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>{{ route.route_number }}</h1>
+        <p>Driver: {{ route.driver or "Not Assigned" }}</p>
+        <p>Helper: {{ route.helper or "" }}</p>
+        <p>Truck: {{ route.truck or "" }}</p>
+        <p>Hub: {{ route.hub }}</p>
+        <p>Status: {{ route.status or "Assigned" }}</p>
+    </div>
+
+    <div class="card">
+        <div class="metric">Stops: <b>{{ route.metrics.store_count }}</b></div>
+        <div class="metric">Racks: <b>{{ route.metrics.racks }}</b></div>
+        <div class="metric">Weight: <b>{{ route.metrics.weight }} lbs</b></div>
+        <div class="metric">Remaining: <b>{{ route.metrics.remaining_capacity }} lbs</b></div>
+    </div>
+
+    {% for stop in route.stops %}
+    <div class="card stop">
+        <h3>Stop {{ loop.index }} — BOL {{ stop.bol }}</h3>
+        <p><b>{{ stop.store_name }}</b> / {{ stop.origin }}</p>
+        <p>{{ stop.address }}<br>{{ stop.city }}, {{ stop.state }} {{ stop.zip }}</p>
+        <p>Racks: {{ stop.expected_racks }} | Weight: {{ stop.weight }} lbs</p>
+        <a class="btn" href="https://www.google.com/maps/search/?api=1&query={{ (stop.address ~ ', ' ~ stop.city ~ ', ' ~ stop.state ~ ' ' ~ stop.zip)|urlencode }}" target="_blank">Open in Maps</a>
+        <a class="btn" href="/bol-live/{{ stop.bol }}" target="_blank">View BOL</a>
+    </div>
+    {% endfor %}
+</body>
+</html>

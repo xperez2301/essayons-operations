@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EOMS Login | Essayons Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#15170f;--panel:#20241a;--line:#3a4127;--sand:#e6dab6;--sand2:#c8bd99;
+        --muted:#928c70;--olive:#7a8347;--olive2:#9aa65d;--brick:#b1432f;--brick2:#cb5440;--ink:#14160d}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:'Rajdhani',system-ui,sans-serif;color:var(--sand);
+    background:var(--bg);background-image:
+      radial-gradient(1100px 600px at 80% -10%,rgba(122,131,71,.12),transparent 60%),
+      radial-gradient(800px 500px at 0% 110%,rgba(177,67,47,.10),transparent 55%);
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:min(420px,92vw);background:linear-gradient(180deg,var(--panel),#262b1d);
+    border:1px solid var(--line);border-radius:16px;padding:32px 30px;position:relative;overflow:hidden;
+    box-shadow:0 24px 60px -28px rgba(0,0,0,.9)}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
+    background:linear-gradient(90deg,var(--brick),transparent 70%)}
+  .crest{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+  .logo{width:48px;height:48px;display:grid;place-items:center;font-weight:700;font-size:27px;
+    color:var(--sand);background:linear-gradient(160deg,var(--brick),#7e2e21);border:1px solid var(--brick2);
+    border-radius:9px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+  h1{margin:0;font-size:26px;font-weight:700;letter-spacing:3px}
+  .sub{margin:2px 0 0;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted)}
+  .tag{margin:18px 0 20px;font-size:13px;letter-spacing:1px;color:var(--sand2);
+    text-transform:uppercase;border-top:1px solid var(--line);padding-top:16px}
+  label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+  input{width:100%;padding:12px 13px;border-radius:9px;border:1px solid var(--line);
+    background:#1b1e14;color:var(--sand);font-family:'Rajdhani',sans-serif;font-size:15px}
+  input::placeholder{color:var(--muted)}
+  input:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px rgba(122,131,71,.18)}
+  button{width:100%;margin-top:22px;padding:13px;border-radius:9px;border:1px solid var(--olive2);
+    background:var(--olive);color:var(--ink);font-family:'Rajdhani',sans-serif;font-weight:700;
+    font-size:15px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:.15s ease}
+  button:hover{background:var(--olive2);transform:translateY(-1px)}
+  .err{background:rgba(177,67,47,.18);border:1px solid var(--brick);border-radius:9px;
+    padding:11px 13px;margin-top:16px;font-size:14px;color:#f0c2b6}
+</style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login">
+    <div class="crest">
+      <div class="logo">E</div>
+      <div>
+        <h1>EOMS</h1>
+        <p class="sub">Essayons Operations</p>
+      </div>
+    </div>
+    <p class="tag">Authorized dispatch access only</p>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next" value="{{ next or '/dispatch-map' }}">
+    <label for="username">Username</label>
+    <input id="username" name="username" placeholder="Enter username" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" placeholder="Enter password" required>
+    <button type="submit">Enter Dispatch Portal</button>
+  </form>
+</body>
+</html>

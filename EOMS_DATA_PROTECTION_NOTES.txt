@@ -1,0 +1,10 @@
+Recommended GitHub protection:
+
+Add this to .gitignore later if you do not want live data pushed:
+data/*.json
+bol_files/
+uploads/
+diagnostics/
+
+However, if you want GitHub to back up your local data, do not ignore data/*.json.
+The main point is: future update ZIPs should never include empty data files.

@@ -1,0 +1,11 @@
+{
+  "rms_username": "",
+  "rms_password": "",
+  "rms_password_saved": false,
+  "remember_rms_credentials": true,
+  "last_rms_login": "",
+  "rms_connection_status": "Not Tested",
+  "rms_login_url": "https://rms.reusability.com/login",
+  "rms_bol_url": "https://rms.reusability.com/bills-of-lading",
+  "google_maps_api_key": ""
+}

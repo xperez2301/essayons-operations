@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>EOMS Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-logo">EOMS</div>
+        <h1>Essayons Operations</h1>
+        <p>Secure dispatch command center</p>
+        <form action="/dispatch-map" method="get">
+            <label>Username</label>
+            <input type="text" value="xperez2301" required>
+            <label>Password</label>
+            <input type="password" placeholder="Enter password" required>
+            <button type="submit">Enter Dispatch Hub</button>
+        </form>
+    </div>
+</body>
+</html>
