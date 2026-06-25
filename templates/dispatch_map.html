@@ -99,13 +99,7 @@ window.EOMS_HUBS = {{ hubs | tojson }};
 window.MAX_PAYLOAD = {{ max_payload }};
 window.EOMS_CAN_VIEW_FINANCIALS = {{ can_view_financials | tojson }};
 window.EOMS_MAP_SETTINGS = {{ map_settings | tojson }};
-function gm_authFailure(){
-    var el = document.getElementById("map");
-    if (el) el.innerHTML =
-      "<div class='map-missing-key'><b>Google rejected this Maps API key.</b>" +
-      "<br>Confirm Maps JavaScript API, billing, and allowed referrers in Settings." +
-      "<br>The store list and route builder still work locally.</div>";
-}
+window.AZURE_MAPS_KEY = {{ azure_maps_key | tojson }};
 async function geocodeStores(){
     if(!confirm("Fix existing store pin locations now? This may take a minute.")) return;
     const response = await fetch("/api/geocode-stores", {method:"POST"});
@@ -114,15 +108,19 @@ async function geocodeStores(){
     location.reload();
 }
 </script>
+{% if azure_maps_key %}
+<link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
+<script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+{% endif %}
 <script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
-{% if google_maps_api_key %}
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
+{% if azure_maps_key %}
+<script>document.addEventListener("DOMContentLoaded", function(){ initMap(); });</script>
 {% else %}
 <script>
   document.addEventListener("DOMContentLoaded", function(){
     var el = document.getElementById("map");
     if (el) el.innerHTML =
-      "<div class='map-missing-key'><b>Map disabled locally.</b><br>No Google Maps API key is set. Add it under <a href='/settings'>Settings</a> to enable live pins.<br>The store list, board, route preview, and assignment still work.</div>";
+      "<div class='map-missing-key'><b>Map disabled locally.</b><br>No Azure Maps key is set. Add it under <a href='/settings'>Settings</a> to enable live pins.<br>The store list, board, route preview, and assignment still work.</div>";
   });
 </script>
 {% endif %}

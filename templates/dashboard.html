@@ -97,16 +97,17 @@
 window.EOMS_DASHBOARD_STORES = {{ stores | tojson }};
 window.EOMS_DASHBOARD_HUBS = {{ hubs | tojson }};
 window.EOMS_MAP_SETTINGS = {{ map_settings | tojson }};
-function gm_authFailure(){
-  var el=document.getElementById('dashboard-map');
-  if(el) el.innerHTML='<div class="map-missing-key"><b>Google Maps key rejected.</b><br>Dashboard still works. Check Settings.</div>';
-}
+window.AZURE_MAPS_KEY = {{ azure_maps_key | tojson }};
 </script>
+{% if azure_maps_key %}
+<link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
+<script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+{% endif %}
 <script src="{{ url_for('static', filename='js/dashboard_command.js') }}"></script>
-{% if google_maps_api_key %}
-<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initDashboardMap"></script>
+{% if azure_maps_key %}
+<script>document.addEventListener('DOMContentLoaded', function(){ initDashboardMap(); });</script>
 {% else %}
-<script>document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('dashboard-map'); if(el) el.innerHTML='<div class="map-missing-key"><b>Map disabled locally.</b><br>Add Google Maps API key in Settings.</div>';});</script>
+<script>document.addEventListener('DOMContentLoaded',function(){var el=document.getElementById('dashboard-map'); if(el) el.innerHTML='<div class="map-missing-key"><b>Map disabled locally.</b><br>Add Azure Maps key in Settings.</div>';});</script>
 {% endif %}
 
 <script>

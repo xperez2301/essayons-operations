@@ -7,5 +7,5 @@
   "rms_connection_status": "Not Tested",
   "rms_login_url": "https://rms.reusability.com/login",
   "rms_bol_url": "https://rms.reusability.com/bills-of-lading",
-  "google_maps_api_key": ""
+  "azure_maps_key": ""
 }

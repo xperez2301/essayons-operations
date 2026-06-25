@@ -144,7 +144,7 @@ def ensure_dirs():
         )
     for path, default in [
         (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "google_maps_api_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "azure_maps_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
         (SYNC_HISTORY_FILE, []),
         (RMS_QUEUE_FILE, []),
         (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
@@ -175,7 +175,7 @@ def read_json(path):
         env_overlay = {
             "rms_username": os.environ.get("RMS_USERNAME"),
             "rms_password": os.environ.get("RMS_PASSWORD"),
-            "google_maps_api_key": os.environ.get("GOOGLE_MAPS_API_KEY"),
+            "azure_maps_key": os.environ.get("AZURE_MAPS_KEY"),
         }
         for key, value in env_overlay.items():
             if value:
@@ -494,34 +494,45 @@ def full_address_for_item(address, city, state, zip_code):
     parts = [clean(address), clean(city), clean(state), clean(zip_code)]
     return ", ".join([p for p in parts if p])
 
-def geocode_address_google(address):
+def geocode_address_azure(address):
     settings_data = read_json(SETTINGS_FILE)
-    api_key = clean(settings_data.get("google_maps_api_key"))
+    api_key = clean(settings_data.get("azure_maps_key"))
     address = clean(address)
 
     if not api_key or not address:
-        return None, None, "No Google API key or address"
+        return None, None, "No Azure Maps key or address"
 
     try:
         response = requests.get(
-            "https://maps.googleapis.com/maps/api/geocode/json",
-            params={"address": address, "key": api_key},
+            "https://atlas.microsoft.com/search/address/json",
+            params={
+                "api-version": "1.0",
+                "subscription-key": api_key,
+                "query": address,
+                "limit": 1,
+                "countrySet": "US",
+            },
             timeout=12
         )
         data = response.json()
-        if data.get("status") == "OK" and data.get("results"):
-            loc = data["results"][0]["geometry"]["location"]
-            return loc["lat"], loc["lng"], data["results"][0].get("formatted_address", address)
-        return None, None, f"Geocode failed: {data.get('status')}"
+        if data.get("results"):
+            result = data["results"][0]
+            pos = result.get("position") or {}
+            lat = pos.get("lat")
+            lng = pos.get("lon")
+            freeform = (result.get("address") or {}).get("freeformAddress") or address
+            if lat and lng:
+                return lat, lng, freeform
+        return None, None, f"Azure geocode failed: {data.get('error', {}).get('message') or data.get('summary', {}).get('query') or 'No result'}"
     except Exception as e:
         return None, None, f"Geocode error: {str(e)[:120]}"
 
 def resolve_store_coordinates(address, city, state, zip_code):
     full_address = full_address_for_item(address, city, state, zip_code)
-    lat, lng, note = geocode_address_google(full_address)
+    lat, lng, note = geocode_address_azure(full_address)
 
     if lat and lng:
-        return lat, lng, f"Google geocoded: {note}", full_address
+        return lat, lng, f"Azure Maps geocoded: {note}", full_address
 
     # Fallback only when geocoding is unavailable.
     lat, lng = coords_for(city, state)
@@ -1011,7 +1022,7 @@ def dashboard():
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
     sync_history = read_json(SYNC_HISTORY_FILE)
     settings_data = read_json(SETTINGS_FILE)
-    maps_key = clean(settings_data.get("google_maps_api_key"))
+    maps_key = clean(settings_data.get("azure_maps_key"))
     return render_template(
         "dashboard.html",
         metrics=dashboard_metrics(stores, routes),
@@ -1019,7 +1030,7 @@ def dashboard():
         routes=routes,
         hubs=HUBS,
         sync_history=sync_history[-5:] if isinstance(sync_history, list) else [],
-        google_maps_api_key=maps_key,
+        azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"},
     )
@@ -1209,7 +1220,7 @@ def api_geocode_stores():
         store["full_address"] = full_address
         store["geocode_status"] = geocode_status
 
-        if "Google geocoded" in geocode_status:
+        if "Azure Maps geocoded" in geocode_status:
             updated += 1
         else:
             failed += 1
@@ -1227,10 +1238,10 @@ def dispatch_map():
     if status_filter:
         stores = [s for s in stores if clean(s.get("status") or "Unassigned") == status_filter]
     settings_data = read_json(SETTINGS_FILE)
-    maps_key = clean(settings_data.get("google_maps_api_key"))
+    maps_key = clean(settings_data.get("azure_maps_key"))
     return render_template(
         "dispatch_map.html", stores=stores, hubs=HUBS,
-        max_payload=MAX_PAYLOAD, google_maps_api_key=maps_key,
+        max_payload=MAX_PAYLOAD, azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"}
     )
@@ -2403,7 +2414,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
                     item["pdf_path"] = save_printable_pdf(page, item, html)
 
                     # Force automatic geocoding during every Import/Re-import.
-                    # This replaces city-center fallback coordinates when a Google Maps API key is saved.
+                    # This replaces city-center fallback coordinates when an Azure Maps key is saved.
                     lat, lng, geocode_status, full_address = resolve_store_coordinates(
                         item.get("address") or item.get("origin_address") or "",
                         item.get("city") or item.get("origin_city") or "",
@@ -3345,7 +3356,7 @@ def settings():
         settings_data["rms_username"] = clean(request.form.get("rms_username"))
         settings_data["rms_login_url"] = clean(request.form.get("rms_login_url")) or "https://rms.reusability.com/login"
         settings_data["rms_bol_url"] = clean(request.form.get("rms_bol_url")) or "https://rms.reusability.com/bills-of-lading"
-        settings_data["google_maps_api_key"] = clean(request.form.get("google_maps_api_key")) or settings_data.get("google_maps_api_key", "")
+        settings_data["azure_maps_key"] = clean(request.form.get("azure_maps_key")) or settings_data.get("azure_maps_key", "")
         map_default_type = clean(request.form.get("map_default_type")).lower()
         if map_default_type not in {"satellite", "roadmap", "hybrid", "terrain"}:
             map_default_type = "satellite"
@@ -3376,7 +3387,7 @@ def settings():
             settings_data["rms_password"] = ""
             settings_data["rms_password_saved"] = False
         write_json(SETTINGS_FILE, settings_data)
-        audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"]})
+        audit("Update RMS Settings", {"username": settings_data["rms_username"], "password_saved": settings_data["rms_password_saved"], "azure_maps_key_saved": bool(settings_data.get("azure_maps_key"))})
         message = "RMS, mapping, and Telnyx settings saved."
     return render_template("settings.html", settings=settings_data, message=message)
 

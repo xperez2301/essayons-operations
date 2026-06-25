@@ -36,7 +36,7 @@
         <p><b>{{ stop.store_name }}</b> / {{ stop.origin }}</p>
         <p>{{ stop.address }}<br>{{ stop.city }}, {{ stop.state }} {{ stop.zip }}</p>
         <p>Racks: {{ stop.expected_racks }} | Weight: {{ stop.weight }} lbs</p>
-        <a class="btn" href="https://www.google.com/maps/search/?api=1&query={{ (stop.address ~ ', ' ~ stop.city ~ ', ' ~ stop.state ~ ' ' ~ stop.zip)|urlencode }}" target="_blank">Open in Maps</a>
+        <a class="btn" href="https://www.bing.com/maps?q={{ (stop.address ~ ', ' ~ stop.city ~ ', ' ~ stop.state ~ ' ' ~ stop.zip)|urlencode }}" target="_blank">Open in Maps</a>
         <a class="btn" href="/bol-live/{{ stop.bol }}" target="_blank">View BOL</a>
     </div>
     {% endfor %}

@@ -45,31 +45,21 @@ function rackFormula(store){
     return `${posts.toLocaleString()} corner posts / 4 = ${racks.toLocaleString()} racks`;
 }
 
+function azureMapStyle(value){
+    const style = String(value || "satellite").toLowerCase();
+    if(style === "roadmap" || style === "road") return "road";
+    if(style === "terrain") return "grayscale_light";
+    return "satellite_road_labels";
+}
+
 function pinIcon(number, color){
     const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d", none:"#596064"};
     const fill = colors[color] || colors.green;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="20" fill="${fill}" stroke="#f4efe6" stroke-width="2"/>
-      <circle cx="24" cy="24" r="23" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
-      <text x="24" y="30" text-anchor="middle" font-family="Arial" font-size="16" font-weight="900" fill="white">${number}</text>
-    </svg>`;
-    return {
-        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(48,48),
-        anchor: new google.maps.Point(24,24)
-    };
+    return `<button class="azure-stop-marker" type="button" style="background:${fill}" aria-label="Stop ${number}">${number}</button>`;
 }
 
 function hubIcon(){
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
-      <circle cx="26" cy="26" r="22" fill="#b7332d" stroke="#ffe2dd" stroke-width="3"/>
-      <path d="M14 33h24v-13h-4v-5h-5v5h-6v-5h-5v5h-4v13zm8 0v-7h8v7" fill="white" opacity=".95"/>
-    </svg>`;
-    return {
-        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(52,52),
-        anchor: new google.maps.Point(26,26)
-    };
+    return `<button class="azure-hub-marker" type="button" aria-label="Hub">H</button>`;
 }
 
 function mapInfoHtml(title, lines){
@@ -84,8 +74,19 @@ function syncSelectedMarkerVisibility(){
     if(!map || !markers) return;
     Object.keys(markers).forEach(id => {
         if(!markers[id]) return;
-        markers[id].setMap(selectedOrder.includes(id) ? null : map);
+        setMarkerVisible(markers[id], !selectedOrder.includes(id));
     });
+}
+
+function setMarkerVisible(marker, visible){
+    if(!map || !marker) return;
+    if(visible && !marker._eomsOnMap){
+        map.markers.add(marker);
+        marker._eomsOnMap = true;
+    }else if(!visible && marker._eomsOnMap){
+        map.markers.remove(marker);
+        marker._eomsOnMap = false;
+    }
 }
 
 function focusStoreCard(storeId){
@@ -395,7 +396,7 @@ async function unassignStore(storeId, row){
             original.assigned_driver = "";
         }
 
-        if(markers[storeId]) markers[storeId].setMap(map);
+        if(markers[storeId]) setMarkerVisible(markers[storeId], true);
 
         row.remove();
         renderStores();
@@ -428,92 +429,85 @@ function restoreRoutePreviewAfterHover(){
 }
 
 function initMap(){
-    if(!window.google || !google.maps){
+    const mapEl = document.getElementById("map");
+    if(!window.atlas || !window.AZURE_MAPS_KEY){
         const el = document.getElementById("map");
-        if(el) el.innerHTML = "<div class='map-missing-key'><b>Google Maps did not load.</b><br>The store list and route builder still work locally.</div>";
+        if(el) el.innerHTML = "<div class='map-missing-key'><b>Azure Maps did not load.</b><br>Check AZURE_MAPS_KEY in App Service settings.</div>";
         renderStores();
         updateTotals();
         if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
         return;
     }
-    map = new google.maps.Map(document.getElementById("map"), {
+    map = new atlas.Map(mapEl, {
         zoom: Number(MAP_SETTINGS.map_default_zoom || 7),
-        center: {lat: 30.8, lng: -97.2},
-        mapTypeId: MAP_SETTINGS.map_default_type || "satellite",
-        mapTypeControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
-        gestureHandling: "greedy",
-        styles: [
-            {elementType:"geometry", stylers:[{color:"#17212b"}]},
-            {elementType:"labels.text.stroke", stylers:[{color:"#111820"}]},
-            {elementType:"labels.text.fill", stylers:[{color:"#e7e7e7"}]},
-            {featureType:"water", elementType:"geometry", stylers:[{color:"#0c3357"}]},
-            {featureType:"road", elementType:"geometry", stylers:[{color:"#2b333b"}]},
-            {featureType:"poi", stylers:[{visibility:"off"}]}
-        ]
+        center: [-97.2, 30.8],
+        style: azureMapStyle(MAP_SETTINGS.map_default_type),
+        view: "Auto",
+        authOptions:{authType:"subscriptionKey", subscriptionKey:window.AZURE_MAPS_KEY}
     });
 
-    const bounds = new google.maps.LatLngBounds();
+    map.events.add("ready", function(){
+        const positions = [];
 
-    Object.keys(hubs).forEach(hubName => {
-        const hub = hubs[hubName];
-        const hubPos = {lat: Number(hub.lat), lng: Number(hub.lng)};
-        const marker = new google.maps.Marker({
-            position: hubPos,
-            map,
-            title: hubName + " Hub",
-            icon: hubIcon()
-        });
-        marker.addListener("mouseover", () => {
-            const preview = document.getElementById("route-preview");
-            if(preview){
-                preview.innerHTML = `<div class="route-card"><h4>Hub Details</h4><p><b>${hubName.toUpperCase()} HUB</b></p><p>${hub.address || ""}</p></div>`;
-            }
-        });
-        marker.addListener("mouseout", restoreRoutePreviewAfterHover);
-        bounds.extend(hubPos);
-    });
-
-    let pinNumber = 1;
-
-    stores.forEach(store => {
-        let lat = Number(store.lat);
-        let lng = Number(store.lng);
-        if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
-
-        const pos = {lat: lat, lng: lng};
-        const thisPinNumber = pinNumber++;
-        const color = dueStatus(store);
-
-        markers[store.id] = new google.maps.Marker({
-            position: pos,
-            map,
-            title: `${thisPinNumber}. BOL ${store.bol || ""} - Due ${store.due_date || "Not captured"} - ${color === "none" ? "NO DATE" : color.toUpperCase()}`,
-            icon: pinIcon(thisPinNumber, color)
+        Object.keys(hubs).forEach(hubName => {
+            const hub = hubs[hubName];
+            const hubPos = [Number(hub.lng), Number(hub.lat)];
+            if(!hubPos[0] || !hubPos[1] || isNaN(hubPos[0]) || isNaN(hubPos[1])) return;
+            const marker = new atlas.HtmlMarker({position:hubPos, htmlContent:hubIcon()});
+            marker._eomsOnMap = true;
+            map.markers.add(marker);
+            map.events.add("mouseover", marker, () => {
+                const preview = document.getElementById("route-preview");
+                if(preview){
+                    preview.innerHTML = `<div class="route-card"><h4>Hub Details</h4><p><b>${hubName.toUpperCase()} HUB</b></p><p>${hub.address || ""}</p></div>`;
+                }
+            });
+            map.events.add("mouseout", marker, restoreRoutePreviewAfterHover);
+            positions.push(hubPos);
         });
 
-        bounds.extend(pos);
-        markers[store.id].addListener("mouseover", () => hoverStorePreview(store, thisPinNumber));
-        markers[store.id].addListener("mouseout", restoreRoutePreviewAfterHover);
-        markers[store.id].addListener("click", () => {
-            if((store.status || "Unassigned") === "Unassigned"){
-                focusStoreCard(store.id);
-            }else{
-                hoverStorePreview(store, thisPinNumber);
-            }
+        let pinNumber = 1;
+
+        stores.forEach(store => {
+            let lat = Number(store.lat);
+            let lng = Number(store.lng);
+            if(!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
+            const pos = [lng, lat];
+            const thisPinNumber = pinNumber++;
+            const color = dueStatus(store);
+
+            markers[store.id] = new atlas.HtmlMarker({
+                position: pos,
+                htmlContent: pinIcon(thisPinNumber, color)
+            });
+            markers[store.id]._eomsOnMap = true;
+            map.markers.add(markers[store.id]);
+
+            positions.push(pos);
+            map.events.add("mouseover", markers[store.id], () => hoverStorePreview(store, thisPinNumber));
+            map.events.add("mouseout", markers[store.id], restoreRoutePreviewAfterHover);
+            map.events.add("click", markers[store.id], () => {
+                if((store.status || "Unassigned") === "Unassigned"){
+                    focusStoreCard(store.id);
+                }else{
+                    hoverStorePreview(store, thisPinNumber);
+                }
+            });
         });
-    });
 
-    renderStores();
+        renderStores();
 
-    const visibleMarkers = Object.keys(markers).length;
-    if(visibleMarkers > 0){
-        map.fitBounds(bounds);
-        if(visibleMarkers === 1){
-            map.setZoom(10);
+        const visibleMarkers = Object.keys(markers).length;
+        if(positions.length === 1){
+            map.setCamera({center:positions[0], zoom:10});
+        }else if(positions.length > 1){
+            map.setCamera({bounds:atlas.data.BoundingBox.fromPositions(positions), padding:70});
         }
-    }
+        if(!visibleMarkers && mapEl){
+            mapEl.insertAdjacentHTML("beforeend", "<div class='map-missing-key'><b>No pinned BOLs yet.</b><br>Import BOLs or click Fix / Reload Pins.</div>");
+        }
+    });
 }
 
 
@@ -788,7 +782,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
 
 
-// Local fallback: render the store list/board even if Google Maps does not load.
+// Local fallback: render the store list/board even if Azure Maps does not load.
 document.addEventListener("DOMContentLoaded", function(){
     try {
         if (document.getElementById("available-stores")) {
@@ -799,7 +793,7 @@ document.addEventListener("DOMContentLoaded", function(){
             var mapBox = document.getElementById("map");
             if (mapBox && !map) {
                 if (!mapBox.innerHTML.trim()) {
-                    mapBox.innerHTML = "<div class='map-missing-key'>Map did not load locally. Check Settings for Google Maps API key, then click Fix / Reload Pins.</div>";
+                    mapBox.innerHTML = "<div class='map-missing-key'>Map did not load locally. Check Settings for Azure Maps key, then click Fix / Reload Pins.</div>";
                 }
             }
         }, 2500);
