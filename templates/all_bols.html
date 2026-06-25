@@ -39,7 +39,7 @@
                     <th>Due</th>
                     <th>Review</th>
                     <th>Files</th>
-                    <th>Save</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -90,7 +90,10 @@
                         <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
                         <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
                     </td>
-                    <td><button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store._edit_id }}')">Save</button></td>
+                    <td class="action-cell">
+                        <button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store._edit_id }}')">Save</button>
+                        <button class="danger-btn small-btn" type="button" onclick="deleteBol('{{ store._edit_id }}', {{ (store.bol or '')|tojson }})">Delete</button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="10" class="muted">No BOLs match this view.</td></tr>
@@ -126,6 +129,26 @@ async function saveBol(storeId){
         return;
     }
     bolResult("Saved BOL " + (data.store.bol || storeId) + ". Status: " + (data.store.status || "Unassigned") + ".", false);
+}
+
+async function deleteBol(storeId, bol){
+    const label = bol || storeId;
+    if(!confirm("Delete BOL " + label + " completely? This removes it from EOMS and deletes saved BOL files so Auto Grab can pull it fresh.")){
+        return;
+    }
+    const response = await fetch("/api/delete-bol", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({store_id: storeId, bol: bol})
+    });
+    const data = await response.json();
+    if(!data.ok){
+        bolResult(data.message || "Unable to delete BOL.", true);
+        return;
+    }
+    const row = document.getElementById("bol-row-" + storeId);
+    if(row) row.remove();
+    bolResult(data.message || ("Deleted BOL " + label + "."), false);
 }
 </script>
 {% endblock %}

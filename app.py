@@ -3742,6 +3742,26 @@ def route_view(route_id):
 
     return render_template("route_view.html", route=route)
 
+@app.route("/route-print/<route_id>")
+def route_print(route_id):
+    routes = read_json(ROUTES_FILE)
+    route = None
+    for r in routes:
+        if r.get("id") == route_id or r.get("route_number") == route_id:
+            route = r
+            break
+
+    if not route:
+        return "Route not found", 404
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
+        if clean(route.get("driver")) not in driver_names:
+            return render_template("access_denied.html"), 403
+
+    return render_template("route_print.html", route=route)
+
 @app.route("/api/unassign-route", methods=["POST"])
 def api_unassign_route():
     data = request.get_json(force=True)

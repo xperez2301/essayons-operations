@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+    <title>{{ route.route_number }} Printable Route</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root{--ink:#111827;--muted:#5b6472;--line:#d7dde5;--red:#b91c1c;--green:#166534}
+        *{box-sizing:border-box}
+        body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#f3f5f8;margin:0;padding:18px}
+        .sheet{max-width:980px;margin:0 auto;background:#fff;border:1px solid var(--line);box-shadow:0 12px 30px rgba(15,23,42,.12)}
+        .toolbar{max-width:980px;margin:0 auto 12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+        button,.btn{border:1px solid #1f2937;background:#1f2937;color:white;border-radius:6px;padding:9px 12px;font-weight:700;text-decoration:none;cursor:pointer}
+        .btn.secondary,button.secondary{background:#fff;color:#1f2937}
+        header{display:flex;justify-content:space-between;gap:18px;border-bottom:3px solid #1f2937;padding:22px 24px}
+        h1{margin:0;font-size:30px}
+        h2{margin:0 0 8px;font-size:18px}
+        p{margin:4px 0}
+        .muted{color:var(--muted)}
+        .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 24px;border-bottom:1px solid var(--line)}
+        .metric{border:1px solid var(--line);border-radius:6px;padding:10px}
+        .metric span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase}
+        .metric b{font-size:20px}
+        .driver{padding:14px 24px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top;font-size:13px}
+        th{background:#eef2f7;font-size:11px;text-transform:uppercase}
+        .stop-num{font-size:20px;font-weight:900;text-align:center}
+        .due{font-weight:700;color:var(--red)}
+        .notes{padding:16px 24px}
+        .signature{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:18px}
+        .sig-line{border-top:1px solid var(--ink);padding-top:7px;color:var(--muted)}
+        @media print{
+            body{background:#fff;padding:0}
+            .toolbar{display:none}
+            .sheet{max-width:none;border:0;box-shadow:none}
+            a{color:inherit;text-decoration:none}
+            @page{size:letter;margin:.35in}
+        }
+        @media(max-width:760px){
+            header,.driver{grid-template-columns:1fr;display:block}
+            .summary{grid-template-columns:1fr 1fr}
+            th,td{font-size:12px}
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button type="button" onclick="window.print()">Print / Save PDF</button>
+        <button type="button" class="secondary" onclick="copyRouteLink()">Copy Link</button>
+        <a id="email-route-link" class="btn secondary" href="#">Email Route</a>
+    </div>
+
+    <main class="sheet">
+        <header>
+            <div>
+                <h1>{{ route.route_number }}</h1>
+                <p class="muted">Essayons BAX Recovery & Logistics</p>
+                <p><b>Status:</b> {{ route.status or "Assigned" }} &nbsp; <b>Created:</b> {{ route.created_at or "" }}</p>
+            </div>
+            <div>
+                <h2>{{ route.driver or "Driver Not Assigned" }}</h2>
+                <p><b>Hub:</b> {{ route.hub or "" }}</p>
+                <p><b>Truck:</b> {{ route.truck or "" }}</p>
+                <p><b>Helper:</b> {{ route.helper or "" }}</p>
+            </div>
+        </header>
+
+        <section class="summary">
+            <div class="metric"><span>Stops</span><b>{{ route.metrics.store_count if route.metrics else route.stops|length }}</b></div>
+            <div class="metric"><span>Racks</span><b>{{ route.metrics.racks if route.metrics else "" }}</b></div>
+            <div class="metric"><span>Weight</span><b>{{ route.metrics.weight if route.metrics else "" }}</b></div>
+            <div class="metric"><span>Remaining</span><b>{{ route.metrics.remaining_capacity if route.metrics else "" }}</b></div>
+            <div class="metric"><span>Miles</span><b>{{ route.metrics.mileage if route.metrics else "" }}</b></div>
+        </section>
+
+        <section class="driver">
+            <p><b>Driver Phone</b><br>{{ route.driver_phone or "" }}</p>
+            <p><b>Mode</b><br>{{ route.mode_label or route.mode or "Selection Order" }}</p>
+            <p><b>Payload Status</b><br>{{ route.metrics.status if route.metrics else "" }}</p>
+            <p><b>Route Link</b><br><span id="route-url-text"></span></p>
+        </section>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Stop</th>
+                    <th>BOL / Due</th>
+                    <th>Store</th>
+                    <th>Address</th>
+                    <th>Load</th>
+                    <th>Links</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stop in route.stops %}
+                <tr>
+                    <td class="stop-num">{{ loop.index }}</td>
+                    <td><b>{{ stop.bol or "" }}</b><br><span class="due">{{ stop.due_date or "No Due Date" }}</span></td>
+                    <td><b>{{ stop.store_name or stop.origin or "Store" }}</b><br>{{ stop.origin or "" }}<br>{{ stop.contact or "" }}</td>
+                    <td>{{ stop.address or "" }}<br>{{ stop.city or "" }}, {{ stop.state or "" }} {{ stop.zip or "" }}</td>
+                    <td>{{ stop.expected_racks or 0 }} racks<br>{{ stop.weight or 0 }} lbs</td>
+                    <td>
+                        <a href="https://www.bing.com/maps?q={{ (stop.address ~ ', ' ~ stop.city ~ ', ' ~ stop.state ~ ' ' ~ stop.zip)|urlencode }}" target="_blank">Map</a><br>
+                        <a href="/bol-live/{{ stop.bol }}" target="_blank">Live BOL</a><br>
+                        <a href="/bol-print/{{ stop.id }}" target="_blank">Print BOL</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <section class="notes">
+            <h2>Driver Notes</h2>
+            <p class="muted">Confirm rack count, collect closeout counts, and call dispatch for any mismatch before leaving the stop.</p>
+            <div class="signature">
+                <div class="sig-line">Driver Signature / Date</div>
+                <div class="sig-line">Dispatcher Approval / Date</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    const routeUrl = window.location.href;
+    document.getElementById("route-url-text").textContent = routeUrl;
+    document.getElementById("email-route-link").href =
+        "mailto:?subject=" + encodeURIComponent("Route {{ route.route_number }}") +
+        "&body=" + encodeURIComponent("Printable route: " + routeUrl);
+    function copyRouteLink(){
+        navigator.clipboard.writeText(routeUrl).then(function(){
+            alert("Printable route link copied.");
+        }).catch(function(){
+            prompt("Copy printable route link:", routeUrl);
+        });
+    }
+    </script>
+</body>
+</html>

@@ -40,6 +40,7 @@
             <input id="helper-{{ route.id }}" type="text" value="{{ route.helper or '' }}" placeholder="Helper">
             <button type="button" class="primary-btn small-btn" onclick="saveDriver('{{ route.id }}')">Save Driver</button>
             <button type="button" class="secondary-btn small-btn" onclick="sendRoute('{{ route.id }}', '{{ route.route_number }}')">Send Route</button>
+            <a class="secondary-btn small-btn" href="/route-print/{{ route.id }}" target="_blank">Printable Route</a>
             <button type="button" class="primary-btn small-btn" onclick="dispatchRoute('{{ route.id }}')">Mark Dispatched</button>
             <button type="button" class="secondary-btn small-btn" onclick="completeRoute('{{ route.id }}')">Mark Completed</button>
         </div>
@@ -168,7 +169,7 @@ function sendRoute(routeId, routeNumber){
         return;
     }
 
-    const routeLink = window.location.origin + "/route-view/" + routeId;
+    const routeLink = window.location.origin + "/route-print/" + routeId;
     const driver = document.getElementById("driver-name-" + routeId).value.trim();
     const truck = document.getElementById("truck-" + routeId).value.trim();
     const helper = document.getElementById("helper-" + routeId).value.trim();
@@ -177,7 +178,7 @@ function sendRoute(routeId, routeNumber){
         "EOMS Route " + routeNumber + (driver ? " for " + driver : "") + "\\n" +
         (truck ? "Truck: " + truck + "\\n" : "") +
         (helper ? "Helper: " + helper + "\\n" : "") +
-        "Open route: " + routeLink;
+        "Printable route: " + routeLink;
 
     showRouteSendBox(phone, msg, routeId);
 }
