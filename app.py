@@ -649,6 +649,41 @@ def parse_rms_pdf(path):
         "pdf_path": "",
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
+
+def apply_material_counts(item, data):
+    material_fields = {"corner_posts", "drb40", "drb48", "wood_shelf"}
+    changed = False
+    for key in material_fields:
+        if key in data:
+            item[key] = num(data.get(key))
+            changed = True
+    if "expected_racks" in data:
+        item["expected_racks"] = num(data.get("expected_racks"))
+    elif changed:
+        item["expected_racks"] = round(num(item.get("corner_posts")) / 4, 2) if num(item.get("corner_posts")) else 0
+    if "expected_pieces" in data:
+        item["expected_pieces"] = num(data.get("expected_pieces"))
+    elif changed:
+        item["expected_pieces"] = num(item.get("expected_racks")) * PIECES_PER_RACK
+    return item
+
+def sync_route_stop_materials(store):
+    routes = read_json(ROUTES_FILE)
+    changed = False
+    for route in routes:
+        route_changed = False
+        for stop in route.get("stops", []):
+            if stop.get("id") != store.get("id"):
+                continue
+            for key in ("corner_posts", "drb40", "drb48", "wood_shelf", "expected_racks", "expected_pieces", "weight"):
+                if key in store:
+                    stop[key] = store.get(key)
+            route_changed = True
+        if route_changed and route.get("stops"):
+            route["metrics"] = calculate_route_metrics(route["stops"], route.get("hub") or "San Antonio")
+            changed = True
+    if changed:
+        write_json(ROUTES_FILE, routes)
     item["review_reasons"] = essential_review_reasons(item)
     item["review_warnings"] = []
     if not origin:
@@ -3807,6 +3842,7 @@ def api_update_bol(store_id):
     editable = [
         "bol", "origin", "store_name", "address", "city", "state", "zip",
         "contact", "hub", "due_date", "assigned_date", "expected_racks",
+        "expected_pieces", "corner_posts", "drb40", "drb48", "wood_shelf",
         "weight", "status", "dispatch_group"
     ]
 
@@ -3819,13 +3855,14 @@ def api_update_bol(store_id):
                 if key not in data:
                     continue
                 value = clean(data.get(key))
-                if key in {"expected_racks", "weight"}:
+                if key in {"expected_racks", "expected_pieces", "corner_posts", "drb40", "drb48", "wood_shelf", "weight"}:
                     store[key] = num(value)
                 elif key == "status":
                     if value in allowed_statuses:
                         store[key] = value
                 else:
                     store[key] = value
+            apply_material_counts(store, data)
 
             after_location = tuple(clean(store.get(k)) for k in ("address", "city", "state", "zip", "hub"))
             if after_location != before_location:
@@ -3857,12 +3894,13 @@ def api_update_bol(store_id):
                     if key not in data:
                         continue
                     value = clean(data.get(key))
-                    if key in {"expected_racks", "weight"}:
+                    if key in {"expected_racks", "expected_pieces", "corner_posts", "drb40", "drb48", "wood_shelf", "weight"}:
                         q[key] = num(value)
                     elif key == "status":
                         q["queue_status"] = value or q.get("queue_status") or "New"
                     else:
                         q[key] = value
+                apply_material_counts(q, data)
                 q["updated_at"] = datetime.now().isoformat(timespec="seconds")
                 updated = q
                 break
@@ -3888,6 +3926,7 @@ def api_update_bol(store_id):
     write_json(RMS_QUEUE_FILE, queue)
 
     audit("Update BOL", {"store_id": updated.get("id"), "bol": updated.get("bol"), "status": updated.get("status")})
+    sync_route_stop_materials(updated)
     return jsonify({"ok": True, "store": updated})
 
 
@@ -3996,6 +4035,7 @@ def api_driver_complete():
                 driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
                 if clean(store.get("assigned_driver")) not in driver_names:
                     return jsonify({"ok": False, "message": "This stop is not assigned to you."}), 403
+            apply_material_counts(store, data)
             store["collected_racks"] = collected_racks
             store["collected_pieces"] = collected_pieces if collected_pieces is not None else collected_racks * PIECES_PER_RACK
             store["variance"] = collected_racks - num(store.get("expected_racks"))
@@ -4024,6 +4064,8 @@ def api_driver_complete():
                 route["completed_at"] = datetime.now().isoformat(timespec="seconds")
                 route["completion_summary"] = completion_summary_for_stores(route_stores)
     write_json(ROUTES_FILE, routes)
+    if updated:
+        sync_route_stop_materials(updated)
     audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks, "collected_pieces": collected_pieces})
     if not updated:
         return jsonify({"ok": False, "message": "Stop not found."}), 404

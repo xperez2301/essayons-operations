@@ -125,4 +125,9 @@ body{background:#050607;color:var(--cmd-text);}
 .azure-stop-marker:hover,.azure-hub-marker:hover{transform:scale(1.08)}
 .azure-hub-marker{width:52px;height:52px;background:#b7332d;border-width:3px;font-size:18px}
 .atlas-map{background:#121820}
+.material-editor{display:grid;grid-template-columns:repeat(4,minmax(44px,1fr));gap:6px;margin:8px 0;padding:7px;border:1px solid var(--cmd-line);border-radius:7px;background:#090d10}
+.material-editor label{margin:0;color:var(--cmd-muted);font-size:10px;letter-spacing:0;text-transform:uppercase}
+.material-editor input{width:100%;margin-top:3px;padding:5px 6px;font-size:12px;border-radius:6px}
+.material-editor button{padding:5px 7px;font-size:10px}
+.material-editor .danger-mini{background:var(--cmd-red2);color:#fff;border-color:rgba(255,255,255,.14)}
 @media(max-width:560px){.login-crest{flex-direction:column;text-align:center}.login-logo-img{width:220px;height:190px}.brand-logo-img{width:60px;height:48px}.brand h1{font-size:19px}}

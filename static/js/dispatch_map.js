@@ -70,6 +70,25 @@ function mapInfoHtml(title, lines){
     </div>`;
 }
 
+function materialValue(store, key){
+    const value = Number(store[key] || 0);
+    return Number.isFinite(value) ? value : 0;
+}
+
+function materialEditorHtml(store){
+    const id = store.id || store.bol || "";
+    const bol = String(store.bol || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    return `
+        <div class="material-editor" data-store-id="${id}" data-bol="${bol}">
+            <label>84<input data-material="corner_posts" type="number" min="0" step="1" value="${materialValue(store, "corner_posts")}"></label>
+            <label>40<input data-material="drb40" type="number" min="0" step="1" value="${materialValue(store, "drb40")}"></label>
+            <label>48<input data-material="drb48" type="number" min="0" step="1" value="${materialValue(store, "drb48")}"></label>
+            <label>Wood<input data-material="wood_shelf" type="number" min="0" step="1" value="${materialValue(store, "wood_shelf")}"></label>
+            <button class="tiny-btn" type="button" onclick="saveMapBoardMaterials(this.closest('.material-editor').dataset.storeId)">Save Load</button>
+            <button class="tiny-btn danger-mini" type="button" onclick="deleteMapBoardBol(this.closest('.material-editor').dataset.storeId,this.closest('.material-editor').dataset.bol)">Delete</button>
+        </div>`;
+}
+
 function syncSelectedMarkerVisibility(){
     if(!map || !markers) return;
     Object.keys(markers).forEach(id => {
@@ -637,6 +656,7 @@ function renderMapDispatchBoard(){
                     </div>
                     <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
                     <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
+                    ${materialEditorHtml(store)}
                     ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                     <div class="map-board-actions">
                         <a class="mini-link" href="/bol-live/${store.bol}" target="_blank">Live</a>
@@ -680,6 +700,49 @@ async function setMapBoardStatus(storeId, status){
         alert(data.message || "Unable to update status.");
         return;
     }
+    location.reload();
+}
+
+async function saveMapBoardMaterials(storeId){
+    const box = document.querySelector(`.material-editor[data-store-id="${storeId}"]`);
+    if(!box){
+        alert("Material editor not found.");
+        return;
+    }
+    const payload = {};
+    box.querySelectorAll("[data-material]").forEach(input => {
+        payload[input.dataset.material] = input.value;
+    });
+    const response = await fetch("/api/bol/" + encodeURIComponent(storeId), {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to save material counts.");
+        return;
+    }
+    alert(`Saved load counts. Racks recalculated to ${data.store.expected_racks || 0}.`);
+    location.reload();
+}
+
+async function deleteMapBoardBol(storeId, bol){
+    const label = bol || storeId;
+    if(!confirm("Delete BOL " + label + " completely? This removes it from EOMS and deletes saved BOL files so Auto Grab can pull it fresh.")){
+        return;
+    }
+    const response = await fetch("/api/delete-bol", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({store_id:storeId, bol:bol})
+    });
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to delete BOL.");
+        return;
+    }
+    alert(data.message || "BOL deleted.");
     location.reload();
 }
 
@@ -752,6 +815,7 @@ async function renderMapDispatchBoardLive(){
                         </div>
                         <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
                         <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
+                        ${materialEditorHtml(store)}
                         ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                         <div class="map-board-actions">
                             <a class="mini-link" href="/bol-live/${store.bol}" target="_blank">Live</a>

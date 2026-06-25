@@ -17,6 +17,12 @@
         <p><b>Location:</b> {{ store.city }}, {{ store.state }}</p>
         <p><b>Expected Racks:</b> {{ store.expected_racks }}</p>
         <p><b>Expected PCS:</b> {{ store.expected_pieces or ((store.expected_racks or 0) * 19) }}</p>
+        <div class="material-editor driver-material-editor">
+            <label>84<input id="corner-{{ store.id }}" type="number" min="0" step="1" value="{{ store.corner_posts or 0 }}"></label>
+            <label>40<input id="drb40-{{ store.id }}" type="number" min="0" step="1" value="{{ store.drb40 or 0 }}"></label>
+            <label>48<input id="drb48-{{ store.id }}" type="number" min="0" step="1" value="{{ store.drb48 or 0 }}"></label>
+            <label>Wood<input id="wood-{{ store.id }}" type="number" min="0" step="1" value="{{ store.wood_shelf or 0 }}"></label>
+        </div>
         <label>Racks Collected</label>
         <input id="collected-{{ store.id }}" type="number" min="0" step="1" required>
         <label>PCS Collected</label>
@@ -35,6 +41,10 @@
 async function completeStop(storeId){
     const value = document.getElementById("collected-" + storeId).value;
     const pieces = document.getElementById("pieces-" + storeId).value;
+    const cornerPosts = document.getElementById("corner-" + storeId).value;
+    const drb40 = document.getElementById("drb40-" + storeId).value;
+    const drb48 = document.getElementById("drb48-" + storeId).value;
+    const woodShelf = document.getElementById("wood-" + storeId).value;
     if(value === ""){
         alert("Enter collected rack count before completing this stop.");
         return;
@@ -42,7 +52,15 @@ async function completeStop(storeId){
     const response = await fetch("/api/driver/complete", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({store_id:storeId, collected_racks:value, collected_pieces:pieces})
+        body:JSON.stringify({
+            store_id:storeId,
+            collected_racks:value,
+            collected_pieces:pieces,
+            corner_posts:cornerPosts,
+            drb40:drb40,
+            drb48:drb48,
+            wood_shelf:woodShelf
+        })
     });
     const data = await response.json();
     if(data.ok){
