@@ -49,14 +49,29 @@ function updateDashboardRoutePreview(store, stopNumber){
     panel.innerHTML = `<h3>Route Preview</h3><b>No route selected</b><p>Select stores on the map to build a route preview.</p><a href="/dispatch-map">Open Dispatch Map</a>`;
     return;
   }
+  const originName = store.origin_name || store.store_name || store.origin || "Not captured";
+  const destinationName = store.destination_name || store.destination || "Not captured";
+  const address = store.full_address || [
+    store.address || store.origin_address || "",
+    store.city || store.origin_city || "",
+    store.state || store.origin_state || "",
+    store.zip || store.origin_zip || ""
+  ].filter(Boolean).join(", ");
+  const review = (store.review_reasons && store.review_reasons.length)
+    ? store.review_reasons.join(", ")
+    : ((store.review_warnings && store.review_warnings.length) ? store.review_warnings.join(", ") : "Ready");
   panel.innerHTML = `
     <h3>Pin Details</h3>
     <b>STOP ${stopNumber} - BOL ${safeHtml(store.bol || "")}</b>
-    <p><b>Store:</b> ${safeHtml(store.store_name || store.origin || "Store")}</p>
+    <p><b>Origin/Pickup:</b> ${safeHtml(originName)}</p>
+    <p><b>Destination:</b> ${safeHtml(destinationName)}</p>
+    <p><b>Address:</b> ${safeHtml(address || "Not captured")}</p>
     <p><b>City:</b> ${safeHtml(`${store.city || ""}${store.city && store.state ? ", " : ""}${store.state || ""}`)}</p>
     <p><b>Status:</b> ${safeHtml(store.status || "Unassigned")}</p>
+    <p><b>Review:</b> ${safeHtml(review)}</p>
     <p><b>Due:</b> ${safeHtml(store.due_date || "Not captured")}</p>
-    <p><b>Racks:</b> ${safeHtml(store.expected_racks || 0)}</p>
+    <p><b>Racks:</b> ${safeHtml(store.expected_racks || "Not captured")}</p>
+    <p><b>Materials:</b> CP ${safeHtml(store.corner_posts || 0)} / DRB40 ${safeHtml(store.drb40 || 0)} / DRB48 ${safeHtml(store.drb48 || 0)} / Wood ${safeHtml(store.wood_shelf || 0)}</p>
     <p><b>Weight:</b> ${Number(store.weight || 0).toLocaleString()} lbs</p>
     <p><b>Hub:</b> ${safeHtml(store.hub || "Manual Review")}</p>
     <a href="/dispatch-map">Open Dispatch Map</a>`;

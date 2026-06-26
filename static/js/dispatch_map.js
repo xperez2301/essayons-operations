@@ -426,16 +426,31 @@ async function unassignStore(storeId, row){
 function hoverStorePreview(store, stopNumber){
     const preview = document.getElementById("route-preview");
     if(!preview || !store) return;
+    const originName = store.origin_name || store.store_name || store.origin || "Not captured";
+    const destinationName = store.destination_name || store.destination || "Not captured";
+    const address = store.full_address || [
+        store.address || store.origin_address || "",
+        store.city || store.origin_city || "",
+        store.state || store.origin_state || "",
+        store.zip || store.origin_zip || ""
+    ].filter(Boolean).join(", ");
+    const review = (store.review_reasons && store.review_reasons.length)
+        ? store.review_reasons.join(", ")
+        : ((store.review_warnings && store.review_warnings.length) ? store.review_warnings.join(", ") : "Ready");
     preview.innerHTML = `
         <div class="route-card hover-store-card">
             <h4>Pin Details</h4>
             <p><b>Stop:</b> ${stopNumber}</p>
             <p><b>BOL:</b> ${store.bol || ""}</p>
-            <p><b>Store:</b> ${store.store_name || store.origin || "Store"}</p>
+            <p><b>Origin/Pickup:</b> ${originName}</p>
+            <p><b>Destination:</b> ${destinationName}</p>
+            <p><b>Address:</b> ${address || "Not captured"}</p>
             <p><b>City:</b> ${store.city || ""}${store.city && store.state ? ", " : ""}${store.state || ""}</p>
             <p><b>Status:</b> ${store.status || "Unassigned"}</p>
+            <p><b>Review:</b> ${review}</p>
             <p>${dueLabel(store)}</p>
             <p><b>Racks:</b> ${rackFormula(store)}</p>
+            <p><b>Materials:</b> CP ${store.corner_posts || 0} / DRB40 ${store.drb40 || 0} / DRB48 ${store.drb48 || 0} / Wood ${store.wood_shelf || 0}</p>
             <p><b>Weight:</b> ${Number(store.weight || 0).toLocaleString()} lbs</p>
             <p><b>Hub:</b> ${store.hub || "Manual Review"}</p>
             <small>Move off the pin to return to route preview. Click the pin to select the stop.</small>

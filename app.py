@@ -286,6 +286,7 @@ def path_inside(child, parent):
 
 def delete_saved_bol_files(item):
     deleted = []
+    failed = []
     candidates = []
     for key in ("pdf_path", "printable_path"):
         path = clean(item.get(key))
@@ -309,9 +310,12 @@ def delete_saved_bol_files(item):
         if not (path_inside(resolved, BOL_DIR) or path_inside(resolved, UPLOAD_DIR)):
             continue
         if resolved.exists() and resolved.is_file():
-            resolved.unlink()
-            deleted.append(str(resolved))
-    return deleted
+            try:
+                resolved.unlink()
+                deleted.append(str(resolved))
+            except Exception as exc:
+                failed.append({"path": str(resolved), "error": str(exc)[:160]})
+    return {"deleted": deleted, "failed": failed}
 
 def bol_edit_summary_html(record):
     fields = [
@@ -553,6 +557,108 @@ def launch_chromium_with_repair(playwright, headless=True):
             install_playwright_system_deps()
         install_playwright_chromium()
         return playwright.chromium.launch(headless=headless)
+
+def rms_browser_choice():
+    return clean(os.environ.get("RMS_BROWSER") or "chromium").lower()
+
+def rms_manual_login_enabled():
+    return clean(os.environ.get("RMS_MANUAL_LOGIN")).lower() in {"1", "true", "yes", "on"}
+
+def rms_edge_profile_dir():
+    configured = clean(os.environ.get("RMS_EDGE_PROFILE_DIR")) or clean(os.environ.get("RMS_PROFILE_DIR"))
+    if configured:
+        return Path(configured)
+    profile_dir = BASE_DIR / "runtime" / "rms_edge_profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir
+
+def rms_chromium_profile_dir():
+    configured = clean(os.environ.get("RMS_CHROMIUM_PROFILE_DIR"))
+    if configured:
+        return Path(configured)
+    profile_dir = BASE_DIR / "runtime" / "rms_chromium_profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir
+
+def rms_cdp_endpoint():
+    return clean(os.environ.get("RMS_CDP_ENDPOINT") or "http://127.0.0.1:9222")
+
+def launch_rms_browser_context(playwright, headless=True):
+    """Launch the browser context used for RMS.
+
+    RMS_BROWSER=edge uses installed Microsoft Edge with a persistent EOMS-owned
+    profile so the RMS session/cookies can be reused between imports. This is
+    safer than attaching to the user's active Default profile, which Edge may
+    lock while it is open.
+    """
+    choice = rms_browser_choice()
+    common_kwargs = {
+        "user_agent": RMS_BROWSER_USER_AGENT,
+        "viewport": {"width": 1366, "height": 768},
+        "locale": "en-US",
+        "timezone_id": "America/Chicago",
+        "ignore_https_errors": True,
+        "extra_http_headers": {
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        },
+    }
+    if choice in {"edge", "msedge", "microsoft-edge"}:
+        try:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(rms_edge_profile_dir()),
+                channel="msedge",
+                headless=headless,
+                args=["--start-maximized"],
+                **common_kwargs,
+            )
+            return None, context
+        except Exception as exc:
+            edge_error = str(exc)[:500]
+            try:
+                context = playwright.chromium.launch_persistent_context(
+                    user_data_dir=str(rms_chromium_profile_dir()),
+                    headless=headless,
+                    args=["--start-maximized"],
+                    **common_kwargs,
+                )
+                return None, context
+            except Exception as fallback_exc:
+                raise RuntimeError(
+                    "EOMS could not launch Microsoft Edge for RMS, and the Chromium fallback also failed. "
+                    "Close all RMS/Edge automation windows and try again. Edge details: "
+                    + edge_error + " Chromium details: " + str(fallback_exc)[:500]
+                )
+
+    if choice in {"cdp", "edge-cdp", "remote-edge"}:
+        try:
+            browser = playwright.chromium.connect_over_cdp(rms_cdp_endpoint())
+            contexts = browser.contexts
+            context = contexts[0] if contexts else browser.new_context(**common_kwargs)
+            return browser, context
+        except Exception as exc:
+            raise RuntimeError(
+                "EOMS could not connect to the user-launched RMS Edge browser. "
+                "Run START_RMS_EDGE_DEBUG.bat first, log into RMS in that window, then run Auto Grab. "
+                "Details: " + str(exc)[:500]
+            )
+
+    browser = launch_chromium_with_repair(playwright, headless=headless)
+    return browser, new_rms_context(browser)
+
+def close_rms_browser(browser, context):
+    if rms_manual_login_enabled():
+        return
+    try:
+        if context:
+            context.close()
+    except Exception:
+        pass
+    try:
+        if browser:
+            browser.close()
+    except Exception:
+        pass
 
 def rms_headless(default=True):
     value = clean(os.environ.get("RMS_HEADLESS"))
@@ -1621,8 +1727,11 @@ def api_delete_bol():
     removed_store_ids = {clean(store.get("id")) for store in removed_stores if clean(store.get("id"))}
     target_bol = bol or next((clean(store.get("bol")) for store in removed_stores if clean(store.get("bol"))), "")
     deleted_files = []
+    failed_file_deletes = []
     for store in removed_stores:
-        deleted_files.extend(delete_saved_bol_files(store))
+        cleanup = delete_saved_bol_files(store)
+        deleted_files.extend(cleanup.get("deleted", []))
+        failed_file_deletes.extend(cleanup.get("failed", []))
 
     kept_queue = []
     removed_queue_items = []
@@ -1637,7 +1746,9 @@ def api_delete_bol():
             kept_queue.append(q)
 
     for q in removed_queue_items:
-        deleted_files.extend(delete_saved_bol_files(q))
+        cleanup = delete_saved_bol_files(q)
+        deleted_files.extend(cleanup.get("deleted", []))
+        failed_file_deletes.extend(cleanup.get("failed", []))
 
     if not removed_stores and not removed_queue_items:
         return jsonify({"ok": False, "message": "BOL not found in All BOLs, Need Review, store records, or RMS queue."}), 404
@@ -1671,12 +1782,17 @@ def api_delete_bol():
         "removed_queue": len(removed_queue_items),
         "removed_route_refs": removed_route_refs,
         "deleted_files": deleted_files,
+        "failed_file_deletes": failed_file_deletes,
     })
+    message = f"Deleted BOL {target_bol or store_id}. It can be grabbed fresh on the next RMS scan."
+    if failed_file_deletes:
+        message += f" {len(failed_file_deletes)} saved file(s) could not be removed, but the EOMS record was deleted."
     return jsonify({
         "ok": True,
-        "message": f"Deleted BOL {target_bol or store_id}. It can be grabbed fresh on the next RMS scan.",
+        "message": message,
         "bol": target_bol,
         "deleted_files": deleted_files,
+        "failed_file_deletes": failed_file_deletes,
         "removed_stores": len(removed_stores),
         "removed_queue": len(removed_queue_items),
         "removed_route_refs": removed_route_refs,
@@ -1702,8 +1818,7 @@ def rms_login_with_playwright(headless=True):
         }
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=headless)
-        context = new_rms_context(browser)
+        browser, context = launch_rms_browser_context(p, headless=headless)
         page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
@@ -1730,8 +1845,7 @@ def rms_login_with_playwright(headless=True):
             page.screenshot(path=str(screenshot_path), full_page=True)
 
             rms_debug_hold(page)
-            context.close()
-            browser.close()
+            close_rms_browser(browser, context)
 
             return {
                 "ok": True,
@@ -1743,11 +1857,7 @@ def rms_login_with_playwright(headless=True):
             }
 
         except PlaywrightTimeoutError as e:
-            try:
-                context.close()
-            except Exception:
-                pass
-            browser.close()
+            close_rms_browser(browser, context)
             return {
                 "ok": False,
                 "status": "TIMEOUT",
@@ -1756,11 +1866,7 @@ def rms_login_with_playwright(headless=True):
                 "sample_bols": []
             }
         except Exception as e:
-            try:
-                context.close()
-            except Exception:
-                pass
-            browser.close()
+            close_rms_browser(browser, context)
             return {
                 "ok": False,
                 "status": "ERROR",
@@ -1915,8 +2021,8 @@ def extract_printable_bol_from_text(text, source_url=""):
         "drb48": drb48,
         "wood_shelf": wood_shelf,
         "weight": bol_weight or round(expected_racks * DEFAULT_RACK_WEIGHT, 2),
-        "status": status,
-        "review_reasons": review_reasons,
+        "status": "Unassigned",
+        "review_reasons": [],
         "assigned_driver": "",
         "pdf_path": "",
         "rms_url": source_url,
@@ -2145,6 +2251,58 @@ def is_rms_login_page(page):
         ("sign in" in body and "username" in body and "password" in body)
     )
 
+def open_rms_bol_list_with_manual_login(page, bol_url=None, wait_seconds=None):
+    bol_url = normalized_rms_bol_list_url(bol_url or RMS_BOL_LIST_URL)
+    if wait_seconds is None:
+        try:
+            wait_seconds = int(os.environ.get("RMS_MANUAL_LOGIN_TIMEOUT_SECONDS", "600") or 600)
+        except Exception:
+            wait_seconds = 600
+
+    response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
+    try:
+        page.wait_for_load_state("networkidle", timeout=20000)
+    except Exception:
+        pass
+    assert_rms_accessible(page, response, "RMS BOL list")
+
+    deadline = time.time() + max(10, wait_seconds)
+    last_excerpt = page_excerpt(page)
+    last_url = clean(page.url)
+    retry_at = 0
+    while time.time() < deadline:
+        try:
+            current = clean(page.url)
+            current_l = current.lower()
+            last_excerpt = page_excerpt(page)
+            if "bills-of-lading" in current_l and not is_rms_login_page(page):
+                return True
+
+            # After the user completes RMS login, RMS may leave the tab on a
+            # home/menu page. Keep nudging that same tab back to the BOL list.
+            if current != last_url:
+                last_url = current
+                retry_at = 0
+            if not is_rms_login_page(page) and time.time() >= retry_at:
+                retry_at = time.time() + 5
+                try:
+                    page.goto(bol_url, wait_until="domcontentloaded", timeout=30000)
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=10000)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
+
+    raise RuntimeError(
+        "RMS did not reach the Bills of Lading list. Keep the RMS browser open, log in manually, "
+        "then open Orders & BOLs / Bills of Lading before the Auto Grab timer expires. "
+        "Last page: " + last_excerpt
+    )
+
 def fill_first_visible(page, selector, value, label, timeout_ms=90000):
     deadline = time.time() + (timeout_ms / 1000)
     last_error = ""
@@ -2203,6 +2361,27 @@ def click_first_visible(page, selector, label, timeout_ms=45000):
         f"Timed out waiting for RMS {label}. {page_excerpt(page)} last_error={last_error}"
     )
 
+def rms_has_login_inputs(page):
+    try:
+        if page.locator(RMS_USERNAME_SELECTOR).count() > 0 and page.locator(RMS_PASSWORD_SELECTOR).count() > 0:
+            return True
+    except Exception:
+        pass
+    return False
+
+def wait_for_manual_rms_login_or_inputs(page, timeout_ms=300000):
+    deadline = time.time() + (timeout_ms / 1000)
+    while time.time() < deadline:
+        try:
+            if not is_rms_login_page(page):
+                return "logged_in"
+            if rms_has_login_inputs(page):
+                return "inputs_ready"
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
+    return "timeout"
+
 def wait_for_rms_login_result(page, timeout_ms=30000):
     deadline = time.time() + (timeout_ms / 1000)
     while time.time() < deadline:
@@ -2219,14 +2398,28 @@ def wait_for_rms_login_result(page, timeout_ms=30000):
     return "/login" not in clean(page.url).lower()
 
 def login_to_rms(page, login_url, username, password):
-    # Required RMS flow step 1:
-    #   https://rms.reusability.com/login
-    response = page.goto(normalized_rms_login_url(login_url), wait_until="domcontentloaded", timeout=90000)
+    # Required RMS flow step 1.
+    # Default: https://rms.reusability.com/login
+    # Optional test override: set RMS_START_URL=https://rms.reusability.com
+    start_url = clean(os.environ.get("RMS_START_URL")) or normalized_rms_login_url(login_url)
+    response = page.goto(start_url, wait_until="domcontentloaded", timeout=90000)
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
     except Exception:
         pass
     assert_rms_accessible(page, response, "RMS login page")
+
+    if rms_manual_login_enabled():
+        state = wait_for_manual_rms_login_or_inputs(page, timeout_ms=300000)
+        if state == "logged_in":
+            return
+        if state == "timeout":
+            diag = write_rms_diagnostic(page, "rms_manual_login_timeout")
+            raise RuntimeError(
+                "RMS manual login mode timed out. The Edge/Chromium window opened, but EOMS did not detect login completion or visible login fields. "
+                "Try refreshing the RMS window or set RMS_BROWSER=edge. Diagnostic: " + clean(str(diag))[:500]
+            )
+
     fill_first_visible(page, RMS_USERNAME_SELECTOR, username, "username")
     fill_first_visible(page, RMS_PASSWORD_SELECTOR, password, "password")
     page.wait_for_timeout(500)
@@ -2570,8 +2763,7 @@ def scan_rms_queue_with_playwright(headless=True):
     queue_by_bol = {clean(q.get("bol")): q for q in current_queue if clean(q.get("bol"))}
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=headless)
-        context = new_rms_context(browser)
+        browser, context = launch_rms_browser_context(p, headless=headless)
         page = context.new_page()
 
         try:
@@ -2646,8 +2838,7 @@ def scan_rms_queue_with_playwright(headless=True):
             page.screenshot(path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
 
             rms_debug_hold(page)
-            context.close()
-            browser.close()
+            close_rms_browser(browser, context)
 
             return {
                 "ok": True,
@@ -2659,11 +2850,7 @@ def scan_rms_queue_with_playwright(headless=True):
             }
 
         except Exception as e:
-            try:
-                context.close()
-            except Exception:
-                pass
-            browser.close()
+            close_rms_browser(browser, context)
             return {
                 "ok": False,
                 "status": "ERROR",
@@ -2746,8 +2933,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
     errors = []
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=headless)
-        context = new_rms_context(browser)
+        browser, context = launch_rms_browser_context(p, headless=headless)
         page = context.new_page()
 
         try:
@@ -2811,8 +2997,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
                             break
                     write_json(RMS_QUEUE_FILE, queue)
 
-            context.close()
-            browser.close()
+            close_rms_browser(browser, context)
 
             return {
                 "ok": True,
@@ -2826,11 +3011,12 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
         except Exception as e:
             try:
-                context.close()
+                if not rms_manual_login_enabled():
+                    context.close()
             except Exception:
                 pass
             try:
-                browser.close()
+                close_rms_browser(browser, context)
             except Exception:
                 pass
 
@@ -2852,7 +3038,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
     bol_url = normalized_rms_bol_list_url(settings_data.get("rms_bol_url"))
 
-    if not username or not password:
+    if not rms_manual_login_enabled() and (not username or not password):
         return {
             "ok": False,
             "status": "MISSING CREDENTIALS",
@@ -2874,23 +3060,25 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     errors = []
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=headless)
-        context = new_rms_context(browser)
+        browser, context = launch_rms_browser_context(p, headless=headless)
         page = context.new_page()
         try:
-            login_to_rms(page, login_url, username, password)
-
-            # Required RMS flow step 2:
-            #   https://rms.reusability.com/bills-of-lading
             bol_url = normalized_rms_bol_list_url(bol_url)
-            response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
-            assert_rms_accessible(page, response, "RMS BOL list")
-            if is_rms_login_page(page):
-                raise RuntimeError(
-                    "RMS redirected back to login when opening the BOL list. "
-                    "Verify RMS credentials and that the account can access Bills of Lading. "
-                    + page_excerpt(page)
-                )
+            if rms_manual_login_enabled():
+                open_rms_bol_list_with_manual_login(page, bol_url)
+            else:
+                login_to_rms(page, login_url, username, password)
+
+                # Required RMS flow step 2:
+                #   https://rms.reusability.com/bills-of-lading
+                response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
+                assert_rms_accessible(page, response, "RMS BOL list")
+                if is_rms_login_page(page):
+                    raise RuntimeError(
+                        "RMS redirected back to login when opening the BOL list. "
+                        "Verify RMS credentials and that the account can access Bills of Lading. "
+                        + page_excerpt(page)
+                    )
             bol_links = collect_bol_links_from_all_pages(page)
 
             diagnostic = None
@@ -2908,8 +3096,9 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
             for link in bol_links:
                 try:
-                    # Open each BOL in the same authenticated browser context.
-                    detail_page = context.new_page()
+                    # Reuse the same visible RMS tab for each BOL so headed
+                    # local imports do not open a new window for every stop.
+                    detail_page = page
                     # Required RMS flow step 3 for each BOL, example:
                     #   https://rms.reusability.com/bills-of-lading/951807/print
                     direct_print_url = rms_print_url(link["bol"])
@@ -2936,15 +3125,12 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                     if item.get("status") == "Need Review":
                         need_review += 1
 
-                    detail_page.close()
-
                 except Exception as e:
                     errors.append(f"{link.get('bol')}: {str(e)[:120]}")
 
             rms_closeout = mark_stores_missing_from_rms(open_bols) if bol_links else {"rms_missing": 0, "both_closed": 0}
             rms_debug_hold(page)
-            context.close()
-            browser.close()
+            close_rms_browser(browser, context)
 
             message = f"RMS import complete using correct RMS flow: login → bills-of-lading list → individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
@@ -2972,11 +3158,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
         except Exception as e:
             rms_debug_hold(page)
-            try:
-                context.close()
-            except Exception:
-                pass
-            browser.close()
+            close_rms_browser(browser, context)
             return {
                 "ok": False,
                 "status": "ERROR",
@@ -2996,13 +3178,18 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
 @app.route("/bol-live/<bol_number>")
 def bol_live_printable(bol_number):
+    saved_path = find_saved_bol_path(bol_number)
+    if saved_path:
+        saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
+        return render_saved_bol(saved_record, saved_path, auto_print=False)
+
     settings_data = read_json(SETTINGS_FILE)
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
     login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
 
-    if not username or not password:
+    if not rms_manual_login_enabled() and (not username or not password):
         return render_template(
             "bol_not_found.html",
             bol=bol_number,
@@ -3012,12 +3199,14 @@ def bol_live_printable(bol_number):
     direct_print_url = rms_print_url(bol_number)
 
     with sync_playwright() as p:
-        browser = launch_chromium_with_repair(p, headless=rms_headless(True))
-        context = new_rms_context(browser)
+        browser, context = launch_rms_browser_context(p, headless=rms_headless(False))
         page = context.new_page()
 
         try:
-            login_to_rms(page, login_url, username, password)
+            if rms_manual_login_enabled():
+                open_rms_bol_list_with_manual_login(page, normalized_rms_bol_list_url(settings_data.get("rms_bol_url")))
+            else:
+                login_to_rms(page, login_url, username, password)
 
             # Go straight to the RMS printable URL.
             response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
@@ -3032,10 +3221,11 @@ def bol_live_printable(bol_number):
                 if saved_path:
                     saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
                     try:
-                        context.close()
+                        if not rms_manual_login_enabled():
+                            context.close()
                     except Exception:
                         pass
-                    browser.close()
+                    close_rms_browser(browser, context)
                     return render_saved_bol(saved_record, saved_path, auto_print=False)
                 raise RuntimeError("RMS only returned its 'Please wait' print shell and no saved copy was found.")
 
@@ -3045,22 +3235,19 @@ def bol_live_printable(bol_number):
             backup_file.write_text(html, encoding="utf-8", errors="ignore")
 
             rms_debug_hold(page)
-            try:
-                context.close()
-            except Exception:
-                pass
-            browser.close()
+            close_rms_browser(browser, context)
 
             saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
             return f"{bol_print_styles()}{bol_edit_summary_html(saved_record)}{html}"
 
         except Exception as e:
             try:
-                context.close()
+                if not rms_manual_login_enabled():
+                    context.close()
             except Exception:
                 pass
             try:
-                browser.close()
+                close_rms_browser(browser, context)
             except Exception:
                 pass
 
@@ -3207,16 +3394,16 @@ def api_rms_repair_bol(bol_number):
 
             update_queue_from_item(item)
 
-            context.close()
-            browser.close()
+            close_rms_browser(browser, context)
             return jsonify({"ok": True, "item": item, "message": f"BOL {bol_number} repaired. Status: {item.get('status')}. Racks: {item.get('expected_racks')}"})
         except Exception as e:
             try:
-                context.close()
+                if not rms_manual_login_enabled():
+                    context.close()
             except Exception:
                 pass
             try:
-                browser.close()
+                close_rms_browser(browser, context)
             except Exception:
                 pass
             return jsonify({"ok": False, "message": str(e)[:300]})

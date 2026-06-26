@@ -44,7 +44,9 @@
             </thead>
             <tbody>
                 {% for store in stores %}
-                <tr id="bol-row-{{ store._edit_id }}" data-store-id="{{ store._edit_id }}">
+                {% set row_key = store._edit_id or store.bol %}
+                {% set bol_key = store.bol or row_key %}
+                <tr id="bol-row-{{ row_key }}" data-store-id="{{ row_key }}" data-bol="{{ bol_key or '' }}">
                     <td>
                         <input data-field="bol" value="{{ store.bol or '' }}" aria-label="BOL">
                         <small>{{ store._source|upper }}{% if store.last_seen %} • Seen {{ store.last_seen }}{% elif store.created_at %} • {{ store.created_at }}{% endif %}</small>
@@ -86,13 +88,17 @@
                         {% endif %}
                     </td>
                     <td class="action-cell">
-                        <a class="mini-link" href="/bol-live/{{ store.bol }}" target="_blank">Live</a>
-                        <a class="mini-link" href="/bol-view/{{ store.id }}" target="_blank">Saved</a>
-                        <a class="mini-link" href="/bol-print/{{ store.id }}" target="_blank">Print</a>
+                        {% if bol_key %}
+                        <a class="mini-link" href="/bol-live/{{ bol_key }}" target="_blank">Live</a>
+                        <a class="mini-link" href="/bol-view/{{ bol_key }}" target="_blank">Saved</a>
+                        <a class="mini-link" href="/bol-print/{{ bol_key }}" target="_blank">Print</a>
+                        {% else %}
+                        <span class="muted">No BOL</span>
+                        {% endif %}
                     </td>
                     <td class="action-cell">
-                        <button class="primary-btn small-btn" type="button" onclick="saveBol('{{ store._edit_id }}')">Save</button>
-                        <button class="danger-btn small-btn" type="button" onclick="deleteBol('{{ store._edit_id }}', {{ (store.bol or '')|tojson }})">Delete</button>
+                        <button class="primary-btn small-btn" type="button" onclick="saveBol({{ row_key|tojson }})">Save</button>
+                        <button class="danger-btn small-btn" type="button" onclick="deleteBol({{ row_key|tojson }}, {{ (bol_key or '')|tojson }})">Delete</button>
                     </td>
                 </tr>
                 {% else %}
