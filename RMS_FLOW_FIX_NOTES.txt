@@ -1,0 +1,22 @@
+RMS Flow Fix
+============
+
+The importer now follows the RMS path exactly:
+
+1. Login page:
+   https://rms.reusability.com/login
+
+2. Bills of Lading list:
+   https://rms.reusability.com/bills-of-lading
+
+3. Individual printable BOL pages:
+   https://rms.reusability.com/bills-of-lading/<BOL_NUMBER>/print
+
+Example:
+   https://rms.reusability.com/bills-of-lading/951807/print
+
+Notes:
+- The RMS login URL is intentionally fixed to the correct RMS login page.
+- The BOL list URL is intentionally fixed to the correct RMS BOL list page.
+- Each detected BOL number is opened through the /print route in the same authenticated browser session.
+- If RMS still returns 403 Forbidden, RMS is blocking the current server/browser/network before login. Run from a network that can manually open RMS or ask RMS/Reusability to allow-list the Azure outbound IP.

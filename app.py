@@ -1689,8 +1689,8 @@ def rms_login_with_playwright(headless=True):
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
-    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
+    bol_url = normalized_rms_bol_list_url(settings_data.get("rms_bol_url"))
 
     if not username or not password:
         return {
@@ -1708,6 +1708,9 @@ def rms_login_with_playwright(headless=True):
         try:
             login_to_rms(page, login_url, username, password)
 
+            # Required RMS flow step 2:
+            #   https://rms.reusability.com/bills-of-lading
+            bol_url = normalized_rms_bol_list_url(bol_url)
             response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
             assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
@@ -2028,6 +2031,21 @@ def normalize_due_date(value):
         pass
     return value
 
+RMS_LOGIN_URL = "https://rms.reusability.com/login"
+RMS_BOL_LIST_URL = "https://rms.reusability.com/bills-of-lading"
+
+def rms_print_url(bol_number):
+    bol = clean(bol_number)
+    return f"https://rms.reusability.com/bills-of-lading/{bol}/print"
+
+def normalized_rms_login_url(value=""):
+    # RMS must start here. Keep this fixed unless RMS changes their public route.
+    return RMS_LOGIN_URL
+
+def normalized_rms_bol_list_url(value=""):
+    # After login, EOMS must open the Bills of Lading list here.
+    return RMS_BOL_LIST_URL
+
 RMS_USERNAME_SELECTOR = (
     'input[name="username"], input[name="email"], input[type="email"], '
     'input[id*="username" i], input[id*="email" i], '
@@ -2049,8 +2067,35 @@ def new_rms_context(browser):
         user_agent=RMS_BROWSER_USER_AGENT,
         viewport={"width": 1366, "height": 768},
         locale="en-US",
-        timezone_id="America/Chicago"
+        timezone_id="America/Chicago",
+        extra_http_headers={
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        }
     )
+
+def rms_blocked_result(message, action="RMS Import"):
+    return {
+        "ok": False,
+        "status": "RMS BLOCKED / 403",
+        "message": (
+            "The RMS login URL is correct: https://rms.reusability.com/login. "
+            "Correct RMS flow is login → https://rms.reusability.com/bills-of-lading → https://rms.reusability.com/bills-of-lading/<BOL>/print. "
+            "RMS returned 403 Forbidden before the login form loaded, so EOMS never got a chance to enter the username/password. "
+            "This is a server/network security block, not a bad password or wrong URL. "
+            "Fix: run EOMS from a computer/network that can manually open RMS, use RUN_LOCAL_EOMS.bat with RMS_HEADLESS=0 for headed mode, "
+            "or ask RMS/Reusability to allow-list the Azure App Service outbound IP. "
+            "Until then, use RMS PDF/CSV/XLSX Import in EOMS. Details: " + clean(message)[:900]
+        ),
+        "found": 0,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 0,
+        "need_review": 0,
+        "failed": 1,
+        "fallback": "/rms-import",
+        "action": action,
+    }
 
 def page_excerpt(page):
     try:
@@ -2073,8 +2118,9 @@ def assert_rms_accessible(page, response=None, label="RMS page"):
     lowered = excerpt.lower()
     if status in {401, 403} or "title=403 forbidden" in lowered or "body=403 forbidden" in lowered:
         raise RMSAccessError(
-            f"{label} returned {status or '403 Forbidden'}. RMS blocked the automation before the login form loaded. "
-            "Open RMS from the same server/network, check VPN/IP allow-list or RMS security rules, and try headed mode if manual browser access works. "
+            f"{label} returned {status or '403 Forbidden'}. The RMS login URL is correct, but RMS blocked this server/browser before the login form loaded. "
+            "This normally means the current Azure/server IP, VPN, or automation browser is not allowed by RMS security rules. "
+            "Open RMS from the same server/network, check RMS/Reusability IP allow-list/security rules, or run EOMS locally in headed mode with RMS_HEADLESS=0. "
             + excerpt
         )
     if status and status >= 500:
@@ -2173,7 +2219,9 @@ def wait_for_rms_login_result(page, timeout_ms=30000):
     return "/login" not in clean(page.url).lower()
 
 def login_to_rms(page, login_url, username, password):
-    response = page.goto(login_url, wait_until="domcontentloaded", timeout=90000)
+    # Required RMS flow step 1:
+    #   https://rms.reusability.com/login
+    response = page.goto(normalized_rms_login_url(login_url), wait_until="domcontentloaded", timeout=90000)
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
     except Exception:
@@ -2294,12 +2342,12 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
         for row in page_snapshot.get("rows", []):
             row_text = clean(row.get("text"))
             for bol in re.findall(r"\b\d{5,8}\b", row_text):
-                add_candidate(bol, f"https://rms.reusability.com/bills-of-lading/{bol}/print", row_text)
+                add_candidate(bol, rms_print_url(bol), row_text)
 
         # Last fallback: catch visible direct-print links even if RMS renders without table rows.
         body_text = clean(page_snapshot.get("bodyText"))
         for bol in re.findall(r"bills-of-lading/(\d{4,})/print", body_text):
-            add_candidate(bol, f"https://rms.reusability.com/bills-of-lading/{bol}/print", body_text[:500])
+            add_candidate(bol, rms_print_url(bol), body_text[:500])
         return found
 
     # Try setting rows per page to largest available value first.
@@ -2503,8 +2551,8 @@ def scan_rms_queue_with_playwright(headless=True):
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
-    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
+    bol_url = normalized_rms_bol_list_url(settings_data.get("rms_bol_url"))
 
     if not username or not password:
         return {
@@ -2529,6 +2577,9 @@ def scan_rms_queue_with_playwright(headless=True):
         try:
             login_to_rms(page, login_url, username, password)
 
+            # Required RMS flow step 2:
+            #   https://rms.reusability.com/bills-of-lading
+            bol_url = normalized_rms_bol_list_url(bol_url)
             response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
             assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
@@ -2674,7 +2725,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
 
     if not username or not password:
         return {
@@ -2708,7 +2759,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
                     continue
 
                 try:
-                    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{bol}/print"
+                    direct_print_url = rms_print_url(bol)
                     response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
                     assert_rms_accessible(page, response, f"RMS printable BOL {bol}")
 
@@ -2798,8 +2849,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
-    bol_url = settings_data.get("rms_bol_url") or "https://rms.reusability.com/bills-of-lading"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
+    bol_url = normalized_rms_bol_list_url(settings_data.get("rms_bol_url"))
 
     if not username or not password:
         return {
@@ -2829,6 +2880,9 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
         try:
             login_to_rms(page, login_url, username, password)
 
+            # Required RMS flow step 2:
+            #   https://rms.reusability.com/bills-of-lading
+            bol_url = normalized_rms_bol_list_url(bol_url)
             response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
             assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
@@ -2856,7 +2910,9 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 try:
                     # Open each BOL in the same authenticated browser context.
                     detail_page = context.new_page()
-                    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{link['bol']}/print"
+                    # Required RMS flow step 3 for each BOL, example:
+                    #   https://rms.reusability.com/bills-of-lading/951807/print
+                    direct_print_url = rms_print_url(link["bol"])
                     response = detail_page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
                     assert_rms_accessible(detail_page, response, f"RMS printable BOL {link['bol']}")
                     if is_rms_login_page(detail_page):
@@ -2890,7 +2946,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             context.close()
             browser.close()
 
-            message = f"RMS import complete. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login → bills-of-lading list → individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)
@@ -2944,7 +3000,7 @@ def bol_live_printable(bol_number):
 
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
 
     if not username or not password:
         return render_template(
@@ -2953,7 +3009,7 @@ def bol_live_printable(bol_number):
             path="RMS username/password missing. Save RMS credentials in Settings first."
         )
 
-    direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
+    direct_print_url = rms_print_url(bol_number)
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=rms_headless(True))
@@ -3115,7 +3171,7 @@ def api_rms_repair_bol(bol_number):
     settings_data = read_json(SETTINGS_FILE)
     username = clean(settings_data.get("rms_username"))
     password = clean(settings_data.get("rms_password"))
-    login_url = settings_data.get("rms_login_url") or "https://rms.reusability.com/login"
+    login_url = normalized_rms_login_url(settings_data.get("rms_login_url"))
 
     if not username or not password:
         return jsonify({"ok": False, "message": "Save RMS credentials first."})
@@ -3127,7 +3183,7 @@ def api_rms_repair_bol(bol_number):
         try:
             login_to_rms(page, login_url, username, password)
 
-            direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
+            direct_print_url = rms_print_url(bol_number)
             response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
             assert_rms_accessible(page, response, f"RMS printable BOL {bol_number}")
 
@@ -3275,6 +3331,8 @@ def api_rms_sync_open_bols():
 
     try:
         result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
+    except RMSAccessError as exc:
+        result = rms_blocked_result(str(exc), action="Full RMS Multi-Page Import")
     except Exception as exc:
         result = {
             "ok": False,
@@ -3311,6 +3369,8 @@ def api_rms_auto_grab_bols():
 
         try:
             result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
+        except RMSAccessError as exc:
+            result = rms_blocked_result(str(exc), action="Dashboard Auto Grab BOLs")
         except Exception as exc:
             result = {
                 "ok": False,

@@ -71,6 +71,9 @@ async function testConnection(){
     const box = document.getElementById("sync-result");
     box.style.display = "block";
     box.innerText = data.result.message + (data.result.errors && data.result.errors.length ? '\nErrors: ' + data.result.errors.join('; ') : '');
+    if (data.result && data.result.fallback) {
+        box.innerHTML += '<br><br><a class="primary-btn" href="' + data.result.fallback + '">Use RMS File Import</a>';
+    }
 }
 
 async function syncOpenBols(){
@@ -79,6 +82,9 @@ async function syncOpenBols(){
     const box = document.getElementById("sync-result");
     box.style.display = "block";
     box.innerText = data.result.message + (data.result.errors && data.result.errors.length ? '\nErrors: ' + data.result.errors.join('; ') : '');
+    if (data.result && data.result.fallback) {
+        box.innerHTML += '<br><br><a class="primary-btn" href="' + data.result.fallback + '">Use RMS File Import</a>';
+    }
 }
 </script>
 
