@@ -76,11 +76,15 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 BASE_DIR = Path(__file__).resolve().parent
 
 # DATA_DIR / BOL_DIR can be pointed at a persistent location so a redeploy does
-# not wipe live data. On Azure App Service (Linux) use /home/data, which
-# survives restarts and deployments. Locally it defaults to ./data.
-DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data")))
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads")))
-BOL_DIR = Path(os.environ.get("BOL_DIR", str(BASE_DIR / "bol_files")))
+# not wipe live data. On Azure App Service (Linux), default to /home/eoms_*
+# because /home persists across restarts/deployments. Locally, default to ./data.
+IS_AZURE = bool(os.environ.get("WEBSITE_SITE_NAME") or os.environ.get("WEBSITE_INSTANCE_ID"))
+DEFAULT_DATA_DIR = "/home/eoms_data" if IS_AZURE else str(BASE_DIR / "data")
+DEFAULT_UPLOAD_DIR = "/home/eoms_uploads" if IS_AZURE else str(BASE_DIR / "uploads")
+DEFAULT_BOL_DIR = "/home/eoms_bol_files" if IS_AZURE else str(BASE_DIR / "bol_files")
+DATA_DIR = Path(os.environ.get("DATA_DIR", DEFAULT_DATA_DIR))
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", DEFAULT_UPLOAD_DIR))
+BOL_DIR = Path(os.environ.get("BOL_DIR", DEFAULT_BOL_DIR))
 
 STORES_FILE = DATA_DIR / "stores.json"
 ROUTES_FILE = DATA_DIR / "routes.json"
@@ -134,8 +138,8 @@ def ensure_dirs():
     global DIRS_READY
     if DIRS_READY:
         return
-    DATA_DIR.mkdir(exist_ok=True)
-    UPLOAD_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     for root in ["Imported", "Assigned", "Dispatched", "Completed", "Need_Review", "RMS_Backup", "RMS_Closed"]:
         (BOL_DIR / root).mkdir(parents=True, exist_ok=True)
     if not USERS_FILE.exists() and not ADMIN_PASSWORD:
@@ -559,24 +563,37 @@ def launch_chromium_with_repair(playwright, headless=True):
         return playwright.chromium.launch(headless=headless)
 
 def rms_browser_choice():
-    return clean(os.environ.get("RMS_BROWSER") or "chromium").lower()
+    # Default RMS automation to real local Chrome because RMS may block headless/server browsers.
+    # Override with RMS_BROWSER=edge, chromium, or cdp if needed.
+    return clean(os.environ.get("RMS_BROWSER") or "chrome").lower()
 
 def rms_manual_login_enabled():
     return clean(os.environ.get("RMS_MANUAL_LOGIN")).lower() in {"1", "true", "yes", "on"}
 
+def rms_normal_profile_dir():
+    configured = clean(os.environ.get("RMS_PROFILE_DIR"))
+    if configured:
+        profile_dir = Path(configured)
+    else:
+        profile_dir = BASE_DIR / "data" / "rms_browser_profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir
+
 def rms_edge_profile_dir():
     configured = clean(os.environ.get("RMS_EDGE_PROFILE_DIR")) or clean(os.environ.get("RMS_PROFILE_DIR"))
     if configured:
-        return Path(configured)
-    profile_dir = BASE_DIR / "runtime" / "rms_edge_profile"
+        profile_dir = Path(configured)
+    else:
+        profile_dir = BASE_DIR / "data" / "rms_edge_profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
     return profile_dir
 
 def rms_chromium_profile_dir():
-    configured = clean(os.environ.get("RMS_CHROMIUM_PROFILE_DIR"))
+    configured = clean(os.environ.get("RMS_CHROMIUM_PROFILE_DIR")) or clean(os.environ.get("RMS_PROFILE_DIR"))
     if configured:
-        return Path(configured)
-    profile_dir = BASE_DIR / "runtime" / "rms_chromium_profile"
+        profile_dir = Path(configured)
+    else:
+        profile_dir = BASE_DIR / "data" / "rms_chromium_profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
     return profile_dir
 
@@ -603,13 +620,55 @@ def launch_rms_browser_context(playwright, headless=True):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         },
     }
+    if choice in {"chrome", "google-chrome", "normal", "local"}:
+        try:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(rms_normal_profile_dir()),
+                channel="chrome",
+                headless=False,
+                accept_downloads=True,
+                args=[
+                    "--start-maximized",
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-first-run",
+                ],
+                **common_kwargs,
+            )
+            return None, context
+        except Exception as exc:
+            chrome_error = str(exc)[:500]
+            try:
+                context = playwright.chromium.launch_persistent_context(
+                    user_data_dir=str(rms_normal_profile_dir()),
+                    headless=False,
+                    accept_downloads=True,
+                    args=[
+                        "--start-maximized",
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-first-run",
+                    ],
+                    **common_kwargs,
+                )
+                return None, context
+            except Exception as fallback_exc:
+                raise RuntimeError(
+                    "EOMS could not launch local Chrome for RMS, and Chromium fallback also failed. "
+                    "Install Chrome support with: python -m playwright install chrome. "
+                    "Chrome details: " + chrome_error + " Chromium details: " + str(fallback_exc)[:500]
+                )
+
     if choice in {"edge", "msedge", "microsoft-edge"}:
         try:
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(rms_edge_profile_dir()),
                 channel="msedge",
-                headless=headless,
-                args=["--start-maximized"],
+                headless=False if rms_manual_login_enabled() else headless,
+                accept_downloads=True,
+                args=[
+                    "--start-maximized",
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-first-run",
+                ],
                 **common_kwargs,
             )
             return None, context
@@ -618,8 +677,13 @@ def launch_rms_browser_context(playwright, headless=True):
             try:
                 context = playwright.chromium.launch_persistent_context(
                     user_data_dir=str(rms_chromium_profile_dir()),
-                    headless=headless,
-                    args=["--start-maximized"],
+                    headless=False if rms_manual_login_enabled() else headless,
+                    accept_downloads=True,
+                    args=[
+                        "--start-maximized",
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-first-run",
+                    ],
                     **common_kwargs,
                 )
                 return None, context
@@ -663,6 +727,9 @@ def close_rms_browser(browser, context):
 def rms_headless(default=True):
     value = clean(os.environ.get("RMS_HEADLESS"))
     if value == "":
+        # If manual login or local Chrome is selected, keep RMS visible by default.
+        if rms_manual_login_enabled() or rms_browser_choice() in {"chrome", "google-chrome", "normal", "local", "edge", "msedge", "microsoft-edge"}:
+            return False
         return default
     return value.lower() not in {"0", "false", "no", "off"}
 

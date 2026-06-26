@@ -7,5 +7,11 @@
   "rms_connection_status": "Not Tested",
   "rms_login_url": "https://rms.reusability.com/login",
   "rms_bol_url": "https://rms.reusability.com/bills-of-lading",
-  "azure_maps_key": ""
+  "azure_maps_key": "",
+  "map_default_type": "satellite",
+  "map_default_zoom": 7,
+  "map_board_default_open": false,
+  "map_live_refresh_seconds": 30,
+  "due_red_days": 4,
+  "due_amber_days": 7
 }
