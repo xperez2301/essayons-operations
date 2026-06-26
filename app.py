@@ -625,7 +625,7 @@ def launch_rms_browser_context(playwright, headless=True):
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(rms_normal_profile_dir()),
                 channel="chrome",
-                headless=False,
+                headless=headless,
                 accept_downloads=True,
                 args=[
                     "--start-maximized",
@@ -640,7 +640,7 @@ def launch_rms_browser_context(playwright, headless=True):
             try:
                 context = playwright.chromium.launch_persistent_context(
                     user_data_dir=str(rms_normal_profile_dir()),
-                    headless=False,
+                   headless=headless,
                     accept_downloads=True,
                     args=[
                         "--start-maximized",
