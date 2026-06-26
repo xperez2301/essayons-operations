@@ -9,6 +9,7 @@ import zipfile
 import subprocess
 import sys
 import time
+from html import escape
 from io import BytesIO
 from functools import wraps
 import secrets
@@ -234,6 +235,17 @@ def audit(action, details):
     log.append({"id": str(uuid4()), "time": datetime.now().isoformat(timespec="seconds"), "action": action, "details": details})
     write_json(AUDIT_FILE, log)
 
+def local_rms_import_authorized():
+    token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
+    if not token:
+        return False
+    auth = clean(request.headers.get("Authorization"))
+    supplied = ""
+    if auth.lower().startswith("bearer "):
+        supplied = clean(auth[7:])
+    supplied = supplied or clean(request.headers.get("X-EOMS-Import-Token"))
+    return bool(supplied) and secrets.compare_digest(supplied, token)
+
 def clean(value):
     return "" if value is None else str(value).strip()
 
@@ -300,6 +312,148 @@ def delete_saved_bol_files(item):
             resolved.unlink()
             deleted.append(str(resolved))
     return deleted
+
+def bol_edit_summary_html(record):
+    fields = [
+        ("BOL", record.get("bol")),
+        ("Status", record.get("status") or record.get("queue_status")),
+        ("Store", record.get("store_name") or record.get("origin_name")),
+        ("Origin", record.get("origin")),
+        ("Address", record.get("address") or record.get("origin_address")),
+        ("City/State/ZIP", " ".join(x for x in [
+            clean(record.get("city") or record.get("origin_city")),
+            clean(record.get("state") or record.get("origin_state")),
+            clean(record.get("zip") or record.get("origin_zip"))
+        ] if x)),
+        ("Contact", record.get("contact") or record.get("origin_contact")),
+        ("Hub", record.get("hub")),
+        ("Expected Racks", record.get("expected_racks")),
+        ("Weight", record.get("weight")),
+        ("Due Date", record.get("due_date")),
+        ("Assigned Date", record.get("assigned_date")),
+        ("Updated", record.get("updated_at")),
+    ]
+    rows = []
+    for label, value in fields:
+        value = clean(value)
+        if value:
+            rows.append(f"<tr><th>{escape(label)}</th><td>{escape(value)}</td></tr>")
+    if not rows:
+        return ""
+    return f"""
+<section class="eoms-bol-edits">
+  <h2>EOMS Updated BOL Details</h2>
+  <table>{''.join(rows)}</table>
+</section>
+"""
+
+def bol_print_styles():
+    return """
+<style>
+.eoms-bol-toolbar {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  color: white;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
+  font-family: Arial, sans-serif;
+}
+.eoms-bol-toolbar button {
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.eoms-bol-edits {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 2px solid #0f172a;
+  font-family: Arial, sans-serif;
+  page-break-inside: avoid;
+}
+.eoms-bol-edits h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.eoms-bol-edits table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.eoms-bol-edits th,
+.eoms-bol-edits td {
+  border: 1px solid #cbd5e1;
+  padding: 5px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+.eoms-bol-edits th {
+  width: 145px;
+  background: #f1f5f9;
+}
+.eoms-bol-frame {
+  width: 100%;
+  height: calc(100vh - 190px);
+  border: 0;
+}
+@media print {
+  .eoms-bol-toolbar { display: none !important; }
+  body { margin: 0.25in; }
+  .eoms-bol-frame { height: 9.5in; }
+}
+</style>
+"""
+
+def render_saved_bol(record, path, auto_print=False):
+    if request.args.get("raw") == "1":
+        return send_file(Path(path), as_attachment=False)
+
+    summary = bol_edit_summary_html(record)
+    bol_id = record.get("id") or clean(record.get("bol"))
+    raw_url = url_for("bol_view", store_id=bol_id, raw=1)
+    title = f"BOL {escape(clean(record.get('bol')))}"
+    print_script = "<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 700); });</script>" if auto_print else ""
+    toolbar = f"""
+<div class="eoms-bol-toolbar">
+  <button onclick="window.print()">Print to Office Printer</button>
+  <button onclick="window.close()">Close</button>
+  <span>{title}</span>
+</div>
+"""
+
+    if str(path).lower().endswith(".html"):
+        content = Path(path).read_text(encoding="utf-8", errors="ignore")
+        return f"""<!doctype html>
+<html>
+<head>
+<title>Print {title}</title>
+{bol_print_styles()}
+</head>
+<body>
+{toolbar if auto_print else ""}
+{summary}
+{content}
+{print_script}
+</body>
+</html>"""
+
+    return f"""<!doctype html>
+<html>
+<head>
+<title>Print {title}</title>
+{bol_print_styles()}
+</head>
+<body>
+{toolbar}
+{summary}
+<iframe class="eoms-bol-frame" src="{escape(raw_url)}"></iframe>
+{print_script}
+</body>
+</html>"""
 
 def bol_duplicate_key(item):
     bol = clean(item.get("bol"))
@@ -649,6 +803,12 @@ def parse_rms_pdf(path):
         "pdf_path": "",
         "created_at": datetime.now().isoformat(timespec="seconds")
     }
+    item["review_reasons"] = essential_review_reasons(item)
+    item["review_warnings"] = []
+    if not origin:
+        item["review_warnings"].append("Missing origin/store number")
+    item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
+    return item
 
 def apply_material_counts(item, data):
     material_fields = {"corner_posts", "drb40", "drb48", "wood_shelf"}
@@ -684,12 +844,6 @@ def sync_route_stop_materials(store):
             changed = True
     if changed:
         write_json(ROUTES_FILE, routes)
-    item["review_reasons"] = essential_review_reasons(item)
-    item["review_warnings"] = []
-    if not origin:
-        item["review_warnings"].append("Missing origin/store number")
-    item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
-    return item
 
 def normalize_row(row):
     bol = clean(row.get("BOL #") or row.get("BOL") or row.get("BOL Number"))
@@ -727,6 +881,72 @@ def parse_csv(path):
         for row in csv.DictReader(f):
             rows.append(normalize_row(row))
     return rows
+
+def import_rms_uploaded_files(files, source="RMS Import"):
+    existing = read_json(STORES_FILE)
+    existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
+    existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
+    added, duplicates, review = 0, 0, 0
+    errors = []
+
+    for uploaded in files:
+        filename = secure_filename(uploaded.filename or "")
+        if not filename:
+            continue
+        temp_path = UPLOAD_DIR / f"{uuid4()}_{filename}"
+        uploaded.save(temp_path)
+
+        imported = []
+        try:
+            lower = filename.lower()
+            if lower.endswith(".pdf"):
+                item = parse_rms_pdf(temp_path)
+                clean_name = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
+                root = "Need_Review" if item["status"] == "Need Review" else "Imported"
+                final_path = month_folder(root) / clean_name
+                if final_path.exists():
+                    final_path = final_path.with_name(final_path.stem + "_" + datetime.now().strftime("%H%M%S") + final_path.suffix)
+                shutil.move(str(temp_path), str(final_path))
+                item["pdf_path"] = str(final_path)
+                imported = [item]
+            elif lower.endswith(".xlsx"):
+                imported = parse_xlsx(temp_path)
+            elif lower.endswith(".csv"):
+                imported = parse_csv(temp_path)
+            else:
+                errors.append(f"{filename}: unsupported file type")
+        except Exception as exc:
+            errors.append(f"{filename}: {str(exc)[:180]}")
+        finally:
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+            except Exception:
+                pass
+
+        for item in imported:
+            if is_duplicate_bol(item, existing_keys, existing_bols):
+                duplicates += 1
+                continue
+            existing.append(item)
+            track_bol_key(item, existing_keys, existing_bols)
+            added += 1
+            if item.get("status") == "Need Review":
+                review += 1
+
+    write_json(STORES_FILE, existing)
+    result = {
+        "ok": True,
+        "status": "IMPORT COMPLETE",
+        "source": source,
+        "added": added,
+        "duplicates": duplicates,
+        "need_review": review,
+        "errors": errors[:20],
+        "message": f"Import complete. Added {added}. Need Review {review}. Skipped duplicates {duplicates}."
+    }
+    audit(source, result)
+    return result
 
 def users_payload():
     if has_request_context() and hasattr(g, "_users_payload"):
@@ -935,6 +1155,8 @@ def dispatch_required(f):
 def enforce_login():
     path = request.path or "/"
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
+        return None
+    if path == "/api/local-rms/import" and local_rms_import_authorized():
         return None
     if session.get("logged_in") and current_user():
         role = current_role()
@@ -1296,47 +1518,28 @@ def rms_import():
         if not files or files[0].filename == "":
             return render_template("rms_import.html", message="Choose RMS PDF, Excel, or CSV files first.")
 
-        existing = read_json(STORES_FILE)
-        existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
-        existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
-        added, duplicates, review = 0, 0, 0
-
-        for uploaded in files:
-            filename = secure_filename(uploaded.filename)
-            temp_path = UPLOAD_DIR / filename
-            uploaded.save(temp_path)
-
-            imported = []
-            if filename.lower().endswith(".pdf"):
-                item = parse_rms_pdf(temp_path)
-                clean_name = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
-                root = "Need_Review" if item["status"] == "Need Review" else "Imported"
-                final_path = month_folder(root) / clean_name
-                shutil.move(str(temp_path), str(final_path))
-                item["pdf_path"] = str(final_path)
-                imported = [item]
-            elif filename.lower().endswith(".xlsx"):
-                imported = parse_xlsx(temp_path)
-            elif filename.lower().endswith(".csv"):
-                imported = parse_csv(temp_path)
-            else:
-                continue
-
-            for item in imported:
-                if is_duplicate_bol(item, existing_keys, existing_bols):
-                    duplicates += 1
-                    continue
-                existing.append(item)
-                track_bol_key(item, existing_keys, existing_bols)
-                added += 1
-                if item.get("status") == "Need Review":
-                    review += 1
-
-        write_json(STORES_FILE, existing)
-        audit("RMS Import", {"added": added, "duplicates": duplicates, "need_review": review})
-        return render_template("rms_import.html", message=f"Import complete. Added {added}. Need Review {review}. Skipped duplicates {duplicates}.")
+        result = import_rms_uploaded_files(files, source="RMS Import")
+        extra = f" Errors: {'; '.join(result['errors'][:3])}" if result.get("errors") else ""
+        return render_template("rms_import.html", message=result["message"] + extra)
 
     return render_template("rms_import.html", message="")
+
+@app.route("/api/local-rms/import", methods=["POST"])
+def api_local_rms_import():
+    if not clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN")):
+        return jsonify({
+            "ok": False,
+            "message": "LOCAL_RMS_IMPORT_TOKEN is not configured in Azure App Service settings."
+        }), 503
+    if not local_rms_import_authorized():
+        return jsonify({"ok": False, "message": "Invalid or missing local RMS import token."}), 401
+
+    files = request.files.getlist("rms_file") or request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "message": "Attach PDF, Excel, or CSV files as rms_file."}), 400
+
+    result = import_rms_uploaded_files(files, source="Local RMS Import")
+    return jsonify(result)
 
 @app.route("/need-review")
 def need_review():
@@ -1403,37 +1606,70 @@ def api_delete_bol():
 
     stores = read_json(STORES_FILE)
     queue = read_json(RMS_QUEUE_FILE)
-    removed_store = None
+    routes = read_json(ROUTES_FILE)
+    removed_stores = []
     kept_stores = []
 
     for store in stores:
         matches_id = store_id and store.get("id") == store_id
         matches_bol = bol and clean(store.get("bol")) == bol
         if matches_id or matches_bol:
-            removed_store = store
+            removed_stores.append(store)
         else:
             kept_stores.append(store)
 
-    if not removed_store:
-        return jsonify({"ok": False, "message": "BOL not found in Need Review or store records."}), 404
+    removed_store_ids = {clean(store.get("id")) for store in removed_stores if clean(store.get("id"))}
+    target_bol = bol or next((clean(store.get("bol")) for store in removed_stores if clean(store.get("bol"))), "")
+    deleted_files = []
+    for store in removed_stores:
+        deleted_files.extend(delete_saved_bol_files(store))
 
-    target_bol = clean(removed_store.get("bol")) or bol
-    deleted_files = delete_saved_bol_files(removed_store)
     kept_queue = []
-    removed_queue = 0
+    removed_queue_items = []
     for q in queue:
-        if target_bol and clean(q.get("bol")) == target_bol:
-            deleted_files.extend(delete_saved_bol_files(q))
-            removed_queue += 1
+        matches_id = store_id and clean(q.get("id")) == store_id
+        matches_bol = target_bol and clean(q.get("bol")) == target_bol
+        if matches_id or matches_bol:
+            removed_queue_items.append(q)
+            if not target_bol:
+                target_bol = clean(q.get("bol"))
         else:
             kept_queue.append(q)
 
+    for q in removed_queue_items:
+        deleted_files.extend(delete_saved_bol_files(q))
+
+    if not removed_stores and not removed_queue_items:
+        return jsonify({"ok": False, "message": "BOL not found in All BOLs, Need Review, store records, or RMS queue."}), 404
+
+    removed_route_refs = 0
+    for route in routes:
+        before_ids = list(route.get("store_ids") or [])
+        if before_ids:
+            route["store_ids"] = [sid for sid in before_ids if clean(sid) not in removed_store_ids]
+            removed_route_refs += len(before_ids) - len(route["store_ids"])
+
+        before_stops = list(route.get("stops") or [])
+        if before_stops:
+            kept_stops = []
+            for stop in before_stops:
+                stop_id = clean(stop.get("id"))
+                stop_bol = clean(stop.get("bol"))
+                if (stop_id and stop_id in removed_store_ids) or (target_bol and stop_bol == target_bol):
+                    removed_route_refs += 1
+                else:
+                    kept_stops.append(stop)
+            route["stops"] = kept_stops
+
     write_json(STORES_FILE, kept_stores)
     write_json(RMS_QUEUE_FILE, kept_queue)
+    write_json(ROUTES_FILE, routes)
     audit("Delete BOL For Regrab", {
         "store_id": store_id,
         "bol": target_bol,
-        "removed_queue": removed_queue,
+        "removed_stores": len(removed_stores),
+        "removed_queue": len(removed_queue_items),
+        "removed_route_refs": removed_route_refs,
         "deleted_files": deleted_files,
     })
     return jsonify({
@@ -1441,7 +1677,9 @@ def api_delete_bol():
         "message": f"Deleted BOL {target_bol or store_id}. It can be grabbed fresh on the next RMS scan.",
         "bol": target_bol,
         "deleted_files": deleted_files,
-        "removed_queue": removed_queue,
+        "removed_stores": len(removed_stores),
+        "removed_queue": len(removed_queue_items),
+        "removed_route_refs": removed_route_refs,
     })
 
 
@@ -1465,12 +1703,13 @@ def rms_login_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        context = browser.new_context()
+        context = new_rms_context(browser)
         page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
-            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
                 raise RuntimeError(
                     "RMS redirected back to login when opening the BOL list. "
@@ -1796,6 +2035,22 @@ RMS_USERNAME_SELECTOR = (
     'input[autocomplete="username"], input:not([type]), input[type="text"]'
 )
 RMS_PASSWORD_SELECTOR = 'input[type="password"], input[name*="password" i], input[id*="password" i]'
+RMS_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Safari/537.36"
+)
+
+class RMSAccessError(RuntimeError):
+    pass
+
+def new_rms_context(browser):
+    return browser.new_context(
+        user_agent=RMS_BROWSER_USER_AGENT,
+        viewport={"width": 1366, "height": 768},
+        locale="en-US",
+        timezone_id="America/Chicago"
+    )
 
 def page_excerpt(page):
     try:
@@ -1807,6 +2062,23 @@ def page_excerpt(page):
     except Exception:
         body = ""
     return f"url={page.url} title={title} body={body[:350]}"
+
+def assert_rms_accessible(page, response=None, label="RMS page"):
+    status = None
+    try:
+        status = response.status if response else None
+    except Exception:
+        status = None
+    excerpt = page_excerpt(page)
+    lowered = excerpt.lower()
+    if status in {401, 403} or "title=403 forbidden" in lowered or "body=403 forbidden" in lowered:
+        raise RMSAccessError(
+            f"{label} returned {status or '403 Forbidden'}. RMS blocked the automation before the login form loaded. "
+            "Open RMS from the same server/network, check VPN/IP allow-list or RMS security rules, and try headed mode if manual browser access works. "
+            + excerpt
+        )
+    if status and status >= 500:
+        raise RMSAccessError(f"{label} returned HTTP {status}. " + excerpt)
 
 def is_rms_login_page(page):
     try:
@@ -1901,11 +2173,12 @@ def wait_for_rms_login_result(page, timeout_ms=30000):
     return "/login" not in clean(page.url).lower()
 
 def login_to_rms(page, login_url, username, password):
-    page.goto(login_url, wait_until="domcontentloaded", timeout=90000)
+    response = page.goto(login_url, wait_until="domcontentloaded", timeout=90000)
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
     except Exception:
         pass
+    assert_rms_accessible(page, response, "RMS login page")
     fill_first_visible(page, RMS_USERNAME_SELECTOR, username, "username")
     fill_first_visible(page, RMS_PASSWORD_SELECTOR, password, "password")
     page.wait_for_timeout(500)
@@ -2250,12 +2523,14 @@ def scan_rms_queue_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        page = browser.new_page()
+        context = new_rms_context(browser)
+        page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
 
-            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
                 raise RuntimeError(
                     "RMS redirected back to login when opening the BOL list. "
@@ -2320,6 +2595,7 @@ def scan_rms_queue_with_playwright(headless=True):
             page.screenshot(path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
 
             rms_debug_hold(page)
+            context.close()
             browser.close()
 
             return {
@@ -2332,6 +2608,10 @@ def scan_rms_queue_with_playwright(headless=True):
             }
 
         except Exception as e:
+            try:
+                context.close()
+            except Exception:
+                pass
             browser.close()
             return {
                 "ok": False,
@@ -2416,7 +2696,8 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        page = browser.new_page()
+        context = new_rms_context(browser)
+        page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -2428,7 +2709,8 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
                 try:
                     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{bol}/print"
-                    page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+                    response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+                    assert_rms_accessible(page, response, f"RMS printable BOL {bol}")
 
                     body_text = page.locator("body").inner_text(timeout=60000)
                     html = page.content()
@@ -2478,6 +2760,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
                             break
                     write_json(RMS_QUEUE_FILE, queue)
 
+            context.close()
             browser.close()
 
             return {
@@ -2491,6 +2774,10 @@ def import_selected_queue_bols(bol_numbers, headless=True):
             }
 
         except Exception as e:
+            try:
+                context.close()
+            except Exception:
+                pass
             try:
                 browser.close()
             except Exception:
@@ -2537,12 +2824,13 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=headless)
-        context = browser.new_context()
+        context = new_rms_context(browser)
         page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
-            page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            response = page.goto(bol_url, wait_until="networkidle", timeout=60000)
+            assert_rms_accessible(page, response, "RMS BOL list")
             if is_rms_login_page(page):
                 raise RuntimeError(
                     "RMS redirected back to login when opening the BOL list. "
@@ -2569,7 +2857,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                     # Open each BOL in the same authenticated browser context.
                     detail_page = context.new_page()
                     direct_print_url = f"https://rms.reusability.com/bills-of-lading/{link['bol']}/print"
-                    detail_page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+                    response = detail_page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+                    assert_rms_accessible(detail_page, response, f"RMS printable BOL {link['bol']}")
                     if is_rms_login_page(detail_page):
                         raise RuntimeError("RMS redirected printable BOL back to login. " + page_excerpt(detail_page))
 
@@ -2668,14 +2957,15 @@ def bol_live_printable(bol_number):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=rms_headless(True))
-        context = browser.new_context()
+        context = new_rms_context(browser)
         page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
 
             # Go straight to the RMS printable URL.
-            page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+            response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+            assert_rms_accessible(page, response, f"RMS printable BOL {bol_number}")
 
             body_text, html = wait_for_printable_bol_content(page, bol_number)
             if is_rms_login_page(page):
@@ -2684,12 +2974,13 @@ def bol_live_printable(bol_number):
             if is_rms_wait_page(body_text, html):
                 saved_path = find_saved_bol_path(bol_number)
                 if saved_path:
+                    saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
                     try:
                         context.close()
                     except Exception:
                         pass
                     browser.close()
-                    return send_file(saved_path, as_attachment=False)
+                    return render_saved_bol(saved_record, saved_path, auto_print=False)
                 raise RuntimeError("RMS only returned its 'Please wait' print shell and no saved copy was found.")
 
             # Save backup snapshot.
@@ -2704,7 +2995,8 @@ def bol_live_printable(bol_number):
                 pass
             browser.close()
 
-            return html
+            saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
+            return f"{bol_print_styles()}{bol_edit_summary_html(saved_record)}{html}"
 
         except Exception as e:
             try:
@@ -2718,7 +3010,8 @@ def bol_live_printable(bol_number):
 
             saved_path = find_saved_bol_path(bol_number)
             if saved_path:
-                return send_file(saved_path, as_attachment=False)
+                saved_record = next((s for s in read_json(STORES_FILE) if clean(s.get("bol")) == clean(bol_number)), {"bol": bol_number})
+                return render_saved_bol(saved_record, saved_path, auto_print=False)
 
             return render_template(
                 "bol_not_found.html",
@@ -2757,50 +3050,7 @@ def bol_print(store_id):
     if not path or not Path(path).exists():
         return render_template("bol_not_found.html", bol=found.get("bol", ""), path=path)
 
-    content = Path(path).read_text(encoding="utf-8", errors="ignore") if str(path).lower().endswith(".html") else ""
-    if content:
-        return f"""<!doctype html>
-<html>
-<head>
-<title>Print BOL {found.get('bol','')}</title>
-<style>
-@media print {{
-  button {{ display:none!important; }}
-  body {{ margin:0.25in; }}
-}}
-.print-toolbar {{
-  position: sticky;
-  top: 0;
-  background: #0f172a;
-  color: white;
-  padding: 10px;
-  display: flex;
-  gap: 10px;
-  z-index: 9999;
-}}
-.print-toolbar button {{
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}}
-</style>
-</head>
-<body>
-<div class="print-toolbar">
-  <button onclick="window.print()">Print to Office Printer</button>
-  <button onclick="window.close()">Close</button>
-  <span>BOL {found.get('bol','')}</span>
-</div>
-{content}
-<script>
-window.addEventListener("load", function(){{
-  setTimeout(function(){{ window.print(); }}, 500);
-}});
-</script>
-</body>
-</html>"""
-
-    return send_file(Path(path), as_attachment=False)
+    return render_saved_bol(found, path, auto_print=True)
 
 @app.route("/bol-view/<store_id>")
 def bol_view(store_id):
@@ -2833,7 +3083,7 @@ def bol_view(store_id):
     if not path or not Path(path).exists():
         return render_template("bol_not_found.html", bol=found.get("bol", ""), path=path)
 
-    return send_file(Path(path), as_attachment=False)
+    return render_saved_bol(found, path, auto_print=False)
 
 @app.route("/api/approve-review-force", methods=["POST"])
 def api_approve_review_force():
@@ -2872,12 +3122,14 @@ def api_rms_repair_bol(bol_number):
 
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=True)
-        page = browser.new_page()
+        context = new_rms_context(browser)
+        page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
             direct_print_url = f"https://rms.reusability.com/bills-of-lading/{clean(bol_number)}/print"
-            page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+            response = page.goto(direct_print_url, wait_until="networkidle", timeout=60000)
+            assert_rms_accessible(page, response, f"RMS printable BOL {bol_number}")
 
             body_text = page.locator("body").inner_text(timeout=60000)
             html = page.content()
@@ -2899,9 +3151,14 @@ def api_rms_repair_bol(bol_number):
 
             update_queue_from_item(item)
 
+            context.close()
             browser.close()
             return jsonify({"ok": True, "item": item, "message": f"BOL {bol_number} repaired. Status: {item.get('status')}. Racks: {item.get('expected_racks')}"})
         except Exception as e:
+            try:
+                context.close()
+            except Exception:
+                pass
             try:
                 browser.close()
             except Exception:

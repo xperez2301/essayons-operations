@@ -122,6 +122,10 @@ body{background:#050607;color:var(--cmd-text);}
 .route-due-chip{display:inline-block;margin:4px 0 3px;padding:4px 8px;border-radius:999px;border:1px solid currentColor;font-family:var(--mono);font-size:11px;font-weight:900;text-transform:uppercase}
 .due-none{color:#d2d7dc;border-color:#68717a;background:rgba(104,113,122,.18)}
 .azure-stop-marker,.azure-hub-marker{width:48px;height:48px;border-radius:50%;border:2px solid #f4efe6;color:#fff;display:grid;place-items:center;font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:16px;box-shadow:0 0 0 3px rgba(255,255,255,.22),0 12px 26px rgba(0,0,0,.35);cursor:pointer}
+.azure-stop-marker.pin-red{background:#b7332d!important}
+.azure-stop-marker.pin-amber{background:#d7a53e!important;color:#1f1305}
+.azure-stop-marker.pin-green{background:#2f8a4b!important}
+.azure-stop-marker.pin-none{background:#596064!important}
 .azure-stop-marker:hover,.azure-hub-marker:hover{transform:scale(1.08)}
 .azure-hub-marker{width:52px;height:52px;background:#b7332d;border-width:3px;font-size:18px}
 .atlas-map{background:#121820}

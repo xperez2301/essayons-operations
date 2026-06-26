@@ -53,9 +53,8 @@ function azureMapStyle(value){
 }
 
 function pinIcon(number, color){
-    const colors = {green:"#2f8a4b", amber:"#d7a53e", red:"#b7332d", none:"#596064"};
-    const fill = colors[color] || colors.green;
-    return `<button class="azure-stop-marker" type="button" style="background:${fill}" aria-label="Stop ${number}">${number}</button>`;
+    const status = ["red", "amber", "green", "none"].includes(color) ? color : "green";
+    return `<button class="azure-stop-marker pin-${status}" type="button" aria-label="Stop ${number} ${status} due status" title="${status.toUpperCase()} due status">${number}</button>`;
 }
 
 function hubIcon(){
