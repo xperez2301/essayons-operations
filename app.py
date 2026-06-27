@@ -248,7 +248,23 @@ def local_rms_import_authorized():
     if auth.lower().startswith("bearer "):
         supplied = clean(auth[7:])
     supplied = supplied or clean(request.headers.get("X-EOMS-Import-Token"))
+    supplied = supplied or clean(request.headers.get("X-Local-RMS-Token"))
     return bool(supplied) and secrets.compare_digest(supplied, token)
+
+def append_sync_history(result, action=None):
+    history = read_json(SYNC_HISTORY_FILE)
+    if not isinstance(history, list):
+        history = []
+    item = dict(result or {})
+    item.setdefault("id", str(uuid4()))
+    item.setdefault("time", datetime.now().isoformat(timespec="seconds"))
+    if action:
+        item["action"] = action
+    else:
+        item.setdefault("action", clean(item.get("source")) or "RMS Sync")
+    history.append(item)
+    write_json(SYNC_HISTORY_FILE, history[-250:])
+    return item
 
 def clean(value):
     return "" if value is None else str(value).strip()
@@ -1463,6 +1479,8 @@ def dashboard():
         azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"},
+        is_azure=IS_AZURE,
+        local_rms_worker_message="RMS Auto Grab runs from the local office PC worker." if IS_AZURE else "",
     )
 
 @app.route("/api/dashboard-live")
@@ -1711,7 +1729,12 @@ def api_local_rms_import():
     if not files:
         return jsonify({"ok": False, "message": "Attach PDF, Excel, or CSV files as rms_file."}), 400
 
-    result = import_rms_uploaded_files(files, source="Local RMS Import")
+    result = import_rms_uploaded_files(files, source="Local RMS Worker")
+    result.update({
+        "received_files": len([f for f in files if clean(getattr(f, "filename", ""))]),
+        "worker": clean(request.headers.get("X-EOMS-Worker")) or "office-pc",
+    })
+    append_sync_history(result, action="Local RMS Worker Import")
     return jsonify(result)
 
 @app.route("/need-review")
@@ -3617,9 +3640,22 @@ def api_rms_auto_grab_bols():
     dashboard button a dedicated endpoint and simpler response target.
     """
     try:
-        history = read_json(SYNC_HISTORY_FILE)
         payload = request.get_json(silent=True) or {}
         max_bols = int(payload.get("max_bols") or 0)
+
+        if IS_AZURE:
+            result = {
+                "ok": False,
+                "status": "LOCAL WORKER REQUIRED",
+                "message": "RMS Auto Grab runs from the local office PC worker. Azure stays as the dashboard and import receiver because RMS blocks Azure/server browsers with 403.",
+                "found": 0,
+                "imported": 0,
+                "updated": 0,
+                "failed": 0,
+            }
+            append_sync_history(result, action="Dashboard Auto Grab Blocked In Azure")
+            audit("Dashboard Auto Grab Blocked In Azure", result)
+            return jsonify({"ok": False, "result": result}), 409
 
         try:
             result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
@@ -3635,14 +3671,7 @@ def api_rms_auto_grab_bols():
                 "updated": 0,
                 "failed": 1,
             }
-        result.update({
-            "id": str(uuid4()),
-            "time": datetime.now().isoformat(timespec="seconds"),
-            "action": "Dashboard Auto Grab BOLs"
-        })
-
-        history.append(result)
-        write_json(SYNC_HISTORY_FILE, history)
+        append_sync_history(result, action="Dashboard Auto Grab BOLs")
         audit("Dashboard Auto Grab BOLs", result)
 
         return jsonify({"ok": result.get("ok", False), "result": result})

@@ -15,7 +15,11 @@
         <div><b>Last RMS Sync</b><small id="lastSyncText">{{ sync_history[-1].time if sync_history else 'Not run yet' }}</small></div>
       </div>
       {% if session.get('role') == 'Admin' %}
-      <button id="autoGrabBolBtn" class="big-red-btn" type="button">☁ Auto Grab BOLs<br><small>Admin Only</small></button>
+        {% if is_azure %}
+      <button id="autoGrabBolBtn" class="big-red-btn" type="button" disabled title="{{ local_rms_worker_message }} Last sync: {{ sync_history[-1].time if sync_history else 'not run yet' }}">Local RMS Worker<br><small>Last: {{ sync_history[-1].time if sync_history else 'not run yet' }}</small></button>
+        {% else %}
+      <button id="autoGrabBolBtn" class="big-red-btn" type="button">Auto Grab BOLs<br><small>Admin Only</small></button>
+        {% endif %}
       {% endif %}
       <div class="user-pill"><span>XP</span><div><b>{{ session.get('username','Xavier Perez') }}</b><small>{{ session.get('role','Admin') }}</small></div></div>
     </div>
@@ -98,6 +102,8 @@ window.EOMS_DASHBOARD_STORES = {{ stores | tojson }};
 window.EOMS_DASHBOARD_HUBS = {{ hubs | tojson }};
 window.EOMS_MAP_SETTINGS = {{ map_settings | tojson }};
 window.AZURE_MAPS_KEY = {{ azure_maps_key | tojson }};
+window.EOMS_IS_AZURE = {{ is_azure | tojson }};
+window.EOMS_LOCAL_RMS_WORKER_MESSAGE = {{ local_rms_worker_message | tojson }};
 </script>
 {% if azure_maps_key %}
 <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
@@ -121,6 +127,12 @@ window.AZURE_MAPS_KEY = {{ azure_maps_key | tojson }};
   let progressTimer = null;
   let progressValue = 0;
   if(!btn) return;
+  if(window.EOMS_IS_AZURE){
+    statusBox.classList.remove('hidden');
+    statusBox.textContent=(window.EOMS_LOCAL_RMS_WORKER_MESSAGE || 'RMS Auto Grab runs from the local office PC worker.') + ' Last sync: ' + (document.getElementById('lastSyncText')?.textContent || 'not run yet') + '.';
+    btn.disabled=true;
+    return;
+  }
   function setProgress(value){
     progressValue = Math.max(0, Math.min(100, Math.round(value)));
     if(progressFill) progressFill.style.width = progressValue + '%';

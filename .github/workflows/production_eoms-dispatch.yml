@@ -43,9 +43,16 @@ jobs:
             !.github/
             !**/__pycache__/
             !**/*.pyc
+            !.env
+            !.venv/
+            !venv/
+            !env/
+            !runtime/
+            !data/
             !bol_files/
             !uploads/
             !diagnostics/
+            !RMS_Browser_Profile*/
             !*.zip
 
   deploy:

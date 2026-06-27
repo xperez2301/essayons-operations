@@ -16,6 +16,7 @@ env/
 runtime/
 ms-playwright/
 RMS_Browser_Profile_Texas/
+RMS_Browser_Profile*/
 data/rms_browser_profile/
 data/rms_edge_profile/
 data/rms_chromium_profile/
