@@ -9,4 +9,4 @@ requests==2.32.3
 # Optional: only needed for the RMS scraping/automation features.
 # On Azure App Service this also requires `playwright install chromium`
 # (see README). The app runs fine without it; RMS automation is just disabled.
-playwright==1.48.0
+playwright==1.59.0
