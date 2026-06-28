@@ -1,4 +1,4 @@
-import os
+﻿import os
 import csv
 import json
 import math
@@ -217,7 +217,7 @@ def verify_password(stored, provided):
         return False, False
     if looks_hashed(stored):
         return check_password_hash(stored, provided or ""), False
-    # Legacy plaintext comparison (constant work) â€” valid once, then upgrade.
+    # Legacy plaintext comparison (constant work) Ã¢â‚¬â€ valid once, then upgrade.
     return secrets.compare_digest(str(stored), str(provided or "")), True
 
 def migrate_user_passwords():
@@ -958,6 +958,21 @@ def assign_hub(lat, lng, dispatch_group=""):
     if nearest_miles <= 100:
         return nearest, f"Nearest Hub {round(nearest_miles, 1)} mi"
     return "Manual Review", f"Outside 100 mi ({round(nearest_miles, 1)} mi)"
+
+def demangle_pdf_text(text):
+    if not text:
+        return text
+    fixes = {
+        r"Addr\s*ess": "Address",
+        r"City/S\s*tate/Zip": "City/State/Zip",
+        r"Updat\s*ed": "Updated",
+        r"Cont\s*act": "Contact",
+        r"Desti\s*nation": "Destination",
+        r"Carr\s*ier": "Carrier",
+    }
+    for pat, rep in fixes.items():
+        text = re.sub(pat, rep, text, flags=re.I)
+    return text
 
 def extract_pdf_text(path):
     reader = PdfReader(str(path))
@@ -2332,7 +2347,7 @@ def rms_blocked_result(message, action="RMS Import"):
         "status": "RMS BLOCKED / 403",
         "message": (
             "The RMS login URL is correct: https://rms.reusability.com/login. "
-            "Correct RMS flow is login â†’ https://rms.reusability.com/bills-of-lading â†’ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
+            "Correct RMS flow is login Ã¢â€ â€™ https://rms.reusability.com/bills-of-lading Ã¢â€ â€™ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
             "RMS returned 403 Forbidden before the login form loaded, so EOMS never got a chance to enter the username/password. "
             "This is a server/network security block, not a bad password or wrong URL. "
             "Fix: run EOMS from a computer/network that can manually open RMS, use RUN_LOCAL_EOMS.bat with RMS_HEADLESS=0 for headed mode, "
@@ -2759,9 +2774,9 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 
         # First try button/link with text that looks like next arrow.
         possible_next = [
-            'button:has-text("â€º")',
+            'button:has-text("Ã¢â‚¬Âº")',
             'button:has-text(">")',
-            'a:has-text("â€º")',
+            'a:has-text("Ã¢â‚¬Âº")',
             'a:has-text(">")',
             'button[aria-label*="Next"]',
             'a[aria-label*="Next"]'
@@ -3317,7 +3332,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             rms_debug_hold(page)
             close_rms_browser(browser, context)
 
-            message = f"RMS import complete using correct RMS flow: login â†’ bills-of-lading list â†’ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login Ã¢â€ â€™ bills-of-lading list Ã¢â€ â€™ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)
@@ -4884,6 +4899,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
