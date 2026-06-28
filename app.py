@@ -2690,7 +2690,18 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
             pass
 
     for page_index in range(max_pages):
-        page.wait_for_timeout(800)
+        try:
+            page.wait_for_function(
+                """() => {
+                    const body = document.body ? (document.body.innerText || '') : '';
+                    const hasBolAnchor = Array.from(document.querySelectorAll('a[href*="/bills-of-lading/"]')).some((a) => /\/bills-of-lading\/\d{4,}/.test(a.href || a.getAttribute('href') || ''));
+                    const hasBolRow = Array.from(document.querySelectorAll('tr')).some((row) => /\b\d{5,8}\b/.test(row.innerText || row.textContent || ''));
+                    return hasBolAnchor || hasBolRow || body.includes('No records found') || body.includes('No BOL') || body.includes('No results');
+                }""",
+                timeout=20000,
+            )
+        except Exception:
+            page.wait_for_timeout(2500)
         bol_links.extend(harvest_current_page())
 
         # Find and click next page arrow. RMS uses pagination with numeric pages and arrows.
