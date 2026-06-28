@@ -2942,6 +2942,15 @@ def open_printable_and_extract(page, bol_link):
     text = page.locator("body").inner_text(timeout=60000)
     html = page.content()
     item = extract_printable_bol_from_text(text, page.url)
+
+    # Merge RMS list-grid dates into the parsed printable BOL.
+    # The printable page/PDF often does not contain the true Operation Due Date.
+    # The RMS list row does, so preserve it here.
+    if bol_link.get("due_date"):
+        item["due_date"] = bol_link.get("due_date", "")
+    if bol_link.get("assigned_date"):
+        item["assigned_date"] = bol_link.get("assigned_date", "")
+
     if not item.get("bol"):
         item["bol"] = bol
         item.setdefault("review_warnings", []).append("BOL fallback from RMS list")
@@ -4920,6 +4929,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
