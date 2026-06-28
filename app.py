@@ -2095,6 +2095,24 @@ def extract_printable_bol_from_text(text, source_url=""):
     address = origin_address
     contact = origin_contact
 
+    contact_name = clean(contact)
+    contact_phone = ""
+    contact_email = ""
+
+    phone_match = re.search(r"(\+?1?[\s\-.]?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4})", contact or "")
+    if phone_match:
+        contact_phone = clean(phone_match.group(1))
+
+    email_match = re.search(r"([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})", contact or "", re.I)
+    if email_match:
+        contact_email = clean(email_match.group(1))
+
+    if contact_phone:
+        contact_name = clean(contact_name.replace(contact_phone, ""))
+    if contact_email:
+        contact_name = clean(contact_name.replace(contact_email, ""))
+    contact_name = re.sub(r"\s{2,}", " ", contact_name).strip(" -|,;")
+
     # Fallbacks from any visible label.
     if not store_name:
         store_name = find_match(r"Name:\s*([^\n]+)", joined)
@@ -2158,6 +2176,9 @@ def extract_printable_bol_from_text(text, source_url=""):
         "state": state,
         "zip": zip_code,
         "contact": contact,
+        "contact_name": contact_name,
+        "contact_phone": contact_phone,
+        "contact_email": contact_email,
         "origin_name": origin_name,
         "origin_address": origin_address,
         "origin_city": city,
@@ -4899,6 +4920,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
