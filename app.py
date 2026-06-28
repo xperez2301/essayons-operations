@@ -729,9 +729,12 @@ def launch_rms_browser_context(playwright, headless=True):
 def new_rms_page_for_context(context):
     pages = list(getattr(context, "pages", []) or [])
     if rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
+        seen = []
         for candidate in pages:
             try:
-                if "rms.reusability.com" in clean(candidate.url).lower():
+                url = clean(candidate.url)
+                seen.append(url or "about:blank")
+                if "rms.reusability.com" in url.lower():
                     try:
                         candidate.bring_to_front()
                     except Exception:
@@ -739,17 +742,12 @@ def new_rms_page_for_context(context):
                     return candidate
             except Exception:
                 pass
-        for candidate in pages:
-            try:
-                url = clean(candidate.url).lower()
-                if url and url != "about:blank":
-                    try:
-                        candidate.bring_to_front()
-                    except Exception:
-                        pass
-                    return candidate
-            except Exception:
-                pass
+        raise RuntimeError(
+            "EOMS connected to the Edge debugger, but no RMS tab was attached. "
+            "Keep the debugger Edge window open on https://rms.reusability.com/bills-of-lading, "
+            "and open the EOMS dashboard in a different browser/window. Attached tabs: "
+            + "; ".join(seen[:8])
+        )
     return context.new_page()
 def close_rms_browser(browser, context):
     if rms_manual_login_enabled():
@@ -2374,11 +2372,13 @@ def open_rms_bol_list_with_manual_login(page, bol_url=None, wait_seconds=None):
         except Exception:
             wait_seconds = 600
 
-    response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
-    try:
-        page.wait_for_load_state("networkidle", timeout=20000)
-    except Exception:
-        pass
+    response = None
+    if "bills-of-lading" not in clean(page.url).lower():
+        response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=20000)
+        except Exception:
+            pass
     assert_rms_accessible(page, response, "RMS BOL list")
 
     deadline = time.time() + max(10, wait_seconds)
