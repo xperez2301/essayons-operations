@@ -1,4 +1,4 @@
-import os
+﻿import os
 import csv
 import json
 import math
@@ -42,6 +42,8 @@ except Exception:  # pragma: no cover
         )
 
 app = Flask(__name__)
+from jinja2 import ChainableUndefined
+app.jinja_env.undefined = ChainableUndefined
 
 # Load a local .env file for development (no-op if python-dotenv or the file is
 # absent). On Azure, real values come from Application settings instead.
@@ -215,7 +217,7 @@ def verify_password(stored, provided):
         return False, False
     if looks_hashed(stored):
         return check_password_hash(stored, provided or ""), False
-    # Legacy plaintext comparison (constant work) — valid once, then upgrade.
+    # Legacy plaintext comparison (constant work) â€” valid once, then upgrade.
     return secrets.compare_digest(str(stored), str(provided or "")), True
 
 def migrate_user_passwords():
@@ -248,23 +250,7 @@ def local_rms_import_authorized():
     if auth.lower().startswith("bearer "):
         supplied = clean(auth[7:])
     supplied = supplied or clean(request.headers.get("X-EOMS-Import-Token"))
-    supplied = supplied or clean(request.headers.get("X-Local-RMS-Token"))
     return bool(supplied) and secrets.compare_digest(supplied, token)
-
-def append_sync_history(result, action=None):
-    history = read_json(SYNC_HISTORY_FILE)
-    if not isinstance(history, list):
-        history = []
-    item = dict(result or {})
-    item.setdefault("id", str(uuid4()))
-    item.setdefault("time", datetime.now().isoformat(timespec="seconds"))
-    if action:
-        item["action"] = action
-    else:
-        item.setdefault("action", clean(item.get("source")) or "RMS Sync")
-    history.append(item)
-    write_json(SYNC_HISTORY_FILE, history[-250:])
-    return item
 
 def clean(value):
     return "" if value is None else str(value).strip()
@@ -641,7 +627,7 @@ def launch_rms_browser_context(playwright, headless=True):
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(rms_normal_profile_dir()),
                 channel="chrome",
-                headless=headless,
+                headless=False,
                 accept_downloads=True,
                 args=[
                     "--start-maximized",
@@ -656,7 +642,7 @@ def launch_rms_browser_context(playwright, headless=True):
             try:
                 context = playwright.chromium.launch_persistent_context(
                     user_data_dir=str(rms_normal_profile_dir()),
-                   headless=headless,
+                    headless=False,
                     accept_downloads=True,
                     args=[
                         "--start-maximized",
@@ -726,29 +712,82 @@ def launch_rms_browser_context(playwright, headless=True):
     browser = launch_chromium_with_repair(playwright, headless=headless)
     return browser, new_rms_context(browser)
 
-def new_rms_page_for_context(context):
-    pages = list(getattr(context, "pages", []) or [])
-    if rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
-        seen = []
-        for candidate in pages:
-            try:
-                url = clean(candidate.url)
-                seen.append(url or "about:blank")
-                if "rms.reusability.com" in url.lower():
-                    try:
-                        candidate.bring_to_front()
-                    except Exception:
-                        pass
-                    return candidate
-            except Exception:
-                pass
-        raise RuntimeError(
-            "EOMS connected to the Edge debugger, but no RMS tab was attached. "
-            "Keep the debugger Edge window open on https://rms.reusability.com/bills-of-lading, "
-            "and open the EOMS dashboard in a different browser/window. Attached tabs: "
-            + "; ".join(seen[:8])
-        )
-    return context.new_page()
+def find_existing_rms_page(context):
+    """Return the operator's already-open RMS tab, preferring one already on the
+    Bills of Lading list. Returns None if no usable RMS tab is open.
+
+    In CDP / manual-login mode the operator logs into RMS in a real Edge tab.
+    That tab is where the live RMS session lives: cookies, the tab-scoped
+    sessionStorage auth token, and the rendered Vue table. Reusing that tab is
+    the only reliable way to see BOLs. A freshly opened context.new_page() boots
+    the RMS Vue app with no session token and renders the blank shell with zero
+    BOL links -- which is exactly the failure the dashboard Auto Grab hits while
+    the manual CDP probe (which reads this existing tab) succeeds.
+    """
+    try:
+        pages = list(context.pages)
+    except Exception:
+        pages = []
+
+    on_bol_list = None
+    on_rms = None
+    for pg in pages:
+        try:
+            url = clean(pg.url).lower()
+        except Exception:
+            continue
+        if "rms.reusability.com" not in url and "/bills-of-lading" not in url:
+            continue
+        try:
+            if is_rms_login_page(pg):
+                # A tab sitting on the RMS login screen has no usable session yet.
+                continue
+        except Exception:
+            pass
+        if "bills-of-lading" in url and on_bol_list is None:
+            on_bol_list = pg
+        elif on_rms is None:
+            on_rms = pg
+    return on_bol_list or on_rms
+
+def ensure_rms_bol_list_ready(page, bol_url=None, wait_seconds=None):
+    """Make a reused RMS tab show the Bills of Lading list, then wait for rows.
+
+    If the tab is already on the BOL list we deliberately do NOT reload it --
+    reloading re-boots the Vue app and re-introduces the blank-shell race. If the
+    tab is elsewhere on RMS we navigate that same tab so the live session carries
+    over. Finally we wait for the BOL table anchors to actually paint before the
+    caller scans.
+    """
+    bol_url = normalized_rms_bol_list_url(bol_url or RMS_BOL_LIST_URL)
+    try:
+        current = clean(page.url).lower()
+    except Exception:
+        current = ""
+
+    if "bills-of-lading" not in current or is_rms_login_page(page):
+        response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=20000)
+        except Exception:
+            pass
+        assert_rms_accessible(page, response, "RMS BOL list")
+        if is_rms_login_page(page):
+            # The reused tab lost its session; fall back to the manual-login wait
+            # loop on this same tab so the operator can re-authenticate in place.
+            open_rms_bol_list_with_manual_login(page, bol_url, wait_seconds=wait_seconds)
+            return
+
+    # Wait for the Vue table to actually render BOL rows before scanning.
+    try:
+        page.wait_for_selector("a[href*='/bills-of-lading/'], table tbody tr", timeout=20000)
+    except Exception:
+        # Non-fatal: collect_bol_links_from_all_pages has body/text fallbacks.
+        try:
+            page.wait_for_timeout(1500)
+        except Exception:
+            pass
+
 def close_rms_browser(browser, context):
     if rms_manual_login_enabled():
         return
@@ -1494,6 +1533,7 @@ def dashboard():
     maps_key = clean(settings_data.get("azure_maps_key"))
     return render_template(
         "dashboard.html",
+        is_azure=IS_AZURE,
         metrics=dashboard_metrics(stores, routes),
         stores=active_map_stores(stores),
         routes=routes,
@@ -1502,8 +1542,6 @@ def dashboard():
         azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
         can_view_financials=current_role() in {"Admin", "Operations Manager"},
-        is_azure=IS_AZURE,
-        local_rms_worker_message="RMS Auto Grab runs from the local office PC worker." if IS_AZURE else "",
     )
 
 @app.route("/api/dashboard-live")
@@ -1752,12 +1790,7 @@ def api_local_rms_import():
     if not files:
         return jsonify({"ok": False, "message": "Attach PDF, Excel, or CSV files as rms_file."}), 400
 
-    result = import_rms_uploaded_files(files, source="Local RMS Worker")
-    result.update({
-        "received_files": len([f for f in files if clean(getattr(f, "filename", ""))]),
-        "worker": clean(request.headers.get("X-EOMS-Worker")) or "office-pc",
-    })
-    append_sync_history(result, action="Local RMS Worker Import")
+    result = import_rms_uploaded_files(files, source="Local RMS Import")
     return jsonify(result)
 
 @app.route("/need-review")
@@ -1932,7 +1965,7 @@ def rms_login_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = new_rms_page_for_context(context)
+        page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
@@ -2299,7 +2332,7 @@ def rms_blocked_result(message, action="RMS Import"):
         "status": "RMS BLOCKED / 403",
         "message": (
             "The RMS login URL is correct: https://rms.reusability.com/login. "
-            "Correct RMS flow is login → https://rms.reusability.com/bills-of-lading → https://rms.reusability.com/bills-of-lading/<BOL>/print. "
+            "Correct RMS flow is login â†’ https://rms.reusability.com/bills-of-lading â†’ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
             "RMS returned 403 Forbidden before the login form loaded, so EOMS never got a chance to enter the username/password. "
             "This is a server/network security block, not a bad password or wrong URL. "
             "Fix: run EOMS from a computer/network that can manually open RMS, use RUN_LOCAL_EOMS.bat with RMS_HEADLESS=0 for headed mode, "
@@ -2364,6 +2397,35 @@ def is_rms_login_page(page):
         ("sign in" in body and "username" in body and "password" in body)
     )
 
+def rms_bol_rows_present(page):
+    try:
+        count = page.evaluate(
+            "() => { const n = document.querySelectorAll(\"a[href*='/bills-of-lading/']\").length; if (n) return n; const body = (document.body ? document.body.innerText : '') || ''; if (/please wait|completion|refreshing|loading/i.test(body)) return 0; return document.querySelectorAll('tbody tr').length; }"
+        )
+        return int(count or 0) > 0
+    except Exception:
+        return False
+
+def wait_for_rms_bol_rows(page, timeout_seconds=90, refresh_url=None):
+    deadline = time.time() + max(5, timeout_seconds)
+    last_refresh = 0
+    while time.time() < deadline:
+        if rms_bol_rows_present(page):
+            return True
+        if refresh_url and (time.time() - last_refresh) > 12:
+            last_refresh = time.time()
+            try:
+                page.goto(refresh_url, wait_until="domcontentloaded", timeout=30000)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        page.wait_for_timeout(1000)
+    return rms_bol_rows_present(page)
+
+
 def open_rms_bol_list_with_manual_login(page, bol_url=None, wait_seconds=None):
     bol_url = normalized_rms_bol_list_url(bol_url or RMS_BOL_LIST_URL)
     if wait_seconds is None:
@@ -2372,13 +2434,11 @@ def open_rms_bol_list_with_manual_login(page, bol_url=None, wait_seconds=None):
         except Exception:
             wait_seconds = 600
 
-    response = None
-    if "bills-of-lading" not in clean(page.url).lower():
-        response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
-        try:
-            page.wait_for_load_state("networkidle", timeout=20000)
-        except Exception:
-            pass
+    response = page.goto(bol_url, wait_until="domcontentloaded", timeout=90000)
+    try:
+        page.wait_for_load_state("networkidle", timeout=20000)
+    except Exception:
+        pass
     assert_rms_accessible(page, response, "RMS BOL list")
 
     deadline = time.time() + max(10, wait_seconds)
@@ -2391,6 +2451,7 @@ def open_rms_bol_list_with_manual_login(page, bol_url=None, wait_seconds=None):
             current_l = current.lower()
             last_excerpt = page_excerpt(page)
             if "bills-of-lading" in current_l and not is_rms_login_page(page):
+                wait_for_rms_bol_rows(page, timeout_seconds=90, refresh_url=bol_url)
                 return True
 
             # After the user completes RMS login, RMS may leave the tab on a
@@ -2690,18 +2751,7 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
             pass
 
     for page_index in range(max_pages):
-        try:
-            page.wait_for_function(
-                """() => {
-                    const body = document.body ? (document.body.innerText || '') : '';
-                    const hasBolAnchor = Array.from(document.querySelectorAll('a[href*="/bills-of-lading/"]')).some((a) => /\/bills-of-lading\/\d{4,}/.test(a.href || a.getAttribute('href') || ''));
-                    const hasBolRow = Array.from(document.querySelectorAll('tr')).some((row) => /\b\d{5,8}\b/.test(row.innerText || row.textContent || ''));
-                    return hasBolAnchor || hasBolRow || body.includes('No records found') || body.includes('No BOL') || body.includes('No results');
-                }""",
-                timeout=20000,
-            )
-        except Exception:
-            page.wait_for_timeout(2500)
+        page.wait_for_timeout(800)
         bol_links.extend(harvest_current_page())
 
         # Find and click next page arrow. RMS uses pagination with numeric pages and arrows.
@@ -2709,9 +2759,9 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 
         # First try button/link with text that looks like next arrow.
         possible_next = [
-            'button:has-text("›")',
+            'button:has-text("â€º")',
             'button:has-text(">")',
-            'a:has-text("›")',
+            'a:has-text("â€º")',
             'a:has-text(">")',
             'button[aria-label*="Next"]',
             'a[aria-label*="Next"]'
@@ -2890,7 +2940,7 @@ def scan_rms_queue_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = new_rms_page_for_context(context)
+        page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -3060,7 +3110,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = new_rms_page_for_context(context)
+        page = context.new_page()
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -3187,10 +3237,19 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = new_rms_page_for_context(context)
+        bol_url = normalized_rms_bol_list_url(bol_url)
+        reused_page = None
+        if rms_manual_login_enabled() or rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
+            reused_page = find_existing_rms_page(context)
+        page = reused_page if reused_page is not None else context.new_page()
         try:
-            bol_url = normalized_rms_bol_list_url(bol_url)
-            if rms_manual_login_enabled():
+            if reused_page is not None:
+                # Reuse the operator's already-authenticated RMS tab. Opening a
+                # fresh tab boots the RMS Vue SPA without the logged-in tab's
+                # session (RMS holds its auth token in tab-scoped sessionStorage),
+                # so a new tab renders the blank Vue shell with no BOL links.
+                ensure_rms_bol_list_ready(page, bol_url)
+            elif rms_manual_login_enabled():
                 open_rms_bol_list_with_manual_login(page, bol_url)
             else:
                 login_to_rms(page, login_url, username, password)
@@ -3258,7 +3317,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             rms_debug_hold(page)
             close_rms_browser(browser, context)
 
-            message = f"RMS import complete using correct RMS flow: login → bills-of-lading list → individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login â†’ bills-of-lading list â†’ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)
@@ -3326,7 +3385,7 @@ def bol_live_printable(bol_number):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=rms_headless(False))
-        page = new_rms_page_for_context(context)
+        page = context.new_page()
 
         try:
             if rms_manual_login_enabled():
@@ -3492,7 +3551,7 @@ def api_rms_repair_bol(bol_number):
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=True)
         context = new_rms_context(browser)
-        page = new_rms_page_for_context(context)
+        page = context.new_page()
         try:
             login_to_rms(page, login_url, username, password)
 
@@ -3669,6 +3728,90 @@ def api_rms_sync_open_bols():
     return jsonify({"ok": result.get("ok", False), "result": result})
 
 
+@app.route("/api/rms/debug-cdp-state", methods=["GET"])
+@admin_required
+def api_rms_debug_cdp_state():
+    """Diagnostic: connect to RMS over CDP and report exactly what EOMS sees from
+    inside the running Flask process -- env, attached pages, the chosen RMS tab,
+    and how many BOL links are visible. Use this to tell apart (a) env not loaded,
+    (b) CDP not reachable, (c) attached but wrong/unauthenticated tab, and
+    (d) attach+collection fine so the bug is downstream in the /print loop.
+    """
+    info = {
+        "env": {
+            "RMS_BROWSER": os.environ.get("RMS_BROWSER"),
+            "RMS_CDP_ENDPOINT": os.environ.get("RMS_CDP_ENDPOINT"),
+            "RMS_HEADLESS": os.environ.get("RMS_HEADLESS"),
+            "RMS_MANUAL_LOGIN": os.environ.get("RMS_MANUAL_LOGIN"),
+        },
+        "resolved": {
+            "rms_browser_choice": rms_browser_choice(),
+            "rms_cdp_endpoint": rms_cdp_endpoint(),
+            "rms_manual_login_enabled": rms_manual_login_enabled(),
+        },
+        "cdp_connected": False,
+        "pages": [],
+        "chosen_rms_page": None,
+        "bol_link_count": 0,
+        "sample_bols": [],
+        "body_excerpt": None,
+        "error": None,
+    }
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp(rms_cdp_endpoint())
+            info["cdp_connected"] = True
+            rms_page = None
+            for ctx in browser.contexts:
+                for pg in ctx.pages:
+                    try:
+                        title, url = clean(pg.title()), clean(pg.url)
+                    except Exception:
+                        title, url = "<error>", "<error>"
+                    info["pages"].append({"title": title, "url": url})
+                # find_existing_rms_page prefers the BOL-list tab, skips login tab
+                candidate = find_existing_rms_page(ctx)
+                if candidate is not None and rms_page is None:
+                    rms_page = candidate
+            if rms_page is not None:
+                info["chosen_rms_page"] = {
+                    "title": clean(rms_page.title()),
+                    "url": clean(rms_page.url),
+                }
+                try:
+                    rms_page.wait_for_selector(
+                        "a[href*='/bills-of-lading/'], table tbody tr", timeout=8000
+                    )
+                except Exception as exc:
+                    info["error"] = f"wait_for_selector: {str(exc)[:200]}"
+                try:
+                    hrefs = rms_page.eval_on_selector_all(
+                        "a[href*='/bills-of-lading/']",
+                        "els => els.map(e => e.getAttribute('href') || '')",
+                    )
+                except Exception:
+                    hrefs = []
+                bols = sorted({
+                    m.group(1)
+                    for h in hrefs
+                    for m in [re.search(r"/bills-of-lading/(\d+)", h or "")]
+                    if m
+                })
+                info["bol_link_count"] = len(bols)
+                info["sample_bols"] = bols[:10]
+                try:
+                    info["body_excerpt"] = clean(
+                        rms_page.locator("body").inner_text(timeout=3000)
+                    )[:500]
+                except Exception:
+                    info["body_excerpt"] = None
+            else:
+                info["error"] = "No authenticated RMS tab found over CDP. Open Edge debug (port 9223), log into RMS, and load the Bills of Lading list."
+    except Exception as exc:
+        info["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+    return jsonify(info)
+
+
 @app.route("/api/rms/auto-grab-bols", methods=["POST"])
 def api_rms_auto_grab_bols():
     """Dashboard one-click RMS grabber.
@@ -3676,22 +3819,9 @@ def api_rms_auto_grab_bols():
     dashboard button a dedicated endpoint and simpler response target.
     """
     try:
+        history = read_json(SYNC_HISTORY_FILE)
         payload = request.get_json(silent=True) or {}
         max_bols = int(payload.get("max_bols") or 0)
-
-        if IS_AZURE:
-            result = {
-                "ok": False,
-                "status": "LOCAL WORKER REQUIRED",
-                "message": "RMS Auto Grab runs from the local office PC worker. Azure stays as the dashboard and import receiver because RMS blocks Azure/server browsers with 403.",
-                "found": 0,
-                "imported": 0,
-                "updated": 0,
-                "failed": 0,
-            }
-            append_sync_history(result, action="Dashboard Auto Grab Blocked In Azure")
-            audit("Dashboard Auto Grab Blocked In Azure", result)
-            return jsonify({"ok": False, "result": result}), 409
 
         try:
             result = rms_full_import_with_playwright(headless=rms_headless(True), max_bols=max_bols)
@@ -3707,7 +3837,14 @@ def api_rms_auto_grab_bols():
                 "updated": 0,
                 "failed": 1,
             }
-        append_sync_history(result, action="Dashboard Auto Grab BOLs")
+        result.update({
+            "id": str(uuid4()),
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "action": "Dashboard Auto Grab BOLs"
+        })
+
+        history.append(result)
+        write_json(SYNC_HISTORY_FILE, history)
         audit("Dashboard Auto Grab BOLs", result)
 
         return jsonify({"ok": result.get("ok", False), "result": result})
@@ -4716,3 +4853,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+
+
