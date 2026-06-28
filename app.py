@@ -217,7 +217,7 @@ def verify_password(stored, provided):
         return False, False
     if looks_hashed(stored):
         return check_password_hash(stored, provided or ""), False
-    # Legacy plaintext comparison (constant work) Ã¢â‚¬â€ valid once, then upgrade.
+    # Legacy plaintext comparison (constant work) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â valid once, then upgrade.
     return secrets.compare_digest(str(stored), str(provided or "")), True
 
 def migrate_user_passwords():
@@ -1023,9 +1023,16 @@ def parse_rms_pdf(path):
 
     bol = find_match(r"Bill of Lading:\s*([0-9]+)", text)
     origin = find_match(r"Origin:\s*([A-Z0-9_-]+)", text)
-    store_name = find_match(r"Origin:\s*[A-Z0-9_-]+\s*Name:\s*([^\n]+)", text) or find_match(r"Name:\s*([^\n]+)", text)
-    address = find_match(r"Origin:.*?Address:\s*([^\n]+)", text)
-    city_state_zip = find_match(r"Origin:.*?City/State/Zip:\s*([^\n]+)", text)
+    # The BOL lists three blocks (Origin, Destination, Carrier). Isolate Origin.
+    origin_block = find_match(r"(Origin:.*?)(?:Destination:|Carrier:)", text) or text
+    store_name = find_match(r"Origin:\s*[A-Z0-9_-]+\s*Name:\s*(.+?)(?:Address:|City/State/Zip:|Contact:|$)", origin_block) or find_match(r"Name:\s*(.+?)(?:Address:|$)", origin_block)
+    address = find_match(r"Address:\s*(.+?)(?:City/State/Zip:|Contact:|Destination:|Carrier:|$)", origin_block)
+    city_state_zip = find_match(r"City/State/Zip:\s*(.+?)(?:Contact:|Address:|Destination:|Carrier:|$)", origin_block)
+    contact_name = find_match(r"Contact:\s*([^\n+]+?)(?:\+|\d{3}|$)", origin_block)
+    contact_phone = find_match(r"(\+?1?\s*\(?\d{3}\)?[\d\-\s]{7,12})", origin_block)
+    contact_email = find_match(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", origin_block)
+    address = re.sub(r"\s{2,}", " ", address).replace(" ,", ",").strip()
+    city_state_zip = re.sub(r"\s{2,}", " ", city_state_zip).replace(" ,", ",").strip()
     destination = find_match(r"Destination:\s*([A-Z0-9_-]+)", text)
     city, state, zip_code = parse_city_state_zip(city_state_zip)
 
@@ -1035,6 +1042,9 @@ def parse_rms_pdf(path):
     wood_shelf = num(find_match(r'Wood Shelf\s+R-W4048\s+\d+\s+[\d,]+\s+([\d,]+)', text))
     assigned_date = find_match(r"Assigned Date\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
     due_date = find_match(r"Due Date(?: \(PDT\))?\s*[:\s]*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    updated_date = find_match(r"Updated:?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})", text)
+    if not due_date:
+        due_date = updated_date
     bol_weight = num(find_match(r"Bill of Lading Total Weight:\s*([\d,]+)", text) or find_match(r"Order Total Weight:\s*([\d,]+)", text))
 
     expected_racks = round(corner_posts / 4, 2) if corner_posts else 0
@@ -1059,6 +1069,10 @@ def parse_rms_pdf(path):
         "dispatch_group": destination,
         "assigned_date": assigned_date,
         "due_date": due_date,
+        "updated_date": updated_date,
+        "contact": contact_name,
+        "contact_phone": contact_phone,
+        "contact_email": contact_email,
         "expected_racks": expected_racks,
         "corner_posts": corner_posts,
         "drb40": drb40,
@@ -1148,12 +1162,24 @@ def parse_csv(path):
             rows.append(normalize_row(row))
     return rows
 
-def import_rms_uploaded_files(files, source="RMS Import"):
+def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
+    bol_data = bol_data or {}
     existing = read_json(STORES_FILE)
     existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
     existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
     added, duplicates, review = 0, 0, 0
     errors = []
+
+    def merge_bol_data(item):
+        """Apply list-page data (due date, contact) from the sidecar by BOL number."""
+        info = bol_data.get(clean(item.get("bol")))
+        if not isinstance(info, dict):
+            return item
+        for field in ("due_date", "assigned_date", "contact", "contact_phone", "contact_email"):
+            val = clean(info.get(field))
+            if val and not clean(item.get(field)):
+                item[field] = val
+        return item
 
     for uploaded in files:
         filename = secure_filename(uploaded.filename or "")
@@ -1166,7 +1192,7 @@ def import_rms_uploaded_files(files, source="RMS Import"):
         try:
             lower = filename.lower()
             if lower.endswith(".pdf"):
-                item = parse_rms_pdf(temp_path)
+                item = merge_bol_data(parse_rms_pdf(temp_path))
                 clean_name = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
                 root = "Need_Review" if item["status"] == "Need Review" else "Imported"
                 final_path = month_folder(root) / clean_name
@@ -1176,9 +1202,9 @@ def import_rms_uploaded_files(files, source="RMS Import"):
                 item["pdf_path"] = str(final_path)
                 imported = [item]
             elif lower.endswith(".xlsx"):
-                imported = parse_xlsx(temp_path)
+                imported = [merge_bol_data(i) for i in parse_xlsx(temp_path)]
             elif lower.endswith(".csv"):
-                imported = parse_csv(temp_path)
+                imported = [merge_bol_data(i) for i in parse_csv(temp_path)]
             else:
                 errors.append(f"{filename}: unsupported file type")
         except Exception as exc:
@@ -1805,7 +1831,21 @@ def api_local_rms_import():
     if not files:
         return jsonify({"ok": False, "message": "Attach PDF, Excel, or CSV files as rms_file."}), 400
 
-    result = import_rms_uploaded_files(files, source="Local RMS Import")
+    # Option C: a bol_data.json sidecar carries list-page data (due date, contact)
+    # that PDFs don't contain. Pull it out and merge by BOL number after parsing.
+    bol_data_map = {}
+    pdf_files = []
+    for f in files:
+        fname = (f.filename or "").lower()
+        if fname.endswith("bol_data.json"):
+            try:
+                bol_data_map = json.loads(f.read().decode("utf-8", "ignore")) or {}
+            except Exception:
+                bol_data_map = {}
+        else:
+            pdf_files.append(f)
+
+    result = import_rms_uploaded_files(pdf_files or files, source="Local RMS Import", bol_data=bol_data_map)
     return jsonify(result)
 
 @app.route("/need-review")
@@ -2095,24 +2135,6 @@ def extract_printable_bol_from_text(text, source_url=""):
     address = origin_address
     contact = origin_contact
 
-    contact_name = clean(contact)
-    contact_phone = ""
-    contact_email = ""
-
-    phone_match = re.search(r"(\+?1?[\s\-.]?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4})", contact or "")
-    if phone_match:
-        contact_phone = clean(phone_match.group(1))
-
-    email_match = re.search(r"([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})", contact or "", re.I)
-    if email_match:
-        contact_email = clean(email_match.group(1))
-
-    if contact_phone:
-        contact_name = clean(contact_name.replace(contact_phone, ""))
-    if contact_email:
-        contact_name = clean(contact_name.replace(contact_email, ""))
-    contact_name = re.sub(r"\s{2,}", " ", contact_name).strip(" -|,;")
-
     # Fallbacks from any visible label.
     if not store_name:
         store_name = find_match(r"Name:\s*([^\n]+)", joined)
@@ -2176,9 +2198,6 @@ def extract_printable_bol_from_text(text, source_url=""):
         "state": state,
         "zip": zip_code,
         "contact": contact,
-        "contact_name": contact_name,
-        "contact_phone": contact_phone,
-        "contact_email": contact_email,
         "origin_name": origin_name,
         "origin_address": origin_address,
         "origin_city": city,
@@ -2368,7 +2387,7 @@ def rms_blocked_result(message, action="RMS Import"):
         "status": "RMS BLOCKED / 403",
         "message": (
             "The RMS login URL is correct: https://rms.reusability.com/login. "
-            "Correct RMS flow is login Ã¢â€ â€™ https://rms.reusability.com/bills-of-lading Ã¢â€ â€™ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
+            "Correct RMS flow is login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ https://rms.reusability.com/bills-of-lading ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
             "RMS returned 403 Forbidden before the login form loaded, so EOMS never got a chance to enter the username/password. "
             "This is a server/network security block, not a bad password or wrong URL. "
             "Fix: run EOMS from a computer/network that can manually open RMS, use RUN_LOCAL_EOMS.bat with RMS_HEADLESS=0 for headed mode, "
@@ -2795,9 +2814,9 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 
         # First try button/link with text that looks like next arrow.
         possible_next = [
-            'button:has-text("Ã¢â‚¬Âº")',
+            'button:has-text("ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº")',
             'button:has-text(">")',
-            'a:has-text("Ã¢â‚¬Âº")',
+            'a:has-text("ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº")',
             'a:has-text(">")',
             'button[aria-label*="Next"]',
             'a[aria-label*="Next"]'
@@ -2942,20 +2961,18 @@ def open_printable_and_extract(page, bol_link):
     text = page.locator("body").inner_text(timeout=60000)
     html = page.content()
     item = extract_printable_bol_from_text(text, page.url)
-
-    # Merge RMS list-grid dates into the parsed printable BOL.
-    # The printable page/PDF often does not contain the true Operation Due Date.
-    # The RMS list row does, so preserve it here.
-    if bol_link.get("due_date"):
-        item["due_date"] = bol_link.get("due_date", "")
-    if bol_link.get("assigned_date"):
-        item["assigned_date"] = bol_link.get("assigned_date", "")
-
     if not item.get("bol"):
         item["bol"] = bol
         item.setdefault("review_warnings", []).append("BOL fallback from RMS list")
         item["review_reasons"] = essential_review_reasons(item)
         item["status"] = "Need Review" if item["review_reasons"] else "Unassigned"
+    # The printable BOL has no Due Date; the RMS list row does. Merge it in.
+    list_due = clean(bol_link.get("due_date"))
+    if list_due:
+        item["due_date"] = list_due
+    list_assigned = clean(bol_link.get("assigned_date"))
+    if list_assigned and not clean(item.get("assigned_date")):
+        item["assigned_date"] = list_assigned
     item["pdf_path"] = save_printable_pdf(page, item, html)
     return item
 
@@ -3340,6 +3357,17 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                     text = detail_page.locator("body").inner_text(timeout=60000)
                     html = detail_page.content()
                     item = extract_printable_bol_from_text(text, detail_page.url)
+
+                    # Merge RMS list-grid dates into the full Auto Grab import path.
+                    # The printable page/PDF often does not contain the true Operation Due Date.
+                    # The RMS list row does, so preserve it here.
+                    if link.get("due_date"):
+                        item["due_date"] = link.get("due_date", "")
+                    if link.get("assigned_date"):
+                        item["assigned_date"] = link.get("assigned_date", "")
+
+                    print(f"DEBUG FULL IMPORT BOL={link.get('bol')} LIST_DUE='{link.get('due_date')}' ITEM_DUE='{item.get('due_date')}'")
+
                     if not item.get("bol"):
                         item["bol"] = link["bol"]
                         item.setdefault("review_warnings", []).append("BOL fallback from RMS list")
@@ -3362,7 +3390,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             rms_debug_hold(page)
             close_rms_browser(browser, context)
 
-            message = f"RMS import complete using correct RMS flow: login Ã¢â€ â€™ bills-of-lading list Ã¢â€ â€™ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ bills-of-lading list ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)
@@ -4929,7 +4957,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
 
 
