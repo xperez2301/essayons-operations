@@ -1,4 +1,4 @@
-﻿import os
+import os
 import csv
 import json
 import math
@@ -4041,6 +4041,37 @@ def api_system_health():
     health["ok"] = all(item.get("writable") for item in health["paths"].values()) and health["playwright"]["python_package_available"]
     return jsonify(health)
 
+@app.route("/api/reset-bols", methods=["POST"])
+@admin_required
+def api_reset_bols():
+    data = request.get_json(silent=True) or {}
+    if clean(data.get("confirm")) != "ERASE ALL BOLS":
+        return jsonify({
+            "ok": False,
+            "message": "Confirmation phrase required.",
+        }), 400
+    before_stores = len(read_json(STORES_FILE))
+    before_queue = len(read_json(RMS_QUEUE_FILE))
+    before_routes = len(read_json(ROUTES_FILE))
+    write_json(STORES_FILE, [])
+    write_json(RMS_QUEUE_FILE, [])
+    write_json(ROUTES_FILE, [])
+    audit("Reset All BOLs", {
+        "cleared_stores": before_stores,
+        "cleared_queue": before_queue,
+        "cleared_routes": before_routes,
+        "by": session.get("username", "system"),
+    })
+    return jsonify({
+        "ok": True,
+        "status": "RESET COMPLETE",
+        "message": f"Cleared {before_stores} BOLs, {before_queue} queued, {before_routes} routes.",
+        "cleared_stores": before_stores,
+        "cleared_queue": before_queue,
+        "cleared_routes": before_routes,
+    })
+
+
 @app.route("/api/export/data")
 @admin_required
 def api_export_data():
@@ -4853,6 +4884,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
 
 
 
