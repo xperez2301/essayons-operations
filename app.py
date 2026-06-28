@@ -726,6 +726,31 @@ def launch_rms_browser_context(playwright, headless=True):
     browser = launch_chromium_with_repair(playwright, headless=headless)
     return browser, new_rms_context(browser)
 
+def new_rms_page_for_context(context):
+    pages = list(getattr(context, "pages", []) or [])
+    if rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
+        for candidate in pages:
+            try:
+                if "rms.reusability.com" in clean(candidate.url).lower():
+                    try:
+                        candidate.bring_to_front()
+                    except Exception:
+                        pass
+                    return candidate
+            except Exception:
+                pass
+        for candidate in pages:
+            try:
+                url = clean(candidate.url).lower()
+                if url and url != "about:blank":
+                    try:
+                        candidate.bring_to_front()
+                    except Exception:
+                        pass
+                    return candidate
+            except Exception:
+                pass
+    return context.new_page()
 def close_rms_browser(browser, context):
     if rms_manual_login_enabled():
         return
@@ -1909,7 +1934,7 @@ def rms_login_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
         try:
             login_to_rms(page, login_url, username, password)
 
@@ -2854,7 +2879,7 @@ def scan_rms_queue_with_playwright(headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -3024,7 +3049,7 @@ def import_selected_queue_bols(bol_numbers, headless=True):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
 
         try:
             login_to_rms(page, login_url, username, password)
@@ -3151,7 +3176,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=headless)
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
         try:
             bol_url = normalized_rms_bol_list_url(bol_url)
             if rms_manual_login_enabled():
@@ -3290,7 +3315,7 @@ def bol_live_printable(bol_number):
 
     with sync_playwright() as p:
         browser, context = launch_rms_browser_context(p, headless=rms_headless(False))
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
 
         try:
             if rms_manual_login_enabled():
@@ -3456,7 +3481,7 @@ def api_rms_repair_bol(bol_number):
     with sync_playwright() as p:
         browser = launch_chromium_with_repair(p, headless=True)
         context = new_rms_context(browser)
-        page = context.new_page()
+        page = new_rms_page_for_context(context)
         try:
             login_to_rms(page, login_url, username, password)
 
