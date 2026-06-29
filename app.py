@@ -613,6 +613,39 @@ def rms_chromium_profile_dir():
 
 def rms_cdp_endpoint():
     return clean(os.environ.get("RMS_CDP_ENDPOINT") or "http://127.0.0.1:9222")
+def rms_cdp_is_ready():
+    try:
+        endpoint = rms_cdp_endpoint().rstrip("/") + "/json/version"
+        response = requests.get(endpoint, timeout=2)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def start_rms_edge_debug_browser():
+    bat_path = BASE_DIR / "START_RMS_EDGE_DEBUG.bat"
+
+    if not bat_path.exists():
+        raise RuntimeError(
+            "START_RMS_EDGE_DEBUG.bat was not found in the EOMS folder."
+        )
+
+    subprocess.Popen(
+        ["cmd", "/c", "start", "", str(bat_path)],
+        cwd=str(BASE_DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        shell=False
+    )
+
+    for _ in range(30):
+        if rms_cdp_is_ready():
+            return True
+        time.sleep(1)
+
+    raise RuntimeError(
+        "EOMS started the RMS Edge debug browser, but port 9222 did not become ready."
+    )
 
 def launch_rms_browser_context(playwright, headless=True):
     """Launch the browser context used for RMS.
@@ -710,14 +743,18 @@ def launch_rms_browser_context(playwright, headless=True):
 
     if choice in {"cdp", "edge-cdp", "remote-edge"}:
         try:
+            if not rms_cdp_is_ready():
+                start_rms_edge_debug_browser()
+
             browser = playwright.chromium.connect_over_cdp(rms_cdp_endpoint())
             contexts = browser.contexts
             context = contexts[0] if contexts else browser.new_context(**common_kwargs)
             return browser, context
+
         except Exception as exc:
             raise RuntimeError(
-                "EOMS could not connect to the user-launched RMS Edge browser. "
-                "Run START_RMS_EDGE_DEBUG.bat first, log into RMS in that window, then run Auto Grab. "
+                "EOMS could not start or connect to the RMS Edge debug browser. "
+                "Close Edge, try Auto Grab again, or run START_RMS_EDGE_DEBUG.bat manually. "
                 "Details: " + str(exc)[:500]
             )
 
@@ -3355,6 +3392,17 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
             for link in bol_links:
                 try:
+                    bol_number = clean(link.get("bol"))
+
+                    # Fast skip: if this BOL already exists in EOMS, do not open
+                    # the printable page or download/save another PDF. We still
+                    # keep it in open_bols above so closed-BOL detection remains
+                    # accurate.
+                    if bol_number and bol_number in existing_bols:
+                        skipped += 1
+                        print(f"Skipping existing BOL {bol_number}")
+                        continue
+
                     # Reuse the same visible RMS tab for each BOL so headed
                     # local imports do not open a new window for every stop.
                     detail_page = page
@@ -3402,7 +3450,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             rms_debug_hold(page)
             close_rms_browser(browser, context)
 
-            message = f"RMS import complete using correct RMS flow: login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ bills-of-lading list ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ bills-of-lading list ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped existing {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)
