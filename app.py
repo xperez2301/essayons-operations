@@ -4968,6 +4968,10 @@ from database_tools import (
     database_health as database_health_report,
     repair_duplicate_bols,
 )
+@app.route("/database-center")
+@admin_required
+def database_center():
+    return render_template("database_center.html")
 
 @app.route("/database-health")
 @admin_required
