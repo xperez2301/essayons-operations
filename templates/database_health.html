@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+    <div>
+        <h2>Database Health</h2>
+        <p>Admin maintenance center for stores.json, duplicate BOLs, and PDF references.</p>
+    </div>
+    <div>
+        <a class="link-btn" href="/api/database-health" target="_blank">JSON Report</a>
+        <a class="link-btn" href="/settings">Settings</a>
+    </div>
+</header>
+
+{% if repair_report %}
+<section class="panel import-panel">
+    <h3>Database Repair Report</h3>
+    <div class="notice">
+        {{ repair_report.message }} Backup created: {{ repair_report.backup_file }}
+    </div>
+    <div class="metrics-grid">
+        <div class="metric"><span>Records Scanned</span><strong>{{ repair_report.records_scanned }}</strong></div>
+        <div class="metric"><span>Records After</span><strong>{{ repair_report.records_after }}</strong></div>
+        <div class="metric"><span>Unique BOLs</span><strong>{{ repair_report.unique_bols }}</strong></div>
+        <div class="metric"><span>Duplicates Removed</span><strong>{{ repair_report.duplicates_removed }}</strong></div>
+        <div class="metric"><span>Missing PDFs</span><strong>{{ repair_report.missing_pdfs }}</strong></div>
+        <div class="metric"><span>Time Elapsed</span><strong>{{ repair_report.time_elapsed_seconds }}s</strong></div>
+    </div>
+</section>
+{% endif %}
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <h3>Current Database Status: {{ health.database_status }}</h3>
+        <form method="post" action="/database-repair/run" onsubmit="return confirm('Database Repair will create a backup first, then remove duplicate BOL records from stores.json. PDFs will NOT be deleted. Continue?');">
+            <button class="primary-btn" type="submit" {% if health.duplicate_records == 0 %}disabled{% endif %}>Run Duplicate Repair</button>
+        </form>
+    </div>
+    <p class="muted">Health scan is read-only. Repair creates a timestamped backup before modifying stores.json.</p>
+
+    {% if health.warnings %}
+        <div class="notice">
+            {% for warning in health.warnings %}<div>⚠ {{ warning }}</div>{% endfor %}
+        </div>
+    {% else %}
+        <div class="notice">Database is healthy. No duplicate BOL records or missing PDF references were found.</div>
+    {% endif %}
+
+    <div class="metrics-grid">
+        <div class="metric"><span>Total Stores</span><strong>{{ health.total_stores }}</strong></div>
+        <div class="metric"><span>Need Review</span><strong>{{ health.need_review }}</strong></div>
+        <div class="metric"><span>Unassigned</span><strong>{{ health.unassigned }}</strong></div>
+        <div class="metric"><span>Assigned</span><strong>{{ health.assigned }}</strong></div>
+        <div class="metric"><span>Dispatched</span><strong>{{ health.dispatched }}</strong></div>
+        <div class="metric"><span>Completed</span><strong>{{ health.completed }}</strong></div>
+        <div class="metric"><span>Unique BOLs</span><strong>{{ health.unique_bols }}</strong></div>
+        <div class="metric"><span>Duplicate BOLs</span><strong>{{ health.duplicate_bols }}</strong></div>
+        <div class="metric"><span>Duplicate Records</span><strong>{{ health.duplicate_records }}</strong></div>
+        <div class="metric"><span>Missing PDFs</span><strong>{{ health.missing_pdfs }}</strong></div>
+        <div class="metric"><span>Orphan PDFs/HTML</span><strong>{{ health.orphan_pdfs }}</strong></div>
+        <div class="metric"><span>Scan Time</span><strong>{{ health.time_elapsed_seconds }}s</strong></div>
+    </div>
+</section>
+
+<section class="command-layout">
+    <div class="command-main">
+        <div class="activity-card">
+            <div class="activity-head"><h3>Duplicate BOL Examples</h3></div>
+            <table class="activity-table">
+                <thead><tr><th>BOL</th><th>Records</th></tr></thead>
+                <tbody>
+                {% for row in health.duplicate_examples %}
+                    <tr><td>{{ row.bol }}</td><td>{{ row.count }}</td></tr>
+                {% else %}
+                    <tr><td colspan="2" class="muted">No duplicate BOLs found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="activity-card">
+            <div class="activity-head"><h3>Missing PDF References</h3></div>
+            <table class="activity-table">
+                <thead><tr><th>BOL</th><th>Status</th><th>Path</th></tr></thead>
+                <tbody>
+                {% for row in health.missing_pdf_examples %}
+                    <tr><td>{{ row.bol }}</td><td>{{ row.status }}</td><td>{{ row.path }}</td></tr>
+                {% else %}
+                    <tr><td colspan="3" class="muted">No missing PDF references found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <aside class="command-right">
+        <div class="right-card">
+            <h3>Safety Rules</h3>
+            <p>✓ Repair creates a backup first.</p>
+            <p>✓ Repair only removes duplicate JSON records.</p>
+            <p>✓ Repair does not delete PDFs.</p>
+            <p>✓ The first/oldest BOL record is kept.</p>
+        </div>
+        <div class="right-card">
+            <h3>Orphan File Examples</h3>
+            {% for path in health.orphan_pdf_examples[:8] %}
+                <p class="muted">{{ path }}</p>
+            {% else %}
+                <p class="muted">No orphan PDF/HTML files found.</p>
+            {% endfor %}
+        </div>
+    </aside>
+</section>
+{% endblock %}

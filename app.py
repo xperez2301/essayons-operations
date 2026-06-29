@@ -90,6 +90,7 @@ BOL_DIR = Path(os.environ.get("BOL_DIR", DEFAULT_BOL_DIR))
 
 STORES_FILE = DATA_DIR / "stores.json"
 ROUTES_FILE = DATA_DIR / "routes.json"
+BACKUPS_DIR = BASE_DIR / "backups"
 AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
@@ -198,6 +199,17 @@ def write_json(path, data):
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     os.replace(tmp, path)
+
+def backup_stores_json(reason="manual"):
+    ensure_dirs()
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = BACKUPS_DIR / f"stores_{timestamp}_{reason}.json"
+
+    shutil.copy2(STORES_FILE, backup_file)
+
+    return backup_file    
 
 
 # ---------------------------------------------------------------------------
@@ -4948,6 +4960,107 @@ def api_driver_complete():
         return jsonify({"ok": False, "message": "Stop not found."}), 404
     return jsonify({"ok": True, "store": updated})
 
+# ---------------------------------------------------------------------------
+# Database Maintenance Center
+# ---------------------------------------------------------------------------
+from database_tools import (
+    backup_stores_json,
+    database_health as database_health_report,
+    repair_duplicate_bols,
+)
+
+@app.route("/database-health")
+@admin_required
+def database_health():
+    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
+    return render_template("database_health.html", report=report)
+
+@app.route("/api/database/backup", methods=["POST"])
+@admin_required
+def api_database_backup():
+    backup_path = backup_stores_json(STORES_FILE, BASE_DIR / "backups", reason="manual_backup")
+    result = {"ok": True, "backup_path": str(backup_path), "message": "Database backup created."}
+    audit("Database Backup", result)
+    return jsonify(result)
+
+@app.route("/api/database/repair-duplicates", methods=["POST"])
+@admin_required
+def api_database_repair_duplicates():
+    result = repair_duplicate_bols(STORES_FILE, BASE_DIR / "backups", BOL_DIR, UPLOAD_DIR)
+    audit("Repair Duplicate BOLs", result)
+    return jsonify(result)
+
+@app.route("/api/database/duplicates")
+@admin_required
+def api_database_duplicates():
+    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
+    return jsonify({
+        "ok": True,
+        "duplicate_count": report.get("duplicate_bol_count", 0),
+        "duplicates": report.get("duplicates", []),
+    })
+
+@app.route("/api/database/missing-pdfs")
+@admin_required
+def api_database_missing_pdfs():
+    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
+    return jsonify({
+        "ok": True,
+        "missing_pdf_count": report.get("missing_pdf_count", 0),
+        "missing_pdfs": report.get("missing_pdfs", []),
+    })
+
+@app.route("/api/database/orphan-pdfs")
+@admin_required
+def api_database_orphan_pdfs():
+    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
+    return jsonify({
+        "ok": True,
+        "orphan_pdf_count": report.get("orphan_pdf_count", 0),
+        "orphan_pdfs": report.get("orphan_pdfs", []),
+    })
+
+@app.route("/api/database/backups")
+@admin_required
+def api_database_backups():
+    backups_dir = BASE_DIR / "backups"
+    backups_dir.mkdir(parents=True, exist_ok=True)
+
+    files = []
+    for p in sorted(backups_dir.glob("stores_*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        files.append({
+            "name": p.name,
+            "path": str(p),
+            "size_bytes": p.stat().st_size,
+            "modified_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
+        })
+
+    return jsonify({"ok": True, "backups": files, "count": len(files)})
+
+@app.route("/api/database/restore-backup", methods=["POST"])
+@admin_required
+def api_database_restore_backup():
+    data = request.get_json(force=True)
+    backup_name = clean(data.get("backup_name"))
+
+    backups_dir = BASE_DIR / "backups"
+    backup_path = backups_dir / backup_name
+
+    if not backup_name or not backup_path.exists() or backup_path.parent.resolve() != backups_dir.resolve():
+        return jsonify({"ok": False, "message": "Invalid backup selected."}), 400
+
+    safety_backup = backup_stores_json(STORES_FILE, backups_dir, reason="before_restore")
+    shutil.copy2(backup_path, STORES_FILE)
+
+    result = {
+        "ok": True,
+        "message": "Backup restored successfully.",
+        "restored_from": str(backup_path),
+        "safety_backup": str(safety_backup),
+    }
+    audit("Restore Database Backup", result)
+    return jsonify(result)
+
 # Run startup tasks at import time so this works under gunicorn (which imports
 # `app:app` and never executes the __main__ block below).
 ensure_dirs()
@@ -4957,6 +5070,9 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+
+
 
 
 
