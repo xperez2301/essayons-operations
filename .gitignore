@@ -43,8 +43,31 @@ data/*.tmp
 Thumbs.db
 
 # Archives and old packages
-*.zip
-*.7z
-*.rar
+# Local archive workspace
+_release/
 
 _ATTIC/
+
+# ------------------------------
+# EOMS Development Cleanup
+# ------------------------------
+
+# Runtime backup folders
+backups/
+_dailyupload/
+
+# Cleanup staging area
+_cleanup_hold/
+
+# Temporary backup files
+data/*.backup*.json
+data/*backup*.json
+
+# Runtime logs
+*.log
+daily_sync.log
+
+# Accidental duplicate files
+app .py
+
+

@@ -13,7 +13,7 @@ foreach ($f in $files) {
   $s = [System.IO.File]::OpenRead($f.FullName); $streams += $s
   $fc = New-Object System.Net.Http.StreamContent($s)
   $fc.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/octet-stream")
-  $content.Add($fc, "rms_file", $f.Name)
+  $content.Add($fc, "files", $f.Name)
   Write-Host "Queued $($f.Name)"
 }
 Write-Host "Uploading $($files.Count) file(s) to $endpoint"

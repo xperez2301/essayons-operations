@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+
+<header class="topbar">
+    <div>
+        <h2>Database Maintenance Center</h2>
+        <p>Manage database health, backups, duplicate BOLs, missing PDFs, and restore points.</p>
+    </div>
+    <div>
+        <a class="link-btn" href="/database-health">Legacy Health Page</a>
+        <a class="link-btn" href="/api/database/backups" target="_blank">Backup JSON</a>
+    </div>
+</header>
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <h3>System Overview</h3>
+        <button class="primary-btn" type="button" onclick="loadDatabaseCenter()">Refresh</button>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric">
+            <span>Backups</span>
+            <strong id="backupCount">Loading...</strong>
+        </div>
+        <div class="metric">
+            <span>Duplicate BOLs</span>
+            <strong id="duplicateCount">Loading...</strong>
+        </div>
+        <div class="metric">
+            <span>Missing PDFs</span>
+            <strong id="missingPdfCount">Loading...</strong>
+        </div>
+        <div class="metric">
+            <span>System Status</span>
+            <strong id="systemStatus">Checking...</strong>
+        </div>
+    </div>
+</section>
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <h3>Database Tools</h3>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="primary-btn" type="button" onclick="showTab('dashboard')">Dashboard</button>
+        <button class="secondary-btn" type="button" onclick="showTab('backups')">Backups</button>
+        <button class="secondary-btn" type="button" onclick="showTab('duplicates')">Duplicates</button>
+        <button class="secondary-btn" type="button" onclick="showTab('missing')">Missing PDFs</button>
+        <button class="secondary-btn" type="button" onclick="showTab('activity')">Activity Log</button>
+    </div>
+</section>
+
+<section id="tab-dashboard" class="panel import-panel db-tab">
+    <h3>Dashboard</h3>
+    <p class="muted">Database Maintenance Center is active. This dashboard will become the main admin health console for EOMS.</p>
+</section>
+
+<section id="tab-backups" class="panel import-panel db-tab" style="display:none;">
+    <div class="right-head">
+        <h3>Backup History</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="primary-btn" type="button" id="btnCreateBackupNow">Create Backup Now</button>
+            <button class="secondary-btn" type="button" onclick="loadBackups()">Reload Backups</button>
+        </div>
+    </div>
+
+    <table class="activity-table">
+        <thead>
+            <tr>
+                <th>Backup File</th>
+                <th>Modified</th>
+                <th>Size</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="backupTableBody">
+            <tr>
+                <td colspan="4" class="muted">Loading backups...</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="tab-duplicates" class="panel import-panel db-tab" style="display:none;">
+    <h3>Duplicate BOLs</h3>
+    <p class="muted">Duplicate repair tools will be integrated here next.</p>
+    <a class="link-btn" href="/database-health">Open Current Duplicate Repair Page</a>
+</section>
+
+<section id="tab-missing" class="panel import-panel db-tab" style="display:none;">
+    <h3>Missing PDFs</h3>
+    <p class="muted">Missing PDF and orphan file tools will be integrated here next.</p>
+</section>
+
+<section id="tab-activity" class="panel import-panel db-tab" style="display:none;">
+    <h3>Activity Log</h3>
+    <p class="muted">Database maintenance activity logging will appear here in the next phase.</p>
+</section>
+
+<script src="{{ url_for('static', filename='js/database_center.js') }}?v=004"></script>
+
+{% endblock %}
