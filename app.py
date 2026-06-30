@@ -1074,9 +1074,16 @@ def parse_rms_pdf(path):
     origin = find_match(r"Origin:\s*([A-Z0-9_-]+)", text)
     # The BOL lists three blocks (Origin, Destination, Carrier). Isolate Origin.
     origin_block = find_match(r"(Origin:.*?)(?:Destination:|Carrier:)", text) or text
-    store_name = find_match(r"Origin:\s*[A-Z0-9_-]+\s*Name:\s*(.+?)(?:Address:|City/State/Zip:|Contact:|$)", origin_block) or find_match(r"Name:\s*(.+?)(?:Address:|$)", origin_block)
-    address = find_match(r"Addr\s*ess:\s*(.+?)(?:City/S\s*tate/Zip:|City/State/Zip:|Contact:|Destination:|Carrier:|$)", origin_block)  
-    city_state_zip = find_match(r"City/S\s*tate/Zip:\s*(.+?)(?:Contact:|Addr\s*ess:|Address:|Destination:|Carrier:|$)", origin_block)
+    store_name = (
+    find_match(
+        r"Origin:\s*[A-Z0-9_-]+\s*Name:\s*(.+?)(?:Addr\s*ess:|Address:|City/S\s*tate/Zip:|City/State/Zip:|Contact:|$)",
+        origin_block,
+    )
+    or find_match(
+        r"Name:\s*(.+?)(?:Addr\s*ess:|Address:|City/S\s*tate/Zip:|City/State/Zip:|Contact:|$)",
+        origin_block,
+    )
+)    
     contact_name = find_match(r"Contact:\s*([^\n+]+?)(?:\+|\d{3}|$)", origin_block)
     contact_phone = find_match(r"(\+?1?\s*\(?\d{3}\)?[\d\-\s]{7,12})", origin_block)
     contact_email = find_match(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", origin_block)
