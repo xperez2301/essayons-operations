@@ -1068,7 +1068,7 @@ def parse_city_state_zip(value):
     return value, "TX", ""
 
 def parse_rms_pdf(path):
-    text = extract_pdf_text(path)
+    text = demangle_pdf_text(extract_pdf_text(path))
 
     bol = find_match(r"Bill of Lading:\s*([0-9]+)", text)
     origin = find_match(r"Origin:\s*([A-Z0-9_-]+)", text)
