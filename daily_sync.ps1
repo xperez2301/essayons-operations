@@ -46,7 +46,7 @@ if (-not $token) {
   return
 }
 
-$azure = "https://eoms-dispatch-d5dcabencherf2ft.centralus-01.azurewebsites.net"
+$azure = "https://eoms-dispatch-v2-aahcamatf0cpa5gy.centralus-01.azurewebsites.net"
 $up = Join-Path $base "tools\eoms_upload.ps1"
 
 Log "Starting upload..."
