@@ -9,7 +9,7 @@ import zipfile
 import subprocess
 import sys
 import time
-from eoms_modules.database_validator import validate_records
+from eoms_modules.database_validator import DatabaseValidator, validate_records
 from eoms_modules.legacy_rms_repair import (
     needs_legacy_rms_repair,
     parse_legacy_store_blob,
