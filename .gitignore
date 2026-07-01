@@ -70,4 +70,5 @@ daily_sync.log
 # Accidental duplicate files
 app .py
 
+browser_profiles/
 
