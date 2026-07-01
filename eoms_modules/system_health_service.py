@@ -14,10 +14,12 @@ class SystemHealthService:
         database_center_service=None,
         azure_health_service=None,
         rms_diagnostics_service=None,
+        github_deployment_service=None,
     ):
         self.database_center_service = database_center_service
         self.azure_health_service = azure_health_service
         self.rms_diagnostics_service = rms_diagnostics_service
+        self.github_deployment_service = github_deployment_service
 
     def status(self) -> dict[str, Any]:
         return {
@@ -36,7 +38,11 @@ class SystemHealthService:
                     if self.azure_health_service
                     else self._placeholder_status("Azure", "pending")
                 ),
-                "github": self._placeholder_status("GitHub", "pending"),
+                "github": (
+                    self.github_deployment_service.get_health()
+                    if self.github_deployment_service
+                    else self._placeholder_status("GitHub", "pending")
+                ),
                 "auto_grab": self._placeholder_status("Auto Grab", "pending"),
                 "gps7000_pro": self._placeholder_status("GPS7000 Pro", "pending"),
             },

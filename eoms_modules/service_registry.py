@@ -5,6 +5,7 @@ from eoms_modules.database_center_service import DatabaseCenterService
 from eoms_modules.system_health_service import SystemHealthService
 from eoms_modules.azure_health_service import AzureHealthService
 from eoms_modules.rms_diagnostics_service import RMSDiagnosticsService
+from eoms_modules.github_deployment_service import GitHubDeploymentService
 
 
 class ServiceRegistry:
@@ -35,6 +36,9 @@ class ServiceRegistry:
 
         self.azure_health_service = AzureHealthService(app)
         self.rms_diagnostics_service = RMSDiagnosticsService()
+        self.github_deployment_service = GitHubDeploymentService(
+            base_dir=self.base_dir
+        )
 
         self.database_center_service = DatabaseCenterService(
             stores_file=self.stores_file,
@@ -51,4 +55,5 @@ class ServiceRegistry:
             database_center_service=self.database_center_service,
             azure_health_service=self.azure_health_service,
             rms_diagnostics_service=self.rms_diagnostics_service,
+            github_deployment_service=self.github_deployment_service,
         )
