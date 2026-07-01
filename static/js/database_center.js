@@ -23,6 +23,29 @@ function formatDate(value) {
     return date.toLocaleString();
 }
 
+function showDbResult(title, data) {
+    const box = document.getElementById("dbResultBox");
+    const text = document.getElementById("dbResultText");
+    if (!box || !text) return;
+
+    let output = title + "\n\n";
+    output += "Updated: " + (data.updated ?? data.repaired ?? 0) + "\n";
+    output += "Failed: " + (data.failed ?? 0) + "\n\n";
+
+    const failures = data.failures || [];
+    if (failures.length) {
+        output += "Failures\n--------------------------\n";
+        failures.slice(0, 25).forEach((f, index) => {
+            output += `${index + 1}. ${f.origin || f.bol || f.store || "Unknown"}\n`;
+            output += `Address: ${f.address || "-"}\n`;
+            output += `Reason: ${f.reason || "-"}\n\n`;
+        });
+    }
+
+    box.style.display = "block";
+    text.textContent = output;
+}
+
 function showTab(name) {
     document.querySelectorAll(".db-tab").forEach(tab => {
         tab.style.display = "none";
@@ -165,6 +188,7 @@ async function reGeocodeStores() {
             headers: { "Content-Type": "application/json" }
         });
 
+        showDbResult("Re-geocode complete", data);
         alert(`Re-geocode complete.\nUpdated: ${data.updated}\nFailed: ${data.failed}`);
         await loadDatabaseCenter();
     } catch (error) {
@@ -172,15 +196,21 @@ async function reGeocodeStores() {
     }
 }
 
+async function repairLegacyRmsData() {
+    alert("Database Center 2.0\n\nRepair Legacy RMS Data is coming next.");
+}
+
 window.fetchJson = fetchJson;
 window.formatBytes = formatBytes;
 window.formatDate = formatDate;
+window.showDbResult = showDbResult;
 window.showTab = showTab;
 window.loadBackups = loadBackups;
 window.loadDatabaseCenter = loadDatabaseCenter;
 window.restoreBackup = restoreBackup;
 window.createBackupNow = createBackupNow;
 window.reGeocodeStores = reGeocodeStores;
+window.repairLegacyRmsData = repairLegacyRmsData;
 
 document.addEventListener("DOMContentLoaded", function () {
     loadDatabaseCenter();
