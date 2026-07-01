@@ -968,6 +968,9 @@ def geocode_address_azure(address):
             },
             timeout=12
         )
+        if response.status_code != 200:
+            return None, None, f"HTTP {response.status_code}: {response.text[:150]}"
+
         data = response.json()
         if data.get("results"):
             result = data["results"][0]
@@ -1801,6 +1804,7 @@ def api_geocode_stores():
     stores = read_json(STORES_FILE)
     updated = 0
     failed = 0
+    failures = []
 
     for store in stores:
         address = store.get("address") or store.get("origin_address") or ""
@@ -1808,26 +1812,41 @@ def api_geocode_stores():
         state = store.get("state") or store.get("origin_state") or "TX"
         zip_code = store.get("zip") or store.get("origin_zip") or ""
 
+        bol = store.get("bol") or ""
+        origin = store.get("origin") or ""
+        store_name = store.get("store_name") or ""
+        full_address = full_address_for_item(address, city, state, zip_code)
+
         if not address or not city:
             failed += 1
-            store["geocode_status"] = "Missing address or city"
+            reason = "Missing address or city"
+            store["lat"] = None
+            store["lng"] = None
+            store["full_address"] = full_address
+            store["geocode_status"] = reason
+            failures.append({"bol": bol, "origin": origin, "store": store_name, "address": full_address, "reason": reason})
             continue
 
-        lat, lng, geocode_status, full_address = resolve_store_coordinates(address, city, state, zip_code)
-        store["lat"] = lat
-        store["lng"] = lng
-        store["full_address"] = full_address
-        store["geocode_status"] = geocode_status
+        lat, lng, note = geocode_address_azure(full_address)
 
-        if "Azure Maps geocoded" in geocode_status:
+        if lat is not None and lng is not None:
+            store["lat"] = lat
+            store["lng"] = lng
+            store["full_address"] = full_address
+            store["geocode_status"] = f"Azure Maps geocoded: {note}"
             updated += 1
         else:
             failed += 1
+            store["lat"] = None
+            store["lng"] = None
+            store["full_address"] = full_address
+            store["geocode_status"] = f"Failed: {note}"
+            failures.append({"bol": bol, "origin": origin, "store": store_name, "address": full_address, "reason": note})
 
     write_json(STORES_FILE, stores)
-    audit("Geocode Stores", {"updated": updated, "failed": failed})
+    audit("Geocode Stores", {"updated": updated, "failed": failed, "failures": failures[:25]})
 
-    return jsonify({"ok": True, "updated": updated, "failed": failed})
+    return jsonify({"ok": True, "updated": updated, "failed": failed, "failures": failures[:50]})
 
 @app.route("/dispatch-map")
 @dispatch_required
