@@ -16,6 +16,7 @@ from eoms_modules.legacy_rms_repair import (
     parse_legacy_store_blob,
 )
 from routes.database_center import database_center_bp
+from routes.system_health import system_health_bp
 from eoms_modules.database_center_service import DatabaseCenterService
 from eoms_modules.backup_manager import BackupManager
 from eoms_modules.system_health_service import SystemHealthService
@@ -54,7 +55,9 @@ except Exception:  # pragma: no cover
         )
 
 app = Flask(__name__)
+
 app.register_blueprint(database_center_bp)
+app.register_blueprint(system_health_bp)
 from database_tools import database_health as database_health_report
 app.config["DATABASE_HEALTH_REPORT"] = database_health_report
 
