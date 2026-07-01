@@ -33,6 +33,7 @@ class DatabaseCenterService:
             "base_dir": str(self.base_dir),
             "has_backup_manager": self.backup_manager is not None,
             "has_database_validator": self.database_validator is not None,
+            "has_legacy_rms_repair": self.legacy_rms_repair is not None,
         }
 
     def database_health(self):
@@ -53,8 +54,8 @@ class DatabaseCenterService:
             }
 
         return self.database_validator.validate_records(records)
-    
-        def needs_legacy_rms_repair(self, record):
+
+    def needs_legacy_rms_repair(self, record):
         if self.legacy_rms_repair is None:
             return False
 
