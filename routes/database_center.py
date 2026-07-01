@@ -40,3 +40,22 @@ def database_health():
 
     report = database_health_report(stores_file, bol_dir, upload_dir)
     return render_template("database_health.html", report=report)
+@database_center_bp.route("/api/database/backup", methods=["POST"])
+def api_database_backup():
+    blocked = database_admin_required()
+    if blocked:
+        return blocked
+
+    backup_stores_json = current_app.config["BACKUP_STORES_JSON"]
+    audit = current_app.config["AUDIT"]
+    stores_file = current_app.config["STORES_FILE"]
+    base_dir = current_app.config["BASE_DIR"]
+
+    backup_path = backup_stores_json(stores_file, base_dir / "backups", reason="manual_backup")
+    result = {
+        "ok": True,
+        "backup_path": str(backup_path),
+        "message": "Database backup created.",
+    }
+    audit("Database Backup", result)
+    return jsonify(result)

@@ -111,6 +111,7 @@ USERS_FILE = DATA_DIR / "users.json"
 app.config["STORES_FILE"] = STORES_FILE
 app.config["BOL_DIR"] = BOL_DIR
 app.config["UPLOAD_DIR"] = UPLOAD_DIR
+app.config["BASE_DIR"] = BASE_DIR
 
 MAX_PAYLOAD = 25001
 WARNING_PAYLOAD = 22000
