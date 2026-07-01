@@ -9,8 +9,7 @@ class DatabaseCenterService:
         upload_dir,
         base_dir,
         database_health_report,
-        backup_stores_json,
-        audit,
+        backup_manager,
     ):
         self.stores_file = Path(stores_file)
         self.bol_dir = Path(bol_dir)
@@ -18,8 +17,7 @@ class DatabaseCenterService:
         self.base_dir = Path(base_dir)
 
         self.database_health_report = database_health_report
-        self.backup_stores_json = backup_stores_json
-        self.audit = audit
+        self.backup_manager = backup_manager
 
     def status(self):
         return {
@@ -39,18 +37,4 @@ class DatabaseCenterService:
         )
 
     def create_backup(self):
-        backup_path = self.backup_stores_json(
-            self.stores_file,
-            self.base_dir / "backups",
-            reason="manual_backup",
-        )
-
-        result = {
-            "ok": True,
-            "backup_path": str(backup_path),
-            "message": "Database backup created.",
-        }
-
-        self.audit("Database Backup", result)
-
-        return result
+        return self.backup_manager.create_backup(reason="manual_backup")
