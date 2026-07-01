@@ -18,6 +18,7 @@ from eoms_modules.legacy_rms_repair import (
 from routes.database_center import database_center_bp
 from eoms_modules.database_center_service import DatabaseCenterService
 from eoms_modules.backup_manager import BackupManager
+from eoms_modules.system_health_service import SystemHealthService
 
 from html import escape
 from io import BytesIO
@@ -5161,6 +5162,10 @@ app.config["DATABASE_CENTER_SERVICE"] = DatabaseCenterService(
     backup_manager=backup_manager,
     database_validator=database_validator,
     legacy_rms_repair=legacy_rms_repair,
+)
+
+app.config["SYSTEM_HEALTH_SERVICE"] = SystemHealthService(
+    database_center_service=app.config["DATABASE_CENTER_SERVICE"],
 )
 # Run startup tasks at import time so this works under gunicorn (which imports
 # `app:app` and never executes the __main__ block below).
