@@ -11,6 +11,7 @@ import sys
 import time
 from eoms_modules.database_validator import DatabaseValidator, validate_records
 from eoms_modules.legacy_rms_repair import (
+    LegacyRMSRepair,
     needs_legacy_rms_repair,
     parse_legacy_store_blob,
 )
@@ -5141,6 +5142,9 @@ def api_database_restore_backup():
     audit("Restore Database Backup", result)
     return jsonify(result)
 
+database_validator = DatabaseValidator()
+legacy_rms_repair = LegacyRMSRepair()
+
 backup_manager = BackupManager(
     stores_file=STORES_FILE,
     base_dir=BASE_DIR,
@@ -5155,6 +5159,8 @@ app.config["DATABASE_CENTER_SERVICE"] = DatabaseCenterService(
     base_dir=BASE_DIR,
     database_health_report=database_health_report,
     backup_manager=backup_manager,
+    database_validator=database_validator,
+    legacy_rms_repair=legacy_rms_repair,
 )
 # Run startup tasks at import time so this works under gunicorn (which imports
 # `app:app` and never executes the __main__ block below).
