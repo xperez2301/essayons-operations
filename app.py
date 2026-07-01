@@ -15,6 +15,7 @@ from eoms_modules.legacy_rms_repair import (
     parse_legacy_store_blob,
 )
 from routes.database_center import database_center_bp
+from eoms_modules.database_center_service import DatabaseCenterService
 
 from html import escape
 from io import BytesIO
@@ -5139,6 +5140,15 @@ def api_database_restore_backup():
     audit("Restore Database Backup", result)
     return jsonify(result)
 
+app.config["DATABASE_CENTER_SERVICE"] = DatabaseCenterService(
+    stores_file=STORES_FILE,
+    bol_dir=BOL_DIR,
+    upload_dir=UPLOAD_DIR,
+    base_dir=BASE_DIR,
+    database_health_report=database_health_report,
+    backup_stores_json=backup_stores_json,
+    audit=audit,
+)
 # Run startup tasks at import time so this works under gunicorn (which imports
 # `app:app` and never executes the __main__ block below).
 ensure_dirs()
