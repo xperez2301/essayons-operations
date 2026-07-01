@@ -120,11 +120,59 @@
     </table>
 </section>
 
+<!-- ===================================================== -->
+<!-- RMS DIAGNOSTICS -->
+<!-- ===================================================== -->
+
 <section id="tab-diagnostics" class="panel import-panel db-tab" style="display:none;">
-    <h3>RMS Diagnostics</h3>
-    <p class="muted">
-        RMS login, Auto Grab, queue health, and import diagnostics will appear here in a future milestone.
-    </p>
+
+    <div class="right-head">
+        <h3>RMS Diagnostics</h3>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="primary-btn" type="button" onclick="loadRmsDiagnostics()">
+                Run Health Check
+            </button>
+
+            <button class="secondary-btn" type="button" onclick="loadDatabaseCenter()">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="metrics-grid">
+
+        <div class="metric">
+            <span>Status</span>
+            <strong id="rmsHealthStatus">Not Checked</strong>
+        </div>
+
+        <div class="metric">
+            <span>Session</span>
+            <strong id="rmsSessionStatus">Unknown</strong>
+        </div>
+
+        <div class="metric">
+            <span>Last Check</span>
+            <strong id="rmsLastCheck">Never</strong>
+        </div>
+
+        <div class="metric">
+            <span>Message</span>
+            <strong id="rmsHealthMessage">Waiting...</strong>
+        </div>
+
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+
+        <h3>Health Details</h3>
+
+        <pre id="rmsDiagnosticsJson"
+style="white-space:pre-wrap;max-height:350px;overflow:auto;">No RMS diagnostics loaded.</pre>
+
+    </div>
+
 </section>
 
 <section id="tab-activity" class="panel import-panel db-tab" style="display:none;">
