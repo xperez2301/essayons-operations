@@ -77,6 +77,16 @@
         </table>
       </div>
     </div>
+    <div class="right-card" id="systemHealthCard">
+    <div class="right-head">
+        <h3>System Health</h3>
+        <span id="healthLastUpdated">Loading...</span>
+    </div>
+
+    <div id="systemHealthList">
+        <p>Loading system status...</p>
+    </div>
+</div>
 
     <aside class="command-right">
       <div class="right-card route-preview-card"><h3>Route Preview</h3><b>No route selected</b><p>Select stores on the map to build a route preview.</p><a href="/dispatch-map">Open Dispatch Map</a></div>
@@ -202,7 +212,44 @@ window.EOMS_LOCAL_RMS_WORKER_MESSAGE = {{ local_rms_worker_message | tojson }};
     }catch(err){stopProgress(100); statusBox.classList.add('err'); statusBox.textContent='Auto grab failed: '+err.message;}
     finally{if(!reloading){btn.disabled=false; btn.innerHTML=originalButtonHtml;}}
   }
-  btn.addEventListener('click',autoGrabBols);
+    btn.addEventListener('click',autoGrabBols);
 })();
 </script>
+
+<script>
+async function loadSystemHealth() {
+    try {
+        const response = await fetch("/api/system/health");
+        const data = await response.json();
+
+        document.getElementById("healthLastUpdated").textContent =
+            new Date(data.checked_at).toLocaleTimeString();
+
+        const html = Object.values(data.systems).map(system => {
+            let icon = "🟡";
+            if (system.status === "ok") icon = "🟢";
+            if (system.status === "error") icon = "🔴";
+
+            return `
+                <div class="health-row">
+                    <span>${icon}</span>
+                    <strong>${system.name}</strong>
+                    <small>${system.status}</small>
+                </div>
+            `;
+        }).join("");
+
+        document.getElementById("systemHealthList").innerHTML = html;
+    } catch (err) {
+        document.getElementById("systemHealthList").innerHTML =
+            "<p style='color:red;'>Unable to load system health.</p>";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadSystemHealth();
+    setInterval(loadSystemHealth, 30000);
+});
+</script>
+
 {% endblock %}
