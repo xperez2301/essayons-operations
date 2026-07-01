@@ -135,3 +135,51 @@ body{background:#050607;color:var(--cmd-text);}
 .material-editor button{padding:5px 7px;font-size:10px}
 .material-editor .danger-mini{background:var(--cmd-red2);color:#fff;border-color:rgba(255,255,255,.14)}
 @media(max-width:560px){.login-crest{flex-direction:column;text-align:center}.login-logo-img{width:220px;height:190px}.brand-logo-img{width:60px;height:48px}.brand h1{font-size:19px}}
+/* FT1-001 Sidebar independent scrolling */
+.sidebar {
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: sticky;
+    top: 0;
+}
+
+.sidebar nav {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    min-height: 0;
+}
+
+.sidebar::-webkit-scrollbar,
+.sidebar nav::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.sidebar nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.sidebar nav::-webkit-scrollbar-thumb {
+    background: #5d6d7e;
+    border-radius: 10px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.sidebar nav::-webkit-scrollbar-thumb:hover {
+    background: #85929e;
+}
+
+@media(max-width:880px) {
+    .sidebar {
+        height: auto;
+        overflow: visible;
+        position: static;
+    }
+
+    .sidebar nav {
+        overflow: visible;
+    }
+}
