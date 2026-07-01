@@ -15,11 +15,13 @@ class SystemHealthService:
         azure_health_service=None,
         rms_diagnostics_service=None,
         github_deployment_service=None,
+        auto_grab_service=None,
     ):
         self.database_center_service = database_center_service
         self.azure_health_service = azure_health_service
         self.rms_diagnostics_service = rms_diagnostics_service
         self.github_deployment_service = github_deployment_service
+        self.auto_grab_service = auto_grab_service
 
     def status(self) -> dict[str, Any]:
         return {
@@ -28,23 +30,35 @@ class SystemHealthService:
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "systems": {
                 "database": self._database_status(),
+
                 "rms": (
                     self.rms_diagnostics_service.get_health()
                     if self.rms_diagnostics_service
                     else self._placeholder_status("RMS", "pending")
                 ),
+
                 "azure": (
                     self.azure_health_service.status()
                     if self.azure_health_service
                     else self._placeholder_status("Azure", "pending")
                 ),
+
                 "github": (
                     self.github_deployment_service.get_health()
                     if self.github_deployment_service
                     else self._placeholder_status("GitHub", "pending")
                 ),
-                "auto_grab": self._placeholder_status("Auto Grab", "pending"),
-                "gps7000_pro": self._placeholder_status("GPS7000 Pro", "pending"),
+
+                "auto_grab": (
+                    self.auto_grab_service.get_health()
+                    if self.auto_grab_service
+                    else self._placeholder_status("Auto Grab", "pending")
+                ),
+
+                "gps7000_pro": self._placeholder_status(
+                    "GPS7000 Pro",
+                    "pending",
+                ),
             },
         }
 
@@ -65,7 +79,11 @@ class SystemHealthService:
             "details": service_status,
         }
 
-    def _placeholder_status(self, name: str, status: str = "pending") -> dict[str, Any]:
+    def _placeholder_status(
+        self,
+        name: str,
+        status: str = "pending",
+    ) -> dict[str, Any]:
         return {
             "name": name,
             "status": status,

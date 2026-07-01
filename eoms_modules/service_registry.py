@@ -6,6 +6,7 @@ from eoms_modules.system_health_service import SystemHealthService
 from eoms_modules.azure_health_service import AzureHealthService
 from eoms_modules.rms_diagnostics_service import RMSDiagnosticsService
 from eoms_modules.github_deployment_service import GitHubDeploymentService
+from eoms_modules.auto_grab_service import AutoGrabService
 
 
 class ServiceRegistry:
@@ -16,6 +17,7 @@ class ServiceRegistry:
     def __init__(self, app):
         self.app = app
 
+        # Configuration
         self.stores_file = app.config["STORES_FILE"]
         self.bol_dir = app.config["BOL_DIR"]
         self.upload_dir = app.config["UPLOAD_DIR"]
@@ -24,6 +26,7 @@ class ServiceRegistry:
         self.backup_stores_json = app.config["BACKUP_STORES_JSON"]
         self.audit = app.config["AUDIT"]
 
+        # Core utility services
         self.database_validator = DatabaseValidator()
         self.legacy_rms_repair = LegacyRMSRepair()
 
@@ -34,12 +37,18 @@ class ServiceRegistry:
             audit=self.audit,
         )
 
+        # Health & Operations Services
         self.azure_health_service = AzureHealthService(app)
+
         self.rms_diagnostics_service = RMSDiagnosticsService()
+
         self.github_deployment_service = GitHubDeploymentService(
             base_dir=self.base_dir
         )
 
+        self.auto_grab_service = AutoGrabService()
+
+        # Database Center
         self.database_center_service = DatabaseCenterService(
             stores_file=self.stores_file,
             bol_dir=self.bol_dir,
@@ -51,9 +60,11 @@ class ServiceRegistry:
             legacy_rms_repair=self.legacy_rms_repair,
         )
 
+        # System Health Aggregator
         self.system_health_service = SystemHealthService(
             database_center_service=self.database_center_service,
             azure_health_service=self.azure_health_service,
             rms_diagnostics_service=self.rms_diagnostics_service,
             github_deployment_service=self.github_deployment_service,
+            auto_grab_service=self.auto_grab_service,
         )
