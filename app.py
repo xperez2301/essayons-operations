@@ -50,6 +50,8 @@ except Exception:  # pragma: no cover
 
 app = Flask(__name__)
 app.register_blueprint(database_center_bp)
+from database_tools import database_health as database_health_report
+app.config["DATABASE_HEALTH_REPORT"] = database_health_report
 
 from jinja2 import ChainableUndefined
 app.jinja_env.undefined = ChainableUndefined
@@ -105,6 +107,10 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
 RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
 USERS_FILE = DATA_DIR / "users.json"
+
+app.config["STORES_FILE"] = STORES_FILE
+app.config["BOL_DIR"] = BOL_DIR
+app.config["UPLOAD_DIR"] = UPLOAD_DIR
 
 MAX_PAYLOAD = 25001
 WARNING_PAYLOAD = 22000
@@ -5045,11 +5051,6 @@ from database_tools import (
     repair_duplicate_bols,
 )
 
-@app.route("/database-health")
-@admin_required
-def database_health():
-    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
-    return render_template("database_health.html", report=report)
 
 @app.route("/api/database/backup", methods=["POST"])
 @admin_required

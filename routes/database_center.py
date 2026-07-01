@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template, session, redirect, url_for, request
+from flask import Blueprint, jsonify, render_template, session, redirect, url_for, request, current_app
 
 database_center_bp = Blueprint("database_center", __name__)
 
@@ -26,3 +26,17 @@ def database_center():
     if blocked:
         return blocked
     return render_template("database_center.html")
+
+@database_center_bp.route("/database-health")
+def database_health():
+    blocked = database_admin_required()
+    if blocked:
+        return blocked
+
+    database_health_report = current_app.config["DATABASE_HEALTH_REPORT"]
+    stores_file = current_app.config["STORES_FILE"]
+    bol_dir = current_app.config["BOL_DIR"]
+    upload_dir = current_app.config["UPLOAD_DIR"]
+
+    report = database_health_report(stores_file, bol_dir, upload_dir)
+    return render_template("database_health.html", report=report)
