@@ -32,10 +32,7 @@ function showTab(name) {
 
     if (active) {
         active.style.display = "block";
-        active.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
+        active.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     if (name === "backups") {
@@ -95,8 +92,7 @@ async function loadDatabaseCenter() {
     try {
         const dup = await fetchJson("/api/database/duplicates");
         if (duplicateCount) {
-            duplicateCount.textContent =
-                dup.duplicate_count ?? dup.duplicate_bol_count ?? 0;
+            duplicateCount.textContent = dup.duplicate_count ?? dup.duplicate_bol_count ?? 0;
         }
     } catch {
         if (duplicateCount) duplicateCount.textContent = "Error";
@@ -126,9 +122,7 @@ async function restoreBackup(name) {
     try {
         const data = await fetchJson("/api/database/restore-backup", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ backup_name: name })
         });
 
@@ -141,25 +135,40 @@ async function restoreBackup(name) {
 }
 
 async function createBackupNow() {
-    console.log("Create Backup Now clicked");
-
     const confirmed = confirm("Create a new stores.json backup now?");
     if (!confirmed) return;
 
     try {
         const data = await fetchJson("/api/database/backup", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            }
+            headers: { "Content-Type": "application/json" }
         });
 
         alert(data.message || "Backup created.");
         await loadDatabaseCenter();
         showTab("backups");
     } catch (error) {
-        console.error("Backup failed:", error);
         alert("Backup failed: " + error.message);
+    }
+}
+
+async function reGeocodeStores() {
+    const confirmed = confirm(
+        "Re-geocode all stores using the current Azure Maps key?\n\nThis will update saved latitude/longitude coordinates."
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const data = await fetchJson("/api/geocode-stores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        alert(`Re-geocode complete.\nUpdated: ${data.updated}\nFailed: ${data.failed}`);
+        await loadDatabaseCenter();
+    } catch (error) {
+        alert("Re-geocode failed: " + error.message);
     }
 }
 
@@ -171,6 +180,7 @@ window.loadBackups = loadBackups;
 window.loadDatabaseCenter = loadDatabaseCenter;
 window.restoreBackup = restoreBackup;
 window.createBackupNow = createBackupNow;
+window.reGeocodeStores = reGeocodeStores;
 
 document.addEventListener("DOMContentLoaded", function () {
     loadDatabaseCenter();

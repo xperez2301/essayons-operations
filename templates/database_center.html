@@ -44,12 +44,17 @@
     </div>
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="primary-btn" type="button" onclick="showTab('dashboard')">Dashboard</button>
-        <button class="secondary-btn" type="button" onclick="showTab('backups')">Backups</button>
-        <button class="secondary-btn" type="button" onclick="showTab('duplicates')">Duplicates</button>
-        <button class="secondary-btn" type="button" onclick="showTab('missing')">Missing PDFs</button>
-        <button class="secondary-btn" type="button" onclick="showTab('activity')">Activity Log</button>
-    </div>
+    <button class="primary-btn" type="button" onclick="showTab('dashboard')">Dashboard</button>
+    <button class="secondary-btn" type="button" onclick="showTab('backups')">Backups</button>
+    <button class="secondary-btn" type="button" onclick="showTab('duplicates')">Duplicates</button>
+    <button class="secondary-btn" type="button" onclick="showTab('missing')">Missing PDFs</button>
+    <button class="secondary-btn" type="button" onclick="showTab('activity')">Activity Log</button>
+
+    <button class="primary-btn" type="button" onclick="reGeocodeStores()">
+        🌎 Re-Geocode Stores
+    </button>
+</div>
+
 </section>
 
 <section id="tab-dashboard" class="panel import-panel db-tab">
