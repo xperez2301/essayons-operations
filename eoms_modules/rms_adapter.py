@@ -20,6 +20,9 @@ class RMSAdapter:
         if not status.get("logged_in"):
             raise RuntimeError("RMS session expired. Manual login required.")
 
+    def get_session_status(self):
+        return self.browser.rms_session_status()
+
     # -----------------------------
     # NAVIGATION
     # -----------------------------
@@ -36,36 +39,58 @@ class RMSAdapter:
         try:
             dropdowns = page.query_selector_all("select")
 
-            for d in dropdowns:
-                options = d.query_selector_all("option")
+            for dropdown in dropdowns:
+                options = dropdown.query_selector_all("option")
 
-                for opt in options:
-                    text = opt.inner_text().lower()
+                for option in options:
+                    text = option.inner_text().lower()
 
                     if "1000" in text or "all" in text:
-                        opt.click()
+                        option.click()
                         page.wait_for_timeout(3000)
-                        return
-        except:
+                        return True
+
+        except Exception:
             pass
 
+        return False
+
     # -----------------------------
-    # MAIN RMS PIPELINE (STABLE VERSION)
+    # PUBLIC ENTRY POINT
+    # -----------------------------
+    def capture_bols(self):
+        """
+        Primary entry point used by RMSService.
+        """
+        return self.scan_queue()
+
+    # -----------------------------
+    # MAIN RMS PIPELINE
     # -----------------------------
     def scan_queue(self):
+        self.ensure_logged_in()
         self.go_to_bols()
 
         list_page = self.browser.current_page()
-
         list_page.wait_for_timeout(2000)
 
         self.set_page_size_1000(list_page)
-
         list_page.wait_for_timeout(3000)
 
-        # -----------------------------
-        # PHASE 1: COLLECT ALL BOL IDS
-        # -----------------------------
+        bol_ids = self.collect_bol_ids(list_page)
+        results = self.capture_print_pages(bol_ids)
+
+        return {
+            "ok": True,
+            "message": "RMS stable scan complete",
+            "count": len(results),
+            "data": results,
+        }
+
+    # -----------------------------
+    # BOL COLLECTION
+    # -----------------------------
+    def collect_bol_ids(self, list_page):
         bol_ids = set()
 
         try:
@@ -86,21 +111,21 @@ class RMSAdapter:
                     elif text.isdigit() and len(text) >= 5:
                         bol_ids.add(text)
 
-                except:
+                except Exception:
                     continue
 
-        except:
+        except Exception:
             pass
 
-        bol_ids = list(bol_ids)
+        return list(bol_ids)
 
+    # -----------------------------
+    # PRINT PAGE CAPTURE
+    # -----------------------------
+    def capture_print_pages(self, bol_ids, limit=20):
         results = []
 
-        # -----------------------------
-        # PHASE 2: OPEN EACH PRINT PAGE (ISOLATED)
-        # -----------------------------
-        for bol_id in bol_ids[:20]:
-
+        for bol_id in bol_ids[:limit]:
             print_page = None
 
             try:
@@ -109,37 +134,27 @@ class RMSAdapter:
                 )
 
                 print_page = self.browser.context.new_page()
-
                 print_page.goto(print_url)
                 print_page.wait_for_timeout(3000)
 
                 content = print_page.inner_text("body")
 
-                results.append({
-                    "bol_id": bol_id,
-                    "url": print_url,
-                    "content": content[:3000]
-                })
+                results.append(
+                    {
+                        "bol_id": bol_id,
+                        "url": print_url,
+                        "content": content[:3000],
+                    }
+                )
 
-            except:
+            except Exception:
                 pass
 
             finally:
                 if print_page:
                     try:
                         print_page.close()
-                    except:
+                    except Exception:
                         pass
 
-        return {
-            "ok": True,
-            "message": "RMS stable scan complete",
-            "count": len(results),
-            "data": results
-        }
-
-    # -----------------------------
-    # SESSION INFO
-    # -----------------------------
-    def get_session_status(self):
-        return self.browser.rms_session_status()
+        return results
