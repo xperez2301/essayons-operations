@@ -19,6 +19,7 @@ from routes.database_center import database_center_bp
 from eoms_modules.database_center_service import DatabaseCenterService
 from eoms_modules.backup_manager import BackupManager
 from eoms_modules.system_health_service import SystemHealthService
+from eoms_modules.service_registry import ServiceRegistry
 
 from html import escape
 from io import BytesIO
@@ -5143,30 +5144,14 @@ def api_database_restore_backup():
     audit("Restore Database Backup", result)
     return jsonify(result)
 
-database_validator = DatabaseValidator()
-legacy_rms_repair = LegacyRMSRepair()
+app.config["BACKUP_STORES_JSON"] = backup_stores_json
+app.config["AUDIT"] = audit
 
-backup_manager = BackupManager(
-    stores_file=STORES_FILE,
-    base_dir=BASE_DIR,
-    backup_stores_json=backup_stores_json,
-    audit=audit,
-)
+services = ServiceRegistry(app)
 
-app.config["DATABASE_CENTER_SERVICE"] = DatabaseCenterService(
-    stores_file=STORES_FILE,
-    bol_dir=BOL_DIR,
-    upload_dir=UPLOAD_DIR,
-    base_dir=BASE_DIR,
-    database_health_report=database_health_report,
-    backup_manager=backup_manager,
-    database_validator=database_validator,
-    legacy_rms_repair=legacy_rms_repair,
-)
+app.config["DATABASE_CENTER_SERVICE"] = services.database_center_service
+app.config["SYSTEM_HEALTH_SERVICE"] = services.system_health_service
 
-app.config["SYSTEM_HEALTH_SERVICE"] = SystemHealthService(
-    database_center_service=app.config["DATABASE_CENTER_SERVICE"],
-)
 # Run startup tasks at import time so this works under gunicorn (which imports
 # `app:app` and never executes the __main__ block below).
 ensure_dirs()
