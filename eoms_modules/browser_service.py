@@ -16,7 +16,9 @@ class BrowserService:
 
     RMS_BASE_URL = "https://rms.reusability.com"
     RMS_LOGIN_URL = "https://rms.reusability.com/login"
-    RMS_BOL_URL = "https://rms.reusability.com/orders/bols"
+
+    # ✅ FIXED ROUTE (THIS WAS THE BUG)
+    RMS_BOL_URL = "https://rms.reusability.com/bills-of-lading"
 
     def __init__(self, profile_dir=None, browser_channel="msedge", headless=False):
         self.profile_dir = Path(profile_dir or "browser_profiles/rms_edge_profile")
@@ -56,7 +58,7 @@ class BrowserService:
             raise RuntimeError("Browser has not been launched.")
         return self.page
 
-    def goto(self, url, wait_until="domcontentloaded"):
+    def goto(self, url, wait_until="networkidle"):
         page = self.current_page()
         page.goto(url, wait_until=wait_until)
         return page
@@ -119,7 +121,6 @@ class BrowserService:
                 try:
                     self.context.close()
                 except Exception:
-                    # Context may already be closed.
                     pass
         finally:
             self.context = None

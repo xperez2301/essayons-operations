@@ -6,12 +6,13 @@ from typing import Any
 
 class AutoGrabService:
     """
-    Owns Auto Grab operational state and delegates browser automation
-    infrastructure to BrowserService.
+    Owns Auto Grab operational state and orchestrates RMS automation
+    through RMSAdapter and BrowserService.
     """
 
     def __init__(self, browser_service=None):
         self.browser_service = browser_service
+        self.rms = None
 
         self.enabled = False
         self.state = "Idle"
@@ -25,9 +26,18 @@ class AutoGrabService:
         self.jobs_processed = 0
         self.failed_jobs = 0
 
+    # -----------------------------
+    # DEPENDENCY INJECTION
+    # -----------------------------
     def set_browser_service(self, browser_service):
         self.browser_service = browser_service
 
+    def set_rms_adapter(self, rms_adapter):
+        self.rms = rms_adapter
+
+    # -----------------------------
+    # RUN CONTROL
+    # -----------------------------
     def start_run(self):
         self.state = "Running"
         self.started_at = datetime.now(timezone.utc).isoformat()
@@ -44,26 +54,47 @@ class AutoGrabService:
         self.last_failure = error
         self.failed_jobs += 1
 
-    def record_job_processed(self):
-        self.jobs_processed += 1
-
-    def record_job_failed(self):
-        self.failed_jobs += 1
-
+    # -----------------------------
+    # LEGACY BROWSER ACCESS
+    # -----------------------------
     def launch_browser(self):
         if not self.browser_service:
             raise RuntimeError("BrowserService is not configured for AutoGrabService.")
-
         return self.browser_service.launch()
 
     def check_rms_session(self) -> dict[str, Any]:
         browser = self.launch_browser()
-
         try:
             return browser.rms_session_status()
         finally:
             browser.shutdown()
 
+    # -----------------------------
+    # RMS FLOW (Adapter-based)
+    # -----------------------------
+    def scan_rms_queue(self):
+        if not self.rms:
+            raise RuntimeError("RMSAdapter not configured.")
+
+        self.start_run()
+
+        try:
+            result = self.rms.scan_queue()
+
+            if result.get("ok"):
+                self.finish_run()
+            else:
+                self.fail_run(result.get("message", "Queue scan failed"))
+
+            return result
+
+        except Exception as e:
+            self.fail_run(str(e))
+            raise
+
+    # -----------------------------
+    # HEALTH
+    # -----------------------------
     def get_health(self) -> dict[str, Any]:
         return {
             "name": "Auto Grab",
@@ -86,5 +117,6 @@ class AutoGrabService:
                 "jobs_processed": self.jobs_processed,
                 "failed_jobs": self.failed_jobs,
                 "browser_configured": self.browser_service is not None,
+                "rms_configured": self.rms is not None,
             },
         }
