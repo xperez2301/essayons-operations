@@ -9,6 +9,13 @@ import zipfile
 import subprocess
 import sys
 import time
+from eoms_modules.database_validator import validate_records
+from eoms_modules.legacy_rms_repair import (
+    needs_legacy_rms_repair,
+    parse_legacy_store_blob,
+)
+from routes.database_center import database_center_bp
+
 from html import escape
 from io import BytesIO
 from functools import wraps
@@ -42,6 +49,8 @@ except Exception:  # pragma: no cover
         )
 
 app = Flask(__name__)
+app.register_blueprint(database_center_bp)
+
 from jinja2 import ChainableUndefined
 app.jinja_env.undefined = ChainableUndefined
 
