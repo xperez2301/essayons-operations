@@ -6,17 +6,13 @@ from typing import Any
 
 class AutoGrabService:
     """
-    Owns Auto Grab operational state.
-
-    Future responsibilities:
-    - RMS browser automation
-    - Scheduler
-    - Queue processing
-    - Import execution
-    - Run history
+    Owns Auto Grab operational state and delegates browser automation
+    infrastructure to BrowserService.
     """
 
-    def __init__(self):
+    def __init__(self, browser_service=None):
+        self.browser_service = browser_service
+
         self.enabled = False
         self.state = "Idle"
 
@@ -29,9 +25,13 @@ class AutoGrabService:
         self.jobs_processed = 0
         self.failed_jobs = 0
 
+    def set_browser_service(self, browser_service):
+        self.browser_service = browser_service
+
     def start_run(self):
         self.state = "Running"
         self.started_at = datetime.now(timezone.utc).isoformat()
+        self.finished_at = None
 
     def finish_run(self):
         self.state = "Idle"
@@ -49,6 +49,20 @@ class AutoGrabService:
 
     def record_job_failed(self):
         self.failed_jobs += 1
+
+    def launch_browser(self):
+        if not self.browser_service:
+            raise RuntimeError("BrowserService is not configured for AutoGrabService.")
+
+        return self.browser_service.launch()
+
+    def check_rms_session(self) -> dict[str, Any]:
+        browser = self.launch_browser()
+
+        try:
+            return browser.rms_session_status()
+        finally:
+            browser.shutdown()
 
     def get_health(self) -> dict[str, Any]:
         return {
@@ -71,5 +85,6 @@ class AutoGrabService:
                 "last_failure": self.last_failure,
                 "jobs_processed": self.jobs_processed,
                 "failed_jobs": self.failed_jobs,
+                "browser_configured": self.browser_service is not None,
             },
         }
