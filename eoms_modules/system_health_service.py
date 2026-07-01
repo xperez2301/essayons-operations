@@ -13,9 +13,11 @@ class SystemHealthService:
         self,
         database_center_service=None,
         azure_health_service=None,
+        rms_diagnostics_service=None,
     ):
         self.database_center_service = database_center_service
         self.azure_health_service = azure_health_service
+        self.rms_diagnostics_service = rms_diagnostics_service
 
     def status(self) -> dict[str, Any]:
         return {
@@ -24,7 +26,11 @@ class SystemHealthService:
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "systems": {
                 "database": self._database_status(),
-                "rms": self._placeholder_status("RMS", "pending"),
+                "rms": (
+                    self.rms_diagnostics_service.get_health()
+                    if self.rms_diagnostics_service
+                    else self._placeholder_status("RMS", "pending")
+                ),
                 "azure": (
                     self.azure_health_service.status()
                     if self.azure_health_service
