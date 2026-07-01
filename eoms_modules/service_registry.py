@@ -3,6 +3,7 @@ from eoms_modules.database_validator import DatabaseValidator
 from eoms_modules.legacy_rms_repair import LegacyRMSRepair
 from eoms_modules.database_center_service import DatabaseCenterService
 from eoms_modules.system_health_service import SystemHealthService
+from eoms_modules.azure_health_service import AzureHealthService
 
 
 class ServiceRegistry:
@@ -31,6 +32,8 @@ class ServiceRegistry:
             audit=self.audit,
         )
 
+        self.azure_health_service = AzureHealthService(app)
+
         self.database_center_service = DatabaseCenterService(
             stores_file=self.stores_file,
             bol_dir=self.bol_dir,
@@ -43,5 +46,6 @@ class ServiceRegistry:
         )
 
         self.system_health_service = SystemHealthService(
-            database_center_service=self.database_center_service,
-        )
+        database_center_service=self.database_center_service,
+        azure_health_service=self.azure_health_service,
+    )

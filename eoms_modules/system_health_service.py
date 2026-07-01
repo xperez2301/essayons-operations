@@ -7,13 +7,15 @@ from typing import Any
 class SystemHealthService:
     """
     Aggregates EOMS system health into one operational status object.
-
-    This service will eventually power the Operations Dashboard,
-    alerts, admin health panels, and system notifications.
     """
 
-    def __init__(self, database_center_service=None):
+    def __init__(
+        self,
+        database_center_service=None,
+        azure_health_service=None,
+    ):
         self.database_center_service = database_center_service
+        self.azure_health_service = azure_health_service
 
     def status(self) -> dict[str, Any]:
         return {
@@ -23,7 +25,11 @@ class SystemHealthService:
             "systems": {
                 "database": self._database_status(),
                 "rms": self._placeholder_status("RMS", "pending"),
-                "azure": self._placeholder_status("Azure", "pending"),
+                "azure": (
+                    self.azure_health_service.status()
+                    if self.azure_health_service
+                    else self._placeholder_status("Azure", "pending")
+                ),
                 "github": self._placeholder_status("GitHub", "pending"),
                 "auto_grab": self._placeholder_status("Auto Grab", "pending"),
                 "gps7000_pro": self._placeholder_status("GPS7000 Pro", "pending"),
