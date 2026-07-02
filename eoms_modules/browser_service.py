@@ -5,19 +5,10 @@ from playwright.sync_api import sync_playwright
 class BrowserService:
     """
     Browser automation infrastructure for EOMS.
-
-    Owns:
-    - Browser selection
-    - Persistent profile
-    - Startup/shutdown
-    - Current page access
-    - RMS navigation helpers
     """
 
     RMS_BASE_URL = "https://rms.reusability.com"
     RMS_LOGIN_URL = "https://rms.reusability.com/login"
-
-    # ✅ FIXED ROUTE (THIS WAS THE BUG)
     RMS_BOL_URL = "https://rms.reusability.com/bills-of-lading"
 
     def __init__(self, profile_dir=None, browser_channel="msedge", headless=False):
@@ -26,10 +17,16 @@ class BrowserService:
         self.headless = headless
 
         self.playwright = None
+        self.browser = None
         self.context = None
         self.page = None
+        self.attached_cdp = False
 
     def launch(self):
+        """
+        Legacy isolated Playwright Edge profile.
+        Kept as fallback only.
+        """
         self.profile_dir.mkdir(parents=True, exist_ok=True)
 
         self.playwright = sync_playwright().start()
@@ -45,17 +42,29 @@ class BrowserService:
             ],
         )
 
-        self.page = (
-            self.context.pages[0]
-            if self.context.pages
-            else self.context.new_page()
-        )
+        self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+        return self
+
+    def attach_to_edge_cdp(self, cdp_url="http://127.0.0.1:9222"):
+        """
+        Attach to an already-open Microsoft Edge session using CDP.
+        This allows EOMS to use the user's real authenticated RMS session.
+        """
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.connect_over_cdp(cdp_url)
+
+        if not self.browser.contexts:
+            raise RuntimeError("No Edge browser contexts found through CDP.")
+
+        self.context = self.browser.contexts[0]
+        self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+        self.attached_cdp = True
 
         return self
 
     def current_page(self):
         if not self.page:
-            raise RuntimeError("Browser has not been launched.")
+            raise RuntimeError("Browser has not been launched or attached.")
         return self.page
 
     def goto(self, url, wait_until="networkidle"):
@@ -74,7 +83,6 @@ class BrowserService:
 
     def is_rms_login_page(self):
         page = self.current_page()
-
         url = page.url.lower()
 
         try:
@@ -112,19 +120,28 @@ class BrowserService:
             "browser_channel": self.browser_channel,
             "headless": self.headless,
             "profile_dir": str(self.profile_dir),
+            "attached_cdp": self.attached_cdp,
             "current_url": self.page.url if self.page else None,
         }
 
     def shutdown(self):
         try:
-            if self.context:
+            if self.context and not self.attached_cdp:
                 try:
                     self.context.close()
                 except Exception:
                     pass
+
+            if self.browser and self.attached_cdp:
+                try:
+                    self.browser.close()
+                except Exception:
+                    pass
         finally:
+            self.browser = None
             self.context = None
             self.page = None
+            self.attached_cdp = False
 
             if self.playwright:
                 try:

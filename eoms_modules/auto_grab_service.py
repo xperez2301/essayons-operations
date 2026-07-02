@@ -60,7 +60,7 @@ class AutoGrabService:
     def launch_browser(self):
         if not self.browser_service:
             raise RuntimeError("BrowserService is not configured for AutoGrabService.")
-        return self.browser_service.launch()
+        return self.browser_service.attach_to_edge_cdp()
 
     def check_rms_session(self) -> dict[str, Any]:
         browser = self.launch_browser()

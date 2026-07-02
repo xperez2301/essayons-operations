@@ -183,3 +183,24 @@ body{background:#050607;color:var(--cmd-text);}
         overflow: visible;
     }
 }
+
+body.focus-dispatch-page .sidebar {
+    display: none;
+}
+
+body.focus-dispatch-page .app-shell {
+    grid-template-columns: 1fr;
+}
+
+body.focus-dispatch-page main {
+    width: 100%;
+    max-width: none;
+}
+
+body.focus-dispatch-page .dispatch-grid.three-zone {
+    grid-template-columns: 280px minmax(700px, 1fr) 340px;
+}
+
+body.focus-dispatch-page #map {
+    min-height: 650px;
+}
