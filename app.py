@@ -601,9 +601,9 @@ def launch_chromium_with_repair(playwright, headless=True):
         return playwright.chromium.launch(headless=headless)
 
 def rms_browser_choice():
-    # Default RMS automation to real local Chrome because RMS may block headless/server browsers.
-    # Override with RMS_BROWSER=edge, chromium, or cdp if needed.
-    return clean(os.environ.get("RMS_BROWSER") or "chrome").lower()
+    # Default RMS automation to Microsoft Edge using the persistent EOMS profile.
+    # Override with RMS_BROWSER=chrome, chromium, or cdp if needed.
+    return clean(os.environ.get("RMS_BROWSER") or "edge").lower()
 
 def rms_manual_login_enabled():
     return clean(os.environ.get("RMS_MANUAL_LOGIN")).lower() in {"1", "true", "yes", "on"}
