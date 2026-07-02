@@ -1,4 +1,4 @@
-﻿import os
+import os
 import csv
 import json
 import math
@@ -4460,17 +4460,52 @@ def api_send_route_sms():
     if not phone:
         return jsonify({"ok": False, "message": "Add the driver phone number first."})
 
-    public_base = clean(os.environ.get("PUBLIC_BASE_URL")) or request.host_url.rstrip("/")
-    route_link = f"{public_base}/route-view/{route.get('id')}"
-    body = f"EOMS Route {route.get('route_number')}"
+    # FT1 SMS format: include route details directly in the text message.
+    # This avoids local 127.0.0.1 links and gives the driver all stop details even
+    # when EOMS is only running on the dispatch laptop.
+    stops = route.get("stops", []) or []
+    metrics = route.get("metrics", {}) or {}
+
+    body_lines = [
+        f"Essayons BAX Route {route.get('route_number')}",
+    ]
+
     if route.get("driver"):
-        body += f" for {route.get('driver')}"
-    body += "\n"
+        body_lines.append(f"Driver: {route.get('driver')}")
     if route.get("truck"):
-        body += f"Truck: {route.get('truck')}\n"
+        body_lines.append(f"Truck: {route.get('truck')}")
     if route.get("helper"):
-        body += f"Helper: {route.get('helper')}\n"
-    body += f"Stops: {len(route.get('stops', []))} | Racks: {route.get('metrics', {}).get('racks', 0)} | Weight: {route.get('metrics', {}).get('weight', 0)} lbs\nOpen route: {route_link}"
+        body_lines.append(f"Helper: {route.get('helper')}")
+
+    body_lines.append(
+        f"Stops: {len(stops)} | Racks: {metrics.get('racks', 0)} | Weight: {metrics.get('weight', 0)} lbs"
+    )
+    body_lines.append("")
+
+    for idx, stop in enumerate(stops, start=1):
+        store_name = clean(stop.get("store_name") or stop.get("origin_name") or "Unknown Store")
+        bol = clean(stop.get("bol"))
+        origin = clean(stop.get("origin"))
+        address = clean(stop.get("address") or stop.get("origin_address"))
+        city = clean(stop.get("city") or stop.get("origin_city"))
+        state = clean(stop.get("state") or stop.get("origin_state"))
+        zip_code = clean(stop.get("zip") or stop.get("origin_zip"))
+        racks = clean(stop.get("expected_racks"))
+
+        full_address = ", ".join([part for part in [address, city, state, zip_code] if part])
+
+        body_lines.append(f"{idx}. {store_name}")
+        if bol:
+            body_lines.append(f"BOL: {bol}")
+        if origin:
+            body_lines.append(f"Origin: {origin}")
+        if full_address:
+            body_lines.append(f"Address: {full_address}")
+        if racks:
+            body_lines.append(f"Expected Racks: {racks}")
+        body_lines.append("")
+
+    body = "\n".join(body_lines).strip()
 
     telnyx_settings = read_json(SETTINGS_FILE)
     api_key = clean(os.environ.get("TELNYX_API_KEY")) or clean(telnyx_settings.get("telnyx_api_key"))
