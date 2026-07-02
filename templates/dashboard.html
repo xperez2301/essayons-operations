@@ -14,11 +14,11 @@
         <span class="sync-icon">◷</span>
         <div><b>Last RMS Sync</b><small id="lastSyncText">{{ sync_history[-1].time if sync_history else 'Not run yet' }}</small></div>
       </div>
-      {% if session.get('role') == 'Admin' %}
+      {% if session.get('role') in ['Admin', 'Operations Manager'] %}
         {% if is_azure %}
       <button id="autoGrabBolBtn" class="big-red-btn" type="button" disabled title="{{ local_rms_worker_message }} Last sync: {{ sync_history[-1].time if sync_history else 'not run yet' }}">Local RMS Worker<br><small>Last: {{ sync_history[-1].time if sync_history else 'not run yet' }}</small></button>
         {% else %}
-      <button id="autoGrabBolBtn" class="big-red-btn" type="button">Auto Grab BOLs<br><small>Admin Only</small></button>
+      <button id="autoGrabBolBtn" class="big-red-btn" type="button">Auto Grab BOLs<br><small>Ops Only</small></button>
         {% endif %}
       {% endif %}
       <div class="user-pill"><span>XP</span><div><b>{{ session.get('username','Xavier Perez') }}</b><small>{{ session.get('role','Admin') }}</small></div></div>
