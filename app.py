@@ -35,6 +35,8 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from eoms_modules.permission_service import permissions
+from eoms_modules.financial_service import financials
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
 # always available on a fresh App Service worker, so we import it lazily and let
@@ -1651,19 +1653,22 @@ def dashboard():
     return render_template(
         "dashboard.html",
         is_azure=IS_AZURE,
-        metrics=dashboard_metrics(stores, routes),
+        metrics={**dashboard_metrics(stores, routes), **financials.dashboard_financials(stores)},
         stores=active_map_stores(stores),
         routes=routes,
         hubs=HUBS,
         sync_history=sync_history[-5:] if isinstance(sync_history, list) else [],
         azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
-        can_view_financials=current_role() in {"Admin", "Operations Manager"},
+        can_view_financials=permissions.can_view_financials(current_user())
     )
 
 @app.route("/api/dashboard-live")
 def api_dashboard_live():
-    return jsonify({"ok": True, "metrics": dashboard_metrics()})
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    metrics = {**dashboard_metrics(stores, routes), **financials.dashboard_financials(stores)}
+    return jsonify({"ok": True, "metrics": metrics})
 
 @app.route("/api/drivers")
 @dispatch_required
@@ -1885,7 +1890,7 @@ def dispatch_map():
         "dispatch_map.html", stores=stores, hubs=HUBS,
         max_payload=MAX_PAYLOAD, azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
-        can_view_financials=current_role() in {"Admin", "Operations Manager"}
+        can_view_financials=permissions.can_view_financials(current_user())
     )
 
 @app.route("/route-builder")
