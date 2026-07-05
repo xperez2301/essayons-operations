@@ -1,4 +1,4 @@
-import os
+﻿import os
 import csv
 import json
 import math
@@ -2970,8 +2970,16 @@ def import_printable_bol_item(item, existing_keys=None, existing_bols=None):
             ]:
                 if existing.get(key) not in (None, "") and item.get(key) in (None, ""):
                     item[key] = existing.get(key)
-            if existing.get("status") in {"Assigned", "Dispatched", "Completed"}:
+            if existing.get("status") in {"Assigned", "Dispatched"}:
                 item["status"] = existing.get("status")
+            elif (
+                clean(existing.get("status")).lower() == "completed"
+                and clean(existing.get("rms_status")).lower() in {"closed by rms", "closed in rms", "missing from rms"}
+            ):
+                item["status"] = "Unassigned"
+                item["closed_reason"] = ""
+                item["closed_at"] = ""
+                item["updated_at"] = now
             stores[idx] = item
             replaced = True
             break
@@ -2997,6 +3005,15 @@ def mark_stores_missing_from_rms(open_bols):
                 store["last_seen_in_rms_at"] = now
                 store["rms_status"] = "Open in RMS"
                 store["rms_missing_since"] = ""
+
+                if (
+                    clean(store.get("status")).lower() == "completed"
+                    and clean(store.get("closed_reason")).lower() == "removed from rms"
+                ):
+                    store["status"] = "Unassigned"
+                    store["closed_reason"] = ""
+                    store["closed_at"] = ""
+                    store["updated_at"] = now
             continue
 
         if not (store.get("rms_url") or store.get("pdf_path") or store.get("printable_path")):
@@ -3201,8 +3218,16 @@ def upsert_store_by_bol(item):
     for idx, existing in enumerate(stores):
         if clean(existing.get("bol")) == clean(item.get("bol")):
             item["id"] = existing.get("id", item.get("id"))
-            if existing.get("status") in {"Assigned", "Dispatched", "Completed"}:
+            if existing.get("status") in {"Assigned", "Dispatched"}:
                 item["status"] = existing.get("status")
+            elif (
+                clean(existing.get("status")).lower() == "completed"
+                and clean(existing.get("rms_status")).lower() in {"closed by rms", "closed in rms", "missing from rms"}
+            ):
+                item["status"] = "Unassigned"
+                item["closed_reason"] = ""
+                item["closed_at"] = ""
+                item["updated_at"] = now
             stores[idx] = item
             replaced = True
             break
@@ -3442,8 +3467,35 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                     # keep it in open_bols above so closed-BOL detection remains
                     # accurate.
                     if bol_number and bol_number in existing_bols:
-                        skipped += 1
-                        print(f"Skipping existing BOL {bol_number}")
+                        reopened = False
+
+                        for store in existing:
+                            if clean(store.get("bol")) != bol_number:
+                                continue
+
+                            if (
+                                clean(store.get("status")).lower() == "completed"
+                                and clean(store.get("rms_status")).lower() in {"closed by rms", "closed in rms", "missing from rms"}
+                            ):
+                                store["status"] = "Unassigned"
+                                store["rms_status"] = "Open in RMS"
+                                store["closed_reason"] = ""
+                                store["closed_at"] = ""
+                                store["updated_at"] = datetime.now().isoformat(timespec="seconds")
+
+                                reopened = True
+                                updated += 1
+
+                                print(f"Reopened existing RMS BOL {bol_number}")
+
+                            break
+
+                        if reopened:
+                            write_json(STORES_FILE, existing)
+                        else:
+                            skipped += 1
+                            print(f"Skipping existing BOL {bol_number}")
+
                         continue
 
                     # Reuse the same visible RMS tab for each BOL so headed
