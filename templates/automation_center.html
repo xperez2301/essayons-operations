@@ -1,44 +1,405 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Automation Center | EOMS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
-</head>
-<body>
-    <main class="page-shell">
-        <h1>Automation Center</h1>
-        <p>FT3 worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
+{% extends "base.html" %}
+{% block content %}
 
-        <section class="card">
-            <h2>Center Health</h2>
-            <pre id="centerHealth">Loading...</pre>
-        </section>
+<div class="command-dashboard">
+  <header class="command-topbar">
+    <div class="command-title">
+      <button class="hamburger" type="button">☰</button>
+      <div>
+        <h2>Automation Center</h2>
+        <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
+      </div>
+    </div>
+    <div class="command-actions">
+      <a class="big-red-btn" href="/dashboard">Back to Dashboard<br><small>Operations</small></a>
+    </div>
+  </header>
 
-        <section class="card">
-            <h2>Workers</h2>
-            <pre id="workers">Loading...</pre>
-        </section>
+  <section class="command-kpis">
+    <div class="kpi-card"><span>Center Status</span><strong id="centerStatus" class="green">Loading</strong><small>automation health</small></div>
+    <div class="kpi-card"><span>Workers</span><strong id="workerCount" class="blue">0</strong><small>registered</small></div>
+    <div class="kpi-card"><span>Queue Depth</span><strong id="queueDepth" class="yellow">0</strong><small>jobs waiting</small></div>
+    <div class="kpi-card"><span>Activity</span><strong id="activityCount" class="purple">0</strong><small>events</small></div>
+    <div class="kpi-card"><span>Open Exceptions</span><strong id="openExceptions" class="red">0</strong><small>operational</small></div>
+  </section>
 
-        <section class="card">
-            <h2>Activity</h2>
-            <pre id="activity">Loading...</pre>
-        </section>
-    </main>
+  <section class="command-layout">
+    <div class="command-main">
 
-    <script>
-        async function loadAutomationCenter() {
-            const health = await fetch("/api/automation-center/health").then(r => r.json());
-            const workers = await fetch("/api/automation-center/workers").then(r => r.json());
-            const activity = await fetch("/api/automation-center/activity").then(r => r.json());
+      <div class="activity-card">
+        <div class="activity-head">
+          <h3>Automation Workers</h3>
+          <span id="lastChecked">Loading...</span>
+        </div>
+        <div id="automationNotice" class="automation-notice" hidden></div>
+        <div id="workersGrid" class="automation-worker-grid">
+          <p>Loading workers...</p>
+        </div>
+      </div>
 
-            document.getElementById("centerHealth").textContent = JSON.stringify(health, null, 2);
-            document.getElementById("workers").textContent = JSON.stringify(workers, null, 2);
-            document.getElementById("activity").textContent = JSON.stringify(activity, null, 2);
-        }
+      <div class="activity-card">
+        <div class="activity-head">
+          <h3>Automation Queue</h3>
+          <button id="testQueueBtn" class="queue-test-btn" type="button">Test RMS Status Job</button>
+        </div>
 
-        loadAutomationCenter();
-        setInterval(loadAutomationCenter, 10000);
-    </script>
-</body>
-</html>
+        <table class="activity-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Worker</th>
+              <th>Action</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="queueRows">
+            <tr><td colspan="6">Loading queue...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-head">
+          <h3>Recent Automation Activity</h3>
+          <span>Live refresh</span>
+        </div>
+
+        <table class="activity-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Worker</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="activityRows">
+            <tr><td colspan="4">Loading activity...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <aside class="command-right">
+      <div class="right-card">
+        <div class="right-head">
+          <h3>Automation Infrastructure</h3>
+          <span>Online</span>
+        </div>
+        <p class="alert-green">● Automation Center service active</p>
+        <p class="alert-green">● RMS Worker registered</p>
+        <p class="alert-green">● Queue API active</p>
+        <p class="alert-yellow">● Scheduler foundation locked</p>
+        <p class="alert-yellow">● GPS7000 integration locked</p>
+      </div>
+
+      <div class="right-card">
+        <div class="right-head">
+          <h3>Operational Status</h3>
+        </div>
+        <p><b>Worker Health:</b> <span id="workerHealth">--</span></p>
+        <p><b>RMS Closeouts:</b> <span id="rmsCloseouts">0</span></p>
+        <p><b>Resolved Today:</b> <span id="resolvedToday">0</span></p>
+        <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
+      </div>
+
+      <div class="right-card">
+        <div class="right-head">
+          <h3>Build 3 Mission</h3>
+        </div>
+        <p>🟡 Run Now worker control</p>
+        <p>🔴 Restart worker control</p>
+        <p>🔴 View worker logs</p>
+        <p>🔴 Permission validation</p>
+        <p>🔴 Error handling</p>
+      </div>
+    </aside>
+  </section>
+</div>
+
+<style>
+.automation-worker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.worker-card {
+  background: rgba(10, 15, 20, 0.88);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.worker-card h4 {
+  margin: 0 0 8px;
+  color: #f4d28a;
+  font-size: 18px;
+}
+
+.worker-status {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 12px;
+  background: rgba(255,255,255,0.08);
+}
+
+.worker-status.ready,
+.worker-status.online,
+.worker-status.healthy,
+.worker-status.completed {
+  color: #67e87a;
+}
+
+.worker-status.error,
+.worker-status.failed,
+.worker-status.offline {
+  color: #ff6767;
+}
+
+.worker-status.queued,
+.worker-status.running,
+.worker-status.starting-edge,
+.worker-status.edge-debug-started {
+  color: #f4c542;
+}
+
+.worker-meta {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #ddd;
+}
+
+.worker-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.worker-actions button,
+.queue-test-btn {
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.07);
+  color: white;
+  border-radius: 7px;
+  padding: 7px 10px;
+}
+
+.worker-actions button:not(:disabled),
+.queue-test-btn {
+  cursor: pointer;
+}
+
+.worker-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.worker-actions button.run-now-btn {
+  border-color: rgba(103,232,122,0.45);
+  background: rgba(103,232,122,0.12);
+}
+
+.automation-notice {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 14px;
+}
+
+.automation-notice.success {
+  border-color: rgba(103,232,122,0.45);
+  color: #67e87a;
+}
+
+.automation-notice.error {
+  border-color: rgba(255,103,103,0.45);
+  color: #ff6767;
+}
+</style>
+
+<script>
+function showAutomationNotice(message, type = "success") {
+  const notice = document.getElementById("automationNotice");
+  if (!notice) return;
+
+  notice.textContent = message;
+  notice.className = `automation-notice ${type}`;
+  notice.hidden = false;
+
+  window.setTimeout(() => {
+    notice.hidden = true;
+  }, 6000);
+}
+
+function safeText(value, fallback = "--") {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  return value;
+}
+
+async function loadAutomationCenter() {
+  try {
+    const health = await fetch("/api/automation-center/health").then(r => r.json());
+    const workersData = await fetch("/api/automation-center/workers").then(r => r.json());
+    const activityData = await fetch("/api/automation-center/activity").then(r => r.json());
+    const jobsData = await fetch("/api/automation/jobs").then(r => r.json());
+    const operationalData = await fetch("/api/automation-center/operational-status").then(r => r.json());
+
+    document.getElementById("centerStatus").textContent = health.status || "UNKNOWN";
+    document.getElementById("workerCount").textContent = health.worker_count ?? 0;
+    document.getElementById("queueDepth").textContent = health.queue_depth ?? 0;
+    document.getElementById("activityCount").textContent = health.activity_count ?? 0;
+    document.getElementById("lastChecked").textContent = health.checked_at ? new Date(health.checked_at).toLocaleTimeString() : "Unknown";
+
+    document.getElementById("openExceptions").textContent = operationalData.open_exceptions ?? 0;
+    document.getElementById("workerHealth").textContent = safeText(operationalData.worker_health);
+    document.getElementById("rmsCloseouts").textContent = operationalData.rms_closeouts ?? 0;
+    document.getElementById("resolvedToday").textContent = operationalData.resolved_today ?? 0;
+    document.getElementById("lastWorkerRun").textContent = safeText(operationalData.last_worker_run, "Never");
+    const workers = workersData.workers || [];
+    document.getElementById("workersGrid").innerHTML = workers.length
+      ? workers.map(worker => {
+          const health = worker.health || {};
+          const status = (worker.status || "UNKNOWN").toString();
+          const statusClass = status.toLowerCase().replaceAll(" ", "-");
+          const safeWorkerName = String(worker.name || "").replaceAll("'", "\\'");
+
+          return `
+            <div class="worker-card">
+              <h4>● ${safeText(worker.name, "Unnamed Worker")}</h4>
+              <span class="worker-status ${statusClass}">${status}</span>
+              <div class="worker-meta">
+                <div><b>Started:</b> ${safeText(health.started_at, "Not started")}</div>
+                <div><b>Last Run:</b> ${safeText(health.last_run, "Never")}</div>
+                <div><b>Last Error:</b> ${safeText(health.last_error, "None")}</div>
+              </div>
+              <div class="worker-actions">
+                <button class="run-now-btn" type="button" onclick="runWorker('${safeWorkerName}')">▶ Run Now</button>
+                <button type="button" disabled>Restart</button>
+                <button type="button" disabled>View Log</button>
+              </div>
+            </div>
+          `;
+        }).join("")
+      : `<p>No workers registered.</p>`;
+
+    const jobs = jobsData.jobs || [];
+    document.getElementById("queueRows").innerHTML = jobs.length
+      ? jobs.slice().reverse().map(job => {
+          const status = (job.status || "UNKNOWN").toString();
+          const statusClass = status.toLowerCase().replaceAll(" ", "-");
+
+          return `
+            <tr>
+              <td>#${job.id}</td>
+              <td>${safeText(job.worker)}</td>
+              <td>${safeText(job.action)}</td>
+              <td><span class="worker-status ${statusClass}">${status}</span></td>
+              <td>${job.created_at ? new Date(job.created_at).toLocaleTimeString() : "--"}</td>
+              <td>${safeText(job.error, "None")}</td>
+            </tr>
+          `;
+        }).join("")
+      : `<tr><td colspan="6">No automation jobs yet.</td></tr>`;
+
+    const activity = activityData.activity || [];
+    document.getElementById("activityRows").innerHTML = activity.length
+      ? activity.slice().reverse().map(item => `
+          <tr>
+            <td>${item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "--"}</td>
+            <td><span class="tag blue-tag">${safeText(item.type, "Event")}</span></td>
+            <td>${safeText(item.worker, "System")}</td>
+            <td>${safeText(item.message, "")}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="4">No automation activity yet.</td></tr>`;
+  } catch (error) {
+    showAutomationNotice(`Automation Center refresh failed: ${error.message}`, "error");
+  }
+}
+
+async function runWorker(workerName) {
+  if (!workerName) {
+    showAutomationNotice("Worker name missing. Cannot run worker.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(`Run ${workerName} now?\n\nThis will queue and immediately execute the worker action.`);
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showAutomationNotice(`Starting ${workerName}...`, "success");
+
+    const response = await fetch("/api/automation/jobs", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        worker: workerName,
+        action: "run",
+        run_now: true
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.message || result.error || "Worker run request failed.");
+    }
+
+    const job = result.job || {};
+    showAutomationNotice(result.message || `${workerName} run job submitted. Job #${job.id || "created"}.`, "success");
+
+    await loadAutomationCenter();
+  } catch (error) {
+    showAutomationNotice(`Run Now failed: ${error.message}`, "error");
+  }
+}
+
+async function createTestQueueJob() {
+  try {
+    const response = await fetch("/api/automation/jobs", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        worker: "RMS Worker",
+        action: "worker_status",
+        run_now: true
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.message || result.error || "Test job failed.");
+    }
+
+    showAutomationNotice(result.message || "RMS status test job submitted.", "success");
+    await loadAutomationCenter();
+  } catch (error) {
+    showAutomationNotice(`Test job failed: ${error.message}`, "error");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadAutomationCenter();
+  document.getElementById("testQueueBtn")?.addEventListener("click", createTestQueueJob);
+  setInterval(loadAutomationCenter, 10000);
+});
+</script>
+
+{% endblock %}

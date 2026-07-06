@@ -1,0 +1,242 @@
+[
+  {
+    "time": "2026-07-06T13:52:17",
+    "status": "EDGE DEBUG STARTED",
+    "message": "Started user-controlled Edge for RMS on CDP port 9222.",
+    "details": {
+      "bat_path": "C:\\Users\\essay\\Documents\\essayons-operations\\START_RMS_EDGE_DEBUG.bat"
+    }
+  },
+  {
+    "time": "2026-07-06T13:57:13",
+    "status": "RUNNING",
+    "message": "RMS Worker started Auto Grab.",
+    "details": {
+      "engine": "app.rms_full_import_with_playwright"
+    }
+  },
+  {
+    "time": "2026-07-06T13:57:27",
+    "status": "COMPLETED",
+    "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 41 BOLs. Imported 0. Updated 0. Skipped existing 41. Need Review 0. RMS missing/closed 0.",
+    "details": {
+      "imported": 0,
+      "skipped": 41,
+      "need_review": 0,
+      "status": "IMPORT COMPLETE",
+      "raw_result": {
+        "ok": true,
+        "status": "IMPORT COMPLETE",
+        "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 41 BOLs. Imported 0. Updated 0. Skipped existing 41. Need Review 0. RMS missing/closed 0.",
+        "bol_count": 41,
+        "found": 41,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 41,
+        "need_review": 0,
+        "rms_missing": 0,
+        "both_closed": 0,
+        "failed": 0,
+        "diagnostic": null,
+        "errors": []
+      }
+    }
+  },
+  {
+    "time": "2026-07-06T14:02:29",
+    "status": "RUNNING",
+    "message": "RMS Worker started Auto Grab.",
+    "details": {
+      "engine": "app.rms_full_import_with_playwright"
+    }
+  },
+  {
+    "time": "2026-07-06T14:02:38",
+    "status": "COMPLETED",
+    "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 21 BOLs. Imported 0. Updated 0. Skipped existing 21. Need Review 0. RMS missing/closed 0.",
+    "details": {
+      "found": 21,
+      "imported": 0,
+      "updated": 0,
+      "skipped": 21,
+      "need_review": 0,
+      "rms_missing": 0,
+      "status": "IMPORT COMPLETE",
+      "raw_result": {
+        "ok": true,
+        "status": "IMPORT COMPLETE",
+        "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 21 BOLs. Imported 0. Updated 0. Skipped existing 21. Need Review 0. RMS missing/closed 0.",
+        "bol_count": 21,
+        "found": 21,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 21,
+        "need_review": 0,
+        "rms_missing": 0,
+        "both_closed": 0,
+        "failed": 0,
+        "diagnostic": null,
+        "errors": []
+      }
+    }
+  },
+  {
+    "time": "2026-07-06T14:02:39",
+    "status": "BROWSER CLOSED",
+    "message": "Closed 0 RMS Edge debug browser process(es).",
+    "details": {
+      "closed_count": 0,
+      "debug_profile": "C:\\Users\\essay\\Documents\\essayons-operations\\runtime\\rms_user_edge_debug_profile",
+      "stderr": ""
+    }
+  },
+  {
+    "time": "2026-07-06T14:02:57",
+    "status": "RUNNING",
+    "message": "RMS Worker started Auto Grab.",
+    "details": {
+      "engine": "app.rms_full_import_with_playwright"
+    }
+  },
+  {
+    "time": "2026-07-06T14:03:14",
+    "status": "COMPLETED",
+    "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 41 BOLs. Imported 0. Updated 0. Skipped existing 41. Need Review 0. RMS missing/closed 0.",
+    "details": {
+      "found": 41,
+      "imported": 0,
+      "updated": 0,
+      "skipped": 41,
+      "need_review": 0,
+      "rms_missing": 0,
+      "status": "IMPORT COMPLETE",
+      "raw_result": {
+        "ok": true,
+        "status": "IMPORT COMPLETE",
+        "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 41 BOLs. Imported 0. Updated 0. Skipped existing 41. Need Review 0. RMS missing/closed 0.",
+        "bol_count": 41,
+        "found": 41,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 41,
+        "need_review": 0,
+        "rms_missing": 0,
+        "both_closed": 0,
+        "failed": 0,
+        "diagnostic": null,
+        "errors": []
+      }
+    }
+  },
+  {
+    "time": "2026-07-06T14:03:14",
+    "status": "BROWSER CLOSED",
+    "message": "Closed 0 RMS Edge debug browser process(es).",
+    "details": {
+      "closed_count": 0,
+      "debug_profile": "C:\\Users\\essay\\Documents\\essayons-operations\\runtime\\rms_user_edge_debug_profile",
+      "stderr": ""
+    }
+  },
+  {
+    "time": "2026-07-06T14:08:54",
+    "status": "RUNNING",
+    "message": "RMS Worker started Auto Grab.",
+    "details": {
+      "engine": "app.rms_full_import_with_playwright"
+    }
+  },
+  {
+    "time": "2026-07-06T14:09:03",
+    "status": "COMPLETED",
+    "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 21 BOLs. Imported 0. Updated 0. Skipped existing 21. Need Review 0. RMS missing/closed 0.",
+    "details": {
+      "found": 21,
+      "imported": 0,
+      "updated": 0,
+      "skipped": 21,
+      "need_review": 0,
+      "rms_missing": 0,
+      "status": "IMPORT COMPLETE",
+      "raw_result": {
+        "ok": true,
+        "status": "IMPORT COMPLETE",
+        "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 21 BOLs. Imported 0. Updated 0. Skipped existing 21. Need Review 0. RMS missing/closed 0.",
+        "bol_count": 21,
+        "found": 21,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 21,
+        "need_review": 0,
+        "rms_missing": 0,
+        "both_closed": 0,
+        "failed": 0,
+        "diagnostic": null,
+        "errors": []
+      }
+    }
+  },
+  {
+    "time": "2026-07-06T14:09:04",
+    "status": "BROWSER CLOSED",
+    "message": "Closed 3 RMS Edge debug browser process(es).",
+    "details": {
+      "closed_count": 3,
+      "stdout": "3",
+      "stderr": ""
+    }
+  },
+  {
+    "time": "2026-07-06T15:56:07",
+    "status": "RUNNING",
+    "message": "RMS Worker started Auto Grab.",
+    "details": {
+      "engine": "app.rms_full_import_with_playwright"
+    }
+  },
+  {
+    "time": "2026-07-06T15:56:20",
+    "status": "COMPLETED",
+    "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 40 BOLs. Imported 0. Updated 0. Skipped existing 40. Need Review 0. RMS missing/closed 0.",
+    "details": {
+      "found": 40,
+      "imported": 0,
+      "updated": 0,
+      "skipped": 40,
+      "need_review": 0,
+      "rms_missing": 0,
+      "rms_closeout_resolved": 0,
+      "status": "IMPORT COMPLETE",
+      "raw_result": {
+        "ok": true,
+        "status": "IMPORT COMPLETE",
+        "message": "RMS import complete using correct RMS flow: login \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 bills-of-lading list \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u201a\u00ac\u00c2\u00a0\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u201e\u00a2 individual /print pages. Scanned 40 BOLs. Imported 0. Updated 0. Skipped existing 40. Need Review 0. RMS missing/closed 0.",
+        "bol_count": 40,
+        "found": 40,
+        "imported": 0,
+        "updated": 0,
+        "skipped": 40,
+        "need_review": 0,
+        "rms_missing": 0,
+        "both_closed": 0,
+        "failed": 0,
+        "diagnostic": null,
+        "errors": []
+      },
+      "operational_exception_summary": {
+        "rms_closeout_created_or_updated": 0,
+        "rms_closeout_resolved": 0
+      }
+    }
+  },
+  {
+    "time": "2026-07-06T15:56:21",
+    "status": "BROWSER CLOSED",
+    "message": "Closed 5 RMS Edge debug browser process(es).",
+    "details": {
+      "closed_count": 5,
+      "stdout": "5",
+      "stderr": ""
+    }
+  }
+]

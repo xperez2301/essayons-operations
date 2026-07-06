@@ -43,21 +43,6 @@ class RMSWorkerService(BaseWorker):
         self.worker_log.write_text(json.dumps(existing[-250:], indent=2), encoding="utf-8")
         return entry
 
-    def log_worker_exception(self, exception_type, status, message, details=None):
-        return self.log_event(
-            status,
-            message,
-            {
-                "operational_exception": {
-                    "type": clean(exception_type),
-                    "source_worker": "RMS Worker",
-                    "status": clean(status),
-                    "message": clean(message),
-                },
-                **(details or {}),
-            },
-        )
-
     def worker_status(self):
         try:
             events = json.loads(self.worker_log.read_text(encoding="utf-8")) if self.worker_log.exists() else []
@@ -84,11 +69,7 @@ class RMSWorkerService(BaseWorker):
         This avoids closing normal Edge windows.
         """
         if clean(os.environ.get("EOMS_RMS_CLOSE_BROWSER", "1")).lower() in {"0", "false", "no", "off"}:
-            return self.log_worker_exception(
-                "rms_browser_close_disabled",
-                "BROWSER LEFT OPEN",
-                "Automatic RMS browser close is disabled.",
-            )
+            return self.log_event("BROWSER LEFT OPEN", "Automatic RMS browser close is disabled.")
 
         powershell_script = r'''
 $ErrorActionPreference = "SilentlyContinue"
@@ -136,8 +117,7 @@ Write-Output $count
             )
 
         except Exception as exc:
-            return self.log_worker_exception(
-                "rms_browser_close_warning",
+            return self.log_event(
                 "BROWSER CLOSE WARNING",
                 f"EOMS could not close RMS browser: {str(exc)[:300]}",
                 {"error": str(exc)[:800]},
@@ -230,13 +210,8 @@ except Exception as exc:
                     "skipped": result.get("skipped", result.get("duplicates", 0)),
                     "need_review": result.get("need_review", 0),
                     "rms_missing": result.get("rms_missing", 0),
-                    "rms_closeout_resolved": result.get("rms_closeout_resolved", 0),
                     "status": result.get("status"),
                     "raw_result": result,
-                    "operational_exception_summary": {
-                        "rms_closeout_created_or_updated": result.get("rms_missing", 0),
-                        "rms_closeout_resolved": result.get("rms_closeout_resolved", 0),
-                    },
                 },
             )
 
@@ -248,8 +223,7 @@ except Exception as exc:
             self._status = "FAILED"
             self.set_error("RMS Auto Grab timed out.")
 
-            failed_event = self.log_worker_exception(
-                "rms_worker_timeout",
+            failed_event = self.log_event(
                 "FAILED",
                 "RMS Auto Grab timed out before completion.",
                 {"error": str(exc)},
@@ -262,8 +236,7 @@ except Exception as exc:
             self._status = "FAILED"
             self.set_error(exc)
 
-            failed_event = self.log_worker_exception(
-                "rms_worker_failure",
+            failed_event = self.log_event(
                 "FAILED",
                 f"RMS Auto Grab failed: {str(exc)[:500]}",
                 {"error": str(exc)[:1000]},

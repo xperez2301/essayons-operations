@@ -1,4 +1,4 @@
-import os
+﻿import os
 import csv
 import json
 import math
@@ -37,7 +37,6 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
-from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
 # always available on a fresh App Service worker, so we import it lazily and let
@@ -3003,83 +3002,44 @@ def mark_stores_missing_from_rms(open_bols):
     now = datetime.now().isoformat(timespec="seconds")
     marked = 0
     both_closed = 0
-    resolved = 0
 
     for store in stores:
         bol = clean(store.get("bol"))
+        if not bol or bol in open_bols:
+            if bol in open_bols:
+                store["last_seen_in_rms_at"] = now
+                store["rms_status"] = "Open in RMS"
+                store["rms_missing_since"] = ""
 
-        if not bol:
-            continue
-
-        if bol in open_bols:
-            store["last_seen_in_rms_at"] = now
-            store["rms_status"] = "Open in RMS"
-            store["rms_missing_since"] = ""
-
-            resolved += resolve_operational_exception(
-                store,
-                "rms_closeout",
-                resolved_by="rms_worker",
-                resolution="BOL reappeared in RMS open list.",
-            )
-
-            if (
-                clean(store.get("status")).lower() == "completed"
-                and clean(store.get("closed_reason")).lower() == "removed from rms"
-            ):
-                store["status"] = "Unassigned"
-                store["closed_reason"] = ""
-                store["closed_at"] = ""
-                store["updated_at"] = now
-
+                if (
+                    clean(store.get("status")).lower() == "completed"
+                    and clean(store.get("closed_reason")).lower() == "removed from rms"
+                ):
+                    store["status"] = "Unassigned"
+                    store["closed_reason"] = ""
+                    store["closed_at"] = ""
+                    store["updated_at"] = now
             continue
 
         if not (store.get("rms_url") or store.get("pdf_path") or store.get("printable_path")):
             continue
 
-        already_missing_or_closed = clean(store.get("rms_status")) in {
-            "Missing from RMS",
-            "Closed in RMS",
-        }
+        if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
+            continue
 
-        if not already_missing_or_closed:
-            store["rms_status"] = "Closed in RMS" if store.get("status") == "Completed" else "Missing from RMS"
-            store["rms_missing_since"] = store.get("rms_missing_since") or now
-            store["closed_source"] = "Both" if store.get("status") == "Completed" else "RMS"
-            store["updated_at"] = now
+        store["rms_status"] = "Closed in RMS" if store.get("status") == "Completed" else "Missing from RMS"
+        store["rms_missing_since"] = store.get("rms_missing_since") or now
+        store["closed_source"] = "Both" if store.get("status") == "Completed" else "RMS"
+        store["updated_at"] = now
+        if store.get("pdf_path"):
+            store["pdf_path"] = move_pdf(store["pdf_path"], "RMS_Closed")
+        marked += 1
+        if store.get("closed_source") == "Both":
+            both_closed += 1
 
-            if store.get("pdf_path"):
-                store["pdf_path"] = move_pdf(store["pdf_path"], "RMS_Closed")
-
-            marked += 1
-            if store.get("closed_source") == "Both":
-                both_closed += 1
-
-        ensure_operational_exception(
-            store,
-            "rms_closeout",
-            queue="Operational Exceptions",
-            source_worker="RMS Closeout Sync",
-            severity="Info" if store.get("closed_source") == "Both" else "Warning",
-            message=f"BOL {bol} disappeared from RMS open list.",
-            payload={
-                "bol": bol,
-                "rms_status": store.get("rms_status", ""),
-                "rms_missing_since": store.get("rms_missing_since", ""),
-                "closed_source": store.get("closed_source", ""),
-                "store_status": store.get("status", ""),
-            },
-        )
-
-    if marked or resolved:
+    if marked:
         write_json(STORES_FILE, stores)
-
-    return {
-        "rms_missing": marked,
-        "both_closed": both_closed,
-        "rms_closeout_resolved": resolved,
-    }
-
+    return {"rms_missing": marked, "both_closed": both_closed}
 
 def open_printable_and_extract(page, bol_link):
     bol = bol_link.get("bol")
@@ -4319,14 +4279,6 @@ def api_automation_center_activity():
         "ok": True,
         "activity": automation_center.get_activity(50),
     })
-
-
-@app.route("/api/automation-center/operational-status")
-@admin_required
-def api_automation_center_operational_status():
-    from eoms_modules.automation_center_manager import automation_center
-
-    return jsonify(automation_center.operational_status())
 @app.route("/api/automation/jobs", methods=["GET"])
 @admin_required
 def api_automation_jobs():
