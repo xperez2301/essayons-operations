@@ -135,8 +135,8 @@ def evaluate_execution_policy(job, store, current_jobs=None, max_retries=DEFAULT
     mode = policy.get("mode")
 
     status = clean(job.get("status")).upper()
-    if status and status != "QUEUED":
-        return decision(False, "Only queued jobs can be considered for automatic execution.", policy, job_type)
+    if status and status not in {"QUEUED", "VALIDATING"}:
+        return decision(False, "Only queued or validating jobs can be considered for automatic execution.", policy, job_type)
 
     scheduler_state = get_scheduler_state(store if isinstance(store, dict) else {})
     if not scheduler_state.get("enabled"):

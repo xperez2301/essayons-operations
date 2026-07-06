@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from eoms_modules.automation_execution_controller import get_execution_decision
+
 
 def utc_now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -36,9 +38,79 @@ class AutomationExecutorService:
         status = str(result.get("status") or "").strip().upper()
         return status in FAILED_RESULT_STATUSES
 
+    def automation_store(self):
+        load_stores = getattr(self.automation_center, "load_stores_for_status", None)
+        scheduler_state = {}
+        automation_state = {}
+
+        if callable(load_stores):
+            stores_state = load_stores()
+            stores = stores_state.get("stores") if isinstance(stores_state, dict) else []
+            scheduler_state_fn = getattr(self.automation_center, "scheduler_state_from_stores", None)
+
+            if callable(scheduler_state_fn):
+                scheduler_state = scheduler_state_fn(stores)
+
+            if isinstance(stores, list):
+                for store in stores:
+                    if not isinstance(store, dict):
+                        continue
+                    operational = store.get("operational")
+                    if not isinstance(operational, dict):
+                        continue
+                    automation = operational.get("automation")
+                    if isinstance(automation, dict):
+                        automation_state = dict(automation)
+                        break
+
+        automation_state["scheduler"] = scheduler_state
+
+        return {
+            "operational": {
+                "automation": automation_state,
+            },
+        }
+
+    def current_jobs(self):
+        list_jobs = getattr(self.automation_center, "list_jobs", None)
+
+        if callable(list_jobs):
+            return list_jobs(limit=None)
+
+        return []
+
+    def block_job(self, job, decision):
+        now = utc_now_iso()
+        job["status"] = "BLOCKED"
+        job["finished_at"] = now
+        job["decision"] = decision
+        job["policy"] = decision.get("policy", {})
+        job["error"] = decision.get("reason", "Blocked by execution controller.")
+        job["blocked_at"] = now
+        return self.save_job(job)
+
     def run_job(self, job):
         worker_name = job.get("worker")
         action = job.get("action")
+
+        job["status"] = "VALIDATING"
+        job["validated_at"] = utc_now_iso()
+        self.save_job(job)
+
+        decision = get_execution_decision(
+            job,
+            self.automation_store(),
+            current_jobs=self.current_jobs(),
+        )
+
+        if not decision.get("allowed"):
+            return self.block_job(job, decision)
+
+        job["status"] = "AUTHORIZED"
+        job["authorized_at"] = utc_now_iso()
+        job["decision"] = decision
+        job["policy"] = decision.get("policy", {})
+        self.save_job(job)
 
         worker = self.automation_center.get_worker(worker_name)
 
