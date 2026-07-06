@@ -4245,7 +4245,40 @@ def api_store_closeout_update(store_id):
     write_json(ROUTES_FILE, routes)
     audit("Update Store Closeout", {"store_id": store_id, "collected_racks": updated.get("collected_racks"), "collected_pieces": updated.get("collected_pieces")})
     return jsonify({"ok": True, "store": updated})
+@app.route("/automation-center")
+@admin_required
+def automation_center_page():
+    return render_template("automation_center.html")
 
+
+@app.route("/api/automation-center/health")
+@admin_required
+def api_automation_center_health():
+    from eoms_modules.automation_center_manager import automation_center
+
+    return jsonify(automation_center.center_health())
+
+
+@app.route("/api/automation-center/workers")
+@admin_required
+def api_automation_center_workers():
+    from eoms_modules.automation_center_manager import automation_center
+
+    return jsonify({
+        "ok": True,
+        "workers": automation_center.list_workers(),
+    })
+
+
+@app.route("/api/automation-center/activity")
+@admin_required
+def api_automation_center_activity():
+    from eoms_modules.automation_center_manager import automation_center
+
+    return jsonify({
+        "ok": True,
+        "activity": automation_center.get_activity(50),
+    })
 @app.route("/api/system-health")
 @admin_required
 def api_system_health():

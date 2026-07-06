@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Automation Center | EOMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms.css') }}">
+</head>
+<body>
+    <main class="page-shell">
+        <h1>Automation Center</h1>
+        <p>FT3 worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
+
+        <section class="card">
+            <h2>Center Health</h2>
+            <pre id="centerHealth">Loading...</pre>
+        </section>
+
+        <section class="card">
+            <h2>Workers</h2>
+            <pre id="workers">Loading...</pre>
+        </section>
+
+        <section class="card">
+            <h2>Activity</h2>
+            <pre id="activity">Loading...</pre>
+        </section>
+    </main>
+
+    <script>
+        async function loadAutomationCenter() {
+            const health = await fetch("/api/automation-center/health").then(r => r.json());
+            const workers = await fetch("/api/automation-center/workers").then(r => r.json());
+            const activity = await fetch("/api/automation-center/activity").then(r => r.json());
+
+            document.getElementById("centerHealth").textContent = JSON.stringify(health, null, 2);
+            document.getElementById("workers").textContent = JSON.stringify(workers, null, 2);
+            document.getElementById("activity").textContent = JSON.stringify(activity, null, 2);
+        }
+
+        loadAutomationCenter();
+        setInterval(loadAutomationCenter, 10000);
+    </script>
+</body>
+</html>
