@@ -1,18 +1,22 @@
 import json
 import os
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
+
+try:
+    from eoms_modules.workers.base_worker import BaseWorker
+except ImportError:
+    from workers.base_worker import BaseWorker
 
 
 def clean(value):
     return "" if value is None else str(value).strip()
 
 
-class RMSWorkerService:
+class RMSWorkerService(BaseWorker):
     """
-    FT3 Automation Worker foundation.
+    RMS worker managed by the FT3 Automation Center.
 
     Purpose:
     - Keep browser automation logic separate from the EOMS web app.
@@ -21,9 +25,12 @@ class RMSWorkerService:
     """
 
     def __init__(self, base_dir=None):
+        super().__init__("RMS Worker")
+
         self.base_dir = Path(base_dir or Path(__file__).resolve().parents[1])
         self.data_dir = Path(os.environ.get("DATA_DIR", self.base_dir / "data"))
         self.worker_log = self.data_dir / "rms_worker_log.json"
+        self._status = "READY"
 
     def log_event(self, status, message, details=None):
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -45,15 +52,17 @@ class RMSWorkerService:
 
         existing.append(entry)
         self.worker_log.write_text(json.dumps(existing[-250:], indent=2), encoding="utf-8")
+
         return entry
 
     def worker_status(self):
         if not self.worker_log.exists():
             return {
                 "ok": True,
-                "status": "NOT STARTED",
+                "status": self.status(),
                 "message": "RMS worker has not run yet.",
                 "last_event": None,
+                "health": self.health(),
             }
 
         try:
@@ -64,9 +73,10 @@ class RMSWorkerService:
 
         return {
             "ok": True,
-            "status": clean(last_event.get("status")) if last_event else "UNKNOWN",
+            "status": self.status(),
             "message": clean(last_event.get("message")) if last_event else "No worker events found.",
             "last_event": last_event,
+            "health": self.health(),
         }
 
     def start_edge_debug_browser(self):
@@ -77,11 +87,15 @@ class RMSWorkerService:
         bat_path = self.base_dir / "START_RMS_EDGE_DEBUG.bat"
 
         if not bat_path.exists():
+            self.set_error("START_RMS_EDGE_DEBUG.bat was not found.")
+
             return self.log_event(
                 "ERROR",
                 "START_RMS_EDGE_DEBUG.bat was not found.",
                 {"expected_path": str(bat_path)},
             )
+
+        self._status = "STARTING EDGE"
 
         subprocess.Popen(
             ["cmd", "/c", "start", "", str(bat_path)],
@@ -91,11 +105,28 @@ class RMSWorkerService:
             shell=False,
         )
 
+        self._status = "EDGE DEBUG STARTED"
+        self.set_last_run()
+        self.clear_error()
+
         return self.log_event(
             "EDGE DEBUG STARTED",
             "Started user-controlled Edge for RMS on CDP port 9222.",
             {"bat_path": str(bat_path)},
         )
+
+    def run(self):
+        """
+        Default RMS Worker run action.
+
+        For now, this starts the Edge CDP browser.
+        Later this will enqueue/trigger:
+        - RMS login check
+        - BOL refresh
+        - printable BOL parsing
+        - EOMS data sync
+        """
+        return self.start_edge_debug_browser()
 
 
 rms_worker = RMSWorkerService()
