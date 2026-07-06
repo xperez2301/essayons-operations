@@ -1,28 +1,20 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+from eoms_modules.automation_queue_service import AutomationQueueService
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 class AutomationCenterService:
-    """
-    FT3 Automation Center
-
-    Owns:
-    - worker registration
-    - worker health
-    - job queue foundation
-    - scheduler foundation
-    - last sync/status reporting
-
-    Workers such as RMS, GPS7000, SMS, and Email plug into this center.
-    """
+    """FT3 Automation Center."""
 
     def __init__(self):
         self.workers: Dict[str, object] = {}
-        self.jobs: List[dict] = []
+        self.queue = AutomationQueueService()
+        self.jobs = self.queue.jobs
         self.activity: List[dict] = []
         self.started_at = utc_now_iso()
 
@@ -53,22 +45,16 @@ class AutomationCenterService:
         }
 
     def list_workers(self) -> list:
-        result = []
+        workers = []
 
         for name, worker in self.workers.items():
-            health_fn = getattr(worker, "health", None)
-            status_fn = getattr(worker, "status", None)
-
-            health = health_fn() if callable(health_fn) else {}
-            status = status_fn() if callable(status_fn) else "UNKNOWN"
-
-            result.append({
+            workers.append({
                 "name": name,
-                "status": status,
-                "health": health,
+                "status": worker.status() if hasattr(worker, "status") else "UNKNOWN",
+                "health": worker.health() if hasattr(worker, "health") else {},
             })
 
-        return result
+        return workers
 
     def get_worker(self, worker_name: str):
         return self.workers.get(worker_name)
@@ -77,17 +63,17 @@ class AutomationCenterService:
         workers = self.list_workers()
 
         offline = [
-            worker for worker in workers
-            if str(worker.get("status", "")).upper() in ["OFFLINE", "ERROR", "FAILED"]
+            w for w in workers
+            if str(w.get("status", "")).upper() in ("OFFLINE", "FAILED", "ERROR")
         ]
 
         return {
             "ok": len(offline) == 0,
-            "status": "HEALTHY" if len(offline) == 0 else "DEGRADED",
+            "status": "HEALTHY" if not offline else "DEGRADED",
             "started_at": self.started_at,
             "worker_count": len(workers),
             "offline_workers": offline,
-            "queue_depth": len(self.jobs),
+            "queue_depth": self.queue.queue_depth(),
             "activity_count": len(self.activity),
             "checked_at": utc_now_iso(),
         }
@@ -99,20 +85,9 @@ class AutomationCenterService:
         payload: Optional[dict] = None,
         priority: int = 5,
     ) -> dict:
-        job = {
-            "id": len(self.jobs) + 1,
-            "worker": worker,
-            "action": action,
-            "payload": payload or {},
-            "priority": priority,
-            "status": "QUEUED",
-            "created_at": utc_now_iso(),
-            "started_at": None,
-            "finished_at": None,
-            "error": None,
-        }
 
-        self.jobs.append(job)
+        job = self.queue.create_job(worker, action, payload, priority)
+        self.jobs = self.queue.jobs
 
         self.activity.append({
             "timestamp": utc_now_iso(),
@@ -127,11 +102,12 @@ class AutomationCenterService:
             "job": job,
         }
 
-    def list_jobs(self) -> list:
-        return sorted(
-            self.jobs,
-            key=lambda job: (job.get("status") != "QUEUED", job.get("priority", 5), job.get("id", 0))
-        )
+    def save_job(self, job: dict):
+        self.queue.save_job(job)
+        self.jobs = self.queue.jobs
 
-    def get_activity(self, limit: int = 25) -> list:
+    def list_jobs(self):
+        return self.queue.list_jobs()
+
+    def get_activity(self, limit: int = 25):
         return self.activity[-limit:]

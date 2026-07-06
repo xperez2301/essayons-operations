@@ -8,10 +8,19 @@ def utc_now_iso():
 class AutomationExecutorService:
     """
     Runs Automation Queue jobs against registered workers.
+    Saves job updates back to the persistent queue.
     """
 
     def __init__(self, automation_center):
         self.automation_center = automation_center
+
+    def save_job(self, job):
+        save_fn = getattr(self.automation_center, "save_job", None)
+
+        if callable(save_fn):
+            save_fn(job)
+
+        return job
 
     def run_job(self, job):
         worker_name = job.get("worker")
@@ -23,10 +32,11 @@ class AutomationExecutorService:
             job["status"] = "FAILED"
             job["finished_at"] = utc_now_iso()
             job["error"] = f"Worker not found: {worker_name}"
-            return job
+            return self.save_job(job)
 
         job["status"] = "RUNNING"
         job["started_at"] = utc_now_iso()
+        self.save_job(job)
 
         try:
             if action == "run":
@@ -50,11 +60,11 @@ class AutomationExecutorService:
             if callable(set_error):
                 set_error(exc)
 
-        return job
+        return self.save_job(job)
 
     def run_next(self):
         queued = [
-            job for job in self.automation_center.jobs
+            job for job in self.automation_center.list_jobs()
             if job.get("status") == "QUEUED"
         ]
 
