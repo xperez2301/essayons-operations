@@ -1,8 +1,31 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
+from eoms_modules.automation_queue_service import AutomationQueueService
+
 
 DEFAULT_INTERVAL_SECONDS = 900
+
+PRIORITY_VALUES = {
+    "high": 1,
+    "normal": 5,
+    "low": 9,
+}
+
+SCHEDULED_JOB_TYPES = {
+    "rms_auto_grab": {
+        "worker": "RMS Worker",
+        "action": "run",
+    },
+    "rms_worker_status": {
+        "worker": "RMS Worker",
+        "action": "worker_status",
+    },
+    "worker_status": {
+        "worker": "RMS Worker",
+        "action": "worker_status",
+    },
+}
 
 DEFAULT_SCHEDULER_STATE = {
     "enabled": False,
@@ -20,6 +43,19 @@ def utc_now_iso():
 
 def clean(value):
     return "" if value is None else str(value).strip()
+
+
+def normalize_priority(priority):
+    if isinstance(priority, int):
+        if priority < 1:
+            raise ValueError("priority must be greater than zero.")
+        return priority
+
+    priority_name = clean(priority).lower() or "normal"
+    if priority_name not in PRIORITY_VALUES:
+        raise ValueError("priority must be high, normal, low, or a positive integer.")
+
+    return PRIORITY_VALUES[priority_name]
 
 
 def ensure_operational_domain(store):
@@ -136,3 +172,58 @@ def update_scheduler_state(
     normalized = normalize_scheduler_state(state)
     ensure_operational_domain(store)["scheduler"] = normalized
     return normalized
+
+
+def create_scheduled_job(
+    store,
+    job_type,
+    priority="normal",
+    queue_service=None,
+    payload=None,
+):
+    job_type = clean(job_type).lower()
+    if job_type not in SCHEDULED_JOB_TYPES:
+        raise ValueError(f"Unsupported scheduled job type: {job_type}")
+
+    state = ensure_scheduler_state(store)
+    priority_value = normalize_priority(priority)
+    job_definition = SCHEDULED_JOB_TYPES[job_type]
+    scheduled_at = utc_now_iso()
+    interval_seconds = int(state.get("interval_seconds") or DEFAULT_INTERVAL_SECONDS)
+    next_run = datetime.now(timezone.utc) + timedelta(seconds=interval_seconds)
+
+    job_payload = {
+        "source": "scheduler",
+        "created_by": "scheduler",
+        "job_type": job_type,
+        "scheduled_at": scheduled_at,
+        "scheduler": {
+            "enabled": state.get("enabled", False),
+            "running": state.get("running", False),
+            "interval_seconds": interval_seconds,
+        },
+    }
+
+    if isinstance(payload, dict):
+        job_payload.update(payload)
+        job_payload["source"] = "scheduler"
+        job_payload["created_by"] = "scheduler"
+        job_payload["job_type"] = job_type
+
+    queue = queue_service or AutomationQueueService()
+    job = queue.create_job(
+        job_definition["worker"],
+        job_definition["action"],
+        job_payload,
+        priority_value,
+    )
+
+    update_scheduler_state(
+        store,
+        last_run=scheduled_at,
+        next_run=next_run.isoformat(),
+        running=False,
+        health="READY" if state.get("enabled") else "PAUSED",
+    )
+
+    return job
