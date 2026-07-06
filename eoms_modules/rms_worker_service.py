@@ -23,8 +23,13 @@ class RMSWorkerService(BaseWorker):
         self.worker_log = self.data_dir / "rms_worker_log.json"
         self._status = "READY"
 
-    def log_event(self, status, message, details=None):
+    def write_worker_log(self, entries):
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        tmp = self.worker_log.with_suffix(self.worker_log.suffix + ".tmp")
+        tmp.write_text(json.dumps(entries[-250:], indent=2), encoding="utf-8")
+        os.replace(tmp, self.worker_log)
+
+    def log_event(self, status, message, details=None):
         entry = {
             "time": datetime.now().isoformat(timespec="seconds"),
             "status": clean(status),
@@ -40,7 +45,7 @@ class RMSWorkerService(BaseWorker):
             existing = []
 
         existing.append(entry)
-        self.worker_log.write_text(json.dumps(existing[-250:], indent=2), encoding="utf-8")
+        self.write_worker_log(existing)
         return entry
 
     def log_worker_exception(self, exception_type, status, message, details=None):

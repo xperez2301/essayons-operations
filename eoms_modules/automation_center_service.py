@@ -62,6 +62,31 @@ class AutomationCenterService:
     def get_worker(self, worker_name: str):
         return self.workers.get(worker_name)
 
+    def latest_job(self):
+        jobs = self.queue.list_jobs(limit=None)
+        return jobs[-1] if jobs else None
+
+    def latest_failure(self):
+        jobs = self.queue.list_jobs(limit=None)
+        for job in reversed(jobs):
+            if str(job.get("status") or "").upper() == "FAILED":
+                return job
+        return None
+
+    def worker_state(self, workers=None) -> str:
+        workers = workers if workers is not None else self.list_workers()
+        if not workers:
+            return "NO WORKERS"
+
+        states = {str(worker.get("status") or "").upper() for worker in workers}
+        if states.intersection({"RUNNING", "STARTING EDGE", "EDGE DEBUG STARTED"}):
+            return "RUNNING"
+        if states.intersection({"FAILED", "ERROR", "OFFLINE"}):
+            return "ATTENTION"
+        if states == {"WAITING FOR CONFIG"}:
+            return "WAITING FOR CONFIG"
+        return "READY"
+
     def center_health(self) -> dict:
         workers = self.list_workers()
 
@@ -70,27 +95,72 @@ class AutomationCenterService:
             if str(w.get("status", "")).upper() in ("OFFLINE", "FAILED", "ERROR")
         ]
 
+        latest_job = self.latest_job()
+        latest_failure = self.latest_failure()
+
         return {
             "ok": len(offline) == 0,
             "status": "HEALTHY" if not offline else "DEGRADED",
             "started_at": self.started_at,
             "worker_count": len(workers),
+            "worker_state": self.worker_state(workers),
             "offline_workers": offline,
             "queue_depth": self.queue.queue_depth(),
+            "latest_job": latest_job,
+            "latest_failure": latest_failure,
             "activity_count": len(self.activity),
             "checked_at": utc_now_iso(),
         }
 
-    def operational_status(self) -> dict:
+    def load_stores_for_status(self) -> dict:
         data_dir = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[1] / "data"))
         stores_file = data_dir / "stores.json"
 
         try:
-            stores = json.loads(stores_file.read_text(encoding="utf-8"))
-            if not isinstance(stores, list):
-                stores = []
-        except Exception:
-            stores = []
+            raw = stores_file.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return {
+                "ok": False,
+                "stores": [],
+                "status": "WARNING",
+                "warning": f"{stores_file.name} was not found. Operational exception counts are unavailable.",
+            }
+        except Exception as exc:
+            return {
+                "ok": False,
+                "stores": [],
+                "status": "WARNING",
+                "warning": f"{stores_file.name} could not be read: {str(exc)[:180]}",
+            }
+
+        try:
+            stores = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            return {
+                "ok": False,
+                "stores": [],
+                "status": "WARNING",
+                "warning": f"{stores_file.name} is malformed JSON at line {exc.lineno}, column {exc.colno}. Operational exception counts are unavailable.",
+            }
+
+        if not isinstance(stores, list):
+            return {
+                "ok": False,
+                "stores": [],
+                "status": "WARNING",
+                "warning": f"{stores_file.name} must contain a list. Operational exception counts are unavailable.",
+            }
+
+        return {
+            "ok": True,
+            "stores": stores,
+            "status": "OK",
+            "warning": "",
+        }
+
+    def operational_status(self) -> dict:
+        stores_state = self.load_stores_for_status()
+        stores = stores_state["stores"]
 
         today = datetime.now().date().isoformat()
         open_exceptions = 0
@@ -134,11 +204,14 @@ class AutomationCenterService:
         return {
             "ok": True,
             "worker_health": health.get("status", "UNKNOWN"),
+            "worker_state": health.get("worker_state", "UNKNOWN"),
             "open_exceptions": open_exceptions,
             "rms_closeouts": rms_closeouts,
             "resolved_today": resolved_today,
             "last_worker_run": last_worker_run,
             "workers_online": len(workers),
+            "stores_status": stores_state["status"],
+            "stores_warning": stores_state["warning"],
             "checked_at": utc_now_iso(),
         }
 

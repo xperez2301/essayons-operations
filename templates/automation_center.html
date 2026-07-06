@@ -4,7 +4,7 @@
 <div class="command-dashboard">
   <header class="command-topbar">
     <div class="command-title">
-      <button class="hamburger" type="button">☰</button>
+      <button class="hamburger" type="button">â˜°</button>
       <div>
         <h2>Automation Center</h2>
         <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
@@ -19,7 +19,7 @@
     <div class="kpi-card"><span>Center Status</span><strong id="centerStatus" class="green">Loading</strong><small>automation health</small></div>
     <div class="kpi-card"><span>Workers</span><strong id="workerCount" class="blue">0</strong><small>registered</small></div>
     <div class="kpi-card"><span>Queue Depth</span><strong id="queueDepth" class="yellow">0</strong><small>jobs waiting</small></div>
-    <div class="kpi-card"><span>Activity</span><strong id="activityCount" class="purple">0</strong><small>events</small></div>
+    <div class="kpi-card"><span>Latest Job</span><strong id="latestJob" class="purple">--</strong><small>queue activity</small></div>
     <div class="kpi-card"><span>Open Exceptions</span><strong id="openExceptions" class="red">0</strong><small>operational</small></div>
   </section>
 
@@ -32,6 +32,7 @@
           <span id="lastChecked">Loading...</span>
         </div>
         <div id="automationNotice" class="automation-notice" hidden></div>
+        <div id="dataWarning" class="automation-notice error" hidden></div>
         <div id="workersGrid" class="automation-worker-grid">
           <p>Loading workers...</p>
         </div>
@@ -87,20 +88,25 @@
       <div class="right-card">
         <div class="right-head">
           <h3>Automation Infrastructure</h3>
-          <span>Online</span>
+          <span id="infrastructureStatus">Online</span>
         </div>
-        <p class="alert-green">● Automation Center service active</p>
-        <p class="alert-green">● RMS Worker registered</p>
-        <p class="alert-green">● Queue API active</p>
-        <p class="alert-yellow">● Scheduler foundation locked</p>
-        <p class="alert-yellow">● GPS7000 integration locked</p>
+        <p class="alert-green">â— Automation Center service active</p>
+        <p class="alert-green">â— RMS Worker registered</p>
+        <p class="alert-green">â— Queue API active</p>
+        <p class="alert-yellow">â— Scheduler foundation locked</p>
+        <p class="alert-yellow">â— GPS7000 integration locked</p>
       </div>
 
       <div class="right-card">
         <div class="right-head">
           <h3>Operational Status</h3>
         </div>
+        <p><b>Worker State:</b> <span id="workerState">--</span></p>
         <p><b>Worker Health:</b> <span id="workerHealth">--</span></p>
+        <p><b>Queue Depth:</b> <span id="queueDepthDetail">0</span></p>
+        <p><b>Latest Job:</b> <span id="latestJobDetail">--</span></p>
+        <p><b>Latest Failure:</b> <span id="latestFailure">None</span></p>
+        <p><b>Exception Count:</b> <span id="exceptionCount">0</span></p>
         <p><b>RMS Closeouts:</b> <span id="rmsCloseouts">0</span></p>
         <p><b>Resolved Today:</b> <span id="resolvedToday">0</span></p>
         <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
@@ -110,11 +116,11 @@
         <div class="right-head">
           <h3>Build 3 Mission</h3>
         </div>
-        <p>🟡 Run Now worker control</p>
-        <p>🔴 Restart worker control</p>
-        <p>🔴 View worker logs</p>
-        <p>🔴 Permission validation</p>
-        <p>🔴 Error handling</p>
+        <p>ðŸŸ¡ Run Now worker control</p>
+        <p>ðŸ”´ Restart worker control</p>
+        <p>ðŸ”´ View worker logs</p>
+        <p>ðŸ”´ Permission validation</p>
+        <p>ðŸ”´ Error handling</p>
       </div>
     </aside>
   </section>
@@ -158,14 +164,16 @@
 
 .worker-status.error,
 .worker-status.failed,
-.worker-status.offline {
+.worker-status.offline,
+.worker-status.data-warning {
   color: #ff6767;
 }
 
 .worker-status.queued,
 .worker-status.running,
 .worker-status.starting-edge,
-.worker-status.edge-debug-started {
+.worker-status.edge-debug-started,
+.worker-status.waiting-for-config {
   color: #f4c542;
 }
 
@@ -247,7 +255,197 @@ function safeText(value, fallback = "--") {
     return fallback;
   }
 
-  return value;
+  return String(value);
+}
+
+function statusClass(value) {
+  return safeText(value, "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "unknown";
+}
+
+function setText(id, value, fallback = "--") {
+  const node = document.getElementById(id);
+  if (node) {
+    node.textContent = safeText(value, fallback);
+  }
+}
+
+function appendText(parent, tag, text, className = "") {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  node.textContent = safeText(text);
+  parent.appendChild(node);
+  return node;
+}
+
+function appendStatus(parent, status) {
+  return appendText(parent, "span", status, `worker-status ${statusClass(status)}`);
+}
+
+function appendEmptyRow(tbody, columns, message) {
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = columns;
+  cell.textContent = message;
+  row.appendChild(cell);
+  tbody.replaceChildren(row);
+}
+
+function formatTime(value) {
+  if (!value) {
+    return "--";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return safeText(value);
+  }
+
+  return parsed.toLocaleTimeString();
+}
+
+function jobLabel(job) {
+  if (!job || !job.id) {
+    return "--";
+  }
+
+  return `#${job.id} ${safeText(job.status, "UNKNOWN")}`;
+}
+
+function renderWorkers(workers) {
+  const grid = document.getElementById("workersGrid");
+  if (!grid) return;
+
+  if (!workers.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No workers registered.";
+    grid.replaceChildren(empty);
+    return;
+  }
+
+  const cards = workers.map(worker => {
+    const health = worker.health || {};
+    const card = document.createElement("div");
+    card.className = "worker-card";
+
+    appendText(card, "h4", `â— ${safeText(worker.name, "Unnamed Worker")}`);
+    appendStatus(card, safeText(worker.status, "UNKNOWN"));
+
+    const meta = document.createElement("div");
+    meta.className = "worker-meta";
+
+    [
+      ["Started", safeText(health.started_at, "Not started")],
+      ["Last Run", safeText(health.last_run, "Never")],
+      ["Last Error", safeText(health.last_error, "None")],
+    ].forEach(([label, value]) => {
+      const line = document.createElement("div");
+      const strong = document.createElement("b");
+      strong.textContent = `${label}: `;
+      line.appendChild(strong);
+      line.appendChild(document.createTextNode(value));
+      meta.appendChild(line);
+    });
+
+    card.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "worker-actions";
+
+    const runButton = document.createElement("button");
+    runButton.className = "run-now-btn";
+    runButton.type = "button";
+    runButton.textContent = "â–¶ Run Now";
+    runButton.addEventListener("click", () => runWorker(safeText(worker.name, "")));
+    actions.appendChild(runButton);
+
+    ["Restart", "View Log"].forEach(label => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.disabled = true;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+
+    card.appendChild(actions);
+    return card;
+  });
+
+  grid.replaceChildren(...cards);
+}
+
+function renderQueue(jobs) {
+  const tbody = document.getElementById("queueRows");
+  if (!tbody) return;
+
+  if (!jobs.length) {
+    appendEmptyRow(tbody, 6, "No automation jobs yet.");
+    return;
+  }
+
+  const rows = jobs.slice().reverse().map(job => {
+    const row = document.createElement("tr");
+
+    [
+      `#${safeText(job.id)}`,
+      safeText(job.worker),
+      safeText(job.action),
+    ].forEach(value => appendText(row, "td", value));
+
+    const statusCell = document.createElement("td");
+    appendStatus(statusCell, safeText(job.status, "UNKNOWN"));
+    row.appendChild(statusCell);
+
+    appendText(row, "td", formatTime(job.created_at));
+    appendText(row, "td", safeText(job.error, "None"));
+
+    return row;
+  });
+
+  tbody.replaceChildren(...rows);
+}
+
+function renderActivity(activity) {
+  const tbody = document.getElementById("activityRows");
+  if (!tbody) return;
+
+  if (!activity.length) {
+    appendEmptyRow(tbody, 4, "No automation activity yet.");
+    return;
+  }
+
+  const rows = activity.slice().reverse().map(item => {
+    const row = document.createElement("tr");
+
+    appendText(row, "td", formatTime(item.timestamp));
+
+    const typeCell = document.createElement("td");
+    appendText(typeCell, "span", safeText(item.type, "Event"), "tag blue-tag");
+    row.appendChild(typeCell);
+
+    appendText(row, "td", safeText(item.worker, "System"));
+    appendText(row, "td", safeText(item.message, ""));
+
+    return row;
+  });
+
+  tbody.replaceChildren(...rows);
+}
+
+function renderDataWarning(operationalData) {
+  const warning = document.getElementById("dataWarning");
+  if (!warning) return;
+
+  const message = operationalData.stores_warning || operationalData.warning || "";
+  if (!message) {
+    warning.hidden = true;
+    warning.textContent = "";
+    return;
+  }
+
+  warning.textContent = message;
+  warning.hidden = false;
 }
 
 async function loadAutomationCenter() {
@@ -258,74 +456,33 @@ async function loadAutomationCenter() {
     const jobsData = await fetch("/api/automation/jobs").then(r => r.json());
     const operationalData = await fetch("/api/automation-center/operational-status").then(r => r.json());
 
-    document.getElementById("centerStatus").textContent = health.status || "UNKNOWN";
-    document.getElementById("workerCount").textContent = health.worker_count ?? 0;
-    document.getElementById("queueDepth").textContent = health.queue_depth ?? 0;
-    document.getElementById("activityCount").textContent = health.activity_count ?? 0;
-    document.getElementById("lastChecked").textContent = health.checked_at ? new Date(health.checked_at).toLocaleTimeString() : "Unknown";
-
-    document.getElementById("openExceptions").textContent = operationalData.open_exceptions ?? 0;
-    document.getElementById("workerHealth").textContent = safeText(operationalData.worker_health);
-    document.getElementById("rmsCloseouts").textContent = operationalData.rms_closeouts ?? 0;
-    document.getElementById("resolvedToday").textContent = operationalData.resolved_today ?? 0;
-    document.getElementById("lastWorkerRun").textContent = safeText(operationalData.last_worker_run, "Never");
     const workers = workersData.workers || [];
-    document.getElementById("workersGrid").innerHTML = workers.length
-      ? workers.map(worker => {
-          const health = worker.health || {};
-          const status = (worker.status || "UNKNOWN").toString();
-          const statusClass = status.toLowerCase().replaceAll(" ", "-");
-          const safeWorkerName = String(worker.name || "").replaceAll("'", "\\'");
-
-          return `
-            <div class="worker-card">
-              <h4>● ${safeText(worker.name, "Unnamed Worker")}</h4>
-              <span class="worker-status ${statusClass}">${status}</span>
-              <div class="worker-meta">
-                <div><b>Started:</b> ${safeText(health.started_at, "Not started")}</div>
-                <div><b>Last Run:</b> ${safeText(health.last_run, "Never")}</div>
-                <div><b>Last Error:</b> ${safeText(health.last_error, "None")}</div>
-              </div>
-              <div class="worker-actions">
-                <button class="run-now-btn" type="button" onclick="runWorker('${safeWorkerName}')">▶ Run Now</button>
-                <button type="button" disabled>Restart</button>
-                <button type="button" disabled>View Log</button>
-              </div>
-            </div>
-          `;
-        }).join("")
-      : `<p>No workers registered.</p>`;
-
     const jobs = jobsData.jobs || [];
-    document.getElementById("queueRows").innerHTML = jobs.length
-      ? jobs.slice().reverse().map(job => {
-          const status = (job.status || "UNKNOWN").toString();
-          const statusClass = status.toLowerCase().replaceAll(" ", "-");
+    const latestJob = health.latest_job || jobs[jobs.length - 1] || null;
+    const latestFailure = health.latest_failure || jobs.slice().reverse().find(job => safeText(job.status).toUpperCase() === "FAILED") || null;
 
-          return `
-            <tr>
-              <td>#${job.id}</td>
-              <td>${safeText(job.worker)}</td>
-              <td>${safeText(job.action)}</td>
-              <td><span class="worker-status ${statusClass}">${status}</span></td>
-              <td>${job.created_at ? new Date(job.created_at).toLocaleTimeString() : "--"}</td>
-              <td>${safeText(job.error, "None")}</td>
-            </tr>
-          `;
-        }).join("")
-      : `<tr><td colspan="6">No automation jobs yet.</td></tr>`;
+    setText("centerStatus", health.status || "UNKNOWN");
+    setText("workerCount", health.worker_count ?? workers.length ?? 0, "0");
+    setText("queueDepth", health.queue_depth ?? 0, "0");
+    setText("queueDepthDetail", health.queue_depth ?? 0, "0");
+    setText("latestJob", jobLabel(latestJob));
+    setText("latestJobDetail", jobLabel(latestJob));
+    setText("activityCount", health.activity_count ?? 0, "0");
+    setText("lastChecked", health.checked_at ? formatTime(health.checked_at) : "Unknown");
+    setText("openExceptions", operationalData.open_exceptions ?? 0, "0");
+    setText("exceptionCount", operationalData.open_exceptions ?? 0, "0");
+    setText("workerState", health.worker_state || operationalData.worker_state || "UNKNOWN");
+    setText("workerHealth", operationalData.worker_health);
+    setText("rmsCloseouts", operationalData.rms_closeouts ?? 0, "0");
+    setText("resolvedToday", operationalData.resolved_today ?? 0, "0");
+    setText("lastWorkerRun", safeText(operationalData.last_worker_run, "Never"));
+    setText("latestFailure", latestFailure ? `#${latestFailure.id} ${safeText(latestFailure.error, safeText(latestFailure.status, "FAILED"))}` : "None");
+    setText("infrastructureStatus", operationalData.stores_status === "WARNING" ? "Warning" : "Online");
 
-    const activity = activityData.activity || [];
-    document.getElementById("activityRows").innerHTML = activity.length
-      ? activity.slice().reverse().map(item => `
-          <tr>
-            <td>${item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "--"}</td>
-            <td><span class="tag blue-tag">${safeText(item.type, "Event")}</span></td>
-            <td>${safeText(item.worker, "System")}</td>
-            <td>${safeText(item.message, "")}</td>
-          </tr>
-        `).join("")
-      : `<tr><td colspan="4">No automation activity yet.</td></tr>`;
+    renderDataWarning(operationalData);
+    renderWorkers(workers);
+    renderQueue(jobs);
+    renderActivity(activityData.activity || []);
   } catch (error) {
     showAutomationNotice(`Automation Center refresh failed: ${error.message}`, "error");
   }
