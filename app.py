@@ -3536,7 +3536,14 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                             break
 
                         if reopened:
-                            write_json(STORES_FILE, existing)
+                            current_stores = read_json(STORES_FILE)
+                            for idx, current in enumerate(current_stores):
+                                if clean(current.get("bol")) == bol_number:
+                                    current_stores[idx] = store
+                                    break
+                            else:
+                                current_stores.append(store)
+                            write_json(STORES_FILE, current_stores)
                         else:
                             skipped += 1
                             print(f"Skipping existing BOL {bol_number}")
@@ -4348,7 +4355,10 @@ def api_automation_create_job():
     worker = data.get("worker") or "RMS Worker"
     action = data.get("action") or "worker_status"
     payload = data.get("payload") or {}
-    priority = int(data.get("priority") or 5)
+    try:
+        priority = int(data.get("priority") or 5)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "message": "Priority must be a whole number."}), 400
     run_now = bool(data.get("run_now", True))
 
     result = automation_center.enqueue_job(worker, action, payload, priority)
@@ -5372,8 +5382,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
-
 
 
 

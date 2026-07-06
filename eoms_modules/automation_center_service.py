@@ -170,8 +170,8 @@ class AutomationCenterService:
         self.queue.save_job(job)
         self.jobs = self.queue.jobs
 
-    def list_jobs(self):
-        return self.queue.list_jobs()
+    def list_jobs(self, limit: Optional[int] = 50):
+        return self.queue.list_jobs(limit=limit)
 
     def get_activity(self, limit: int = 25):
         return self.activity[-limit:]
