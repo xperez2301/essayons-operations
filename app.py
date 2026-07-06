@@ -4279,6 +4279,41 @@ def api_automation_center_activity():
         "ok": True,
         "activity": automation_center.get_activity(50),
     })
+@app.route("/api/automation/jobs", methods=["GET"])
+@admin_required
+def api_automation_jobs():
+    from eoms_modules.automation_center_manager import automation_center
+
+    return jsonify({
+        "ok": True,
+        "jobs": automation_center.list_jobs(),
+    })
+
+
+@app.route("/api/automation/jobs", methods=["POST"])
+@admin_required
+def api_automation_create_job():
+    from eoms_modules.automation_center_manager import automation_center
+    from eoms_modules.automation_executor_service import AutomationExecutorService
+
+    data = request.get_json(silent=True) or {}
+    worker = data.get("worker") or "RMS Worker"
+    action = data.get("action") or "worker_status"
+    payload = data.get("payload") or {}
+    priority = int(data.get("priority") or 5)
+    run_now = bool(data.get("run_now", True))
+
+    result = automation_center.enqueue_job(worker, action, payload, priority)
+    job = result.get("job")
+
+    if run_now:
+        executor = AutomationExecutorService(automation_center)
+        executed = executor.run_job(job)
+        return jsonify({"ok": executed.get("status") == "COMPLETED", "job": executed})
+
+    return jsonify({"ok": True, "job": job})
+
+
 @app.route("/api/system-health")
 @admin_required
 def api_system_health():
