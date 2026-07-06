@@ -5,7 +5,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from eoms_modules.automation_queue_service import AutomationQueueService
-from eoms_modules.automation_scheduler_service import get_scheduler_state
+from eoms_modules.automation_scheduler_service import (
+    create_scheduled_job,
+    get_scheduler_state,
+    pause_scheduler,
+    resume_scheduler,
+    update_scheduler_state,
+)
 
 
 def utc_now_iso() -> str:
@@ -114,8 +120,7 @@ class AutomationCenterService:
         }
 
     def load_stores_for_status(self) -> dict:
-        data_dir = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[1] / "data"))
-        stores_file = data_dir / "stores.json"
+        stores_file = self.stores_file()
 
         try:
             raw = stores_file.read_text(encoding="utf-8")
@@ -158,6 +163,17 @@ class AutomationCenterService:
             "status": "OK",
             "warning": "",
         }
+
+    def stores_file(self) -> Path:
+        data_dir = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parents[1] / "data"))
+        return data_dir / "stores.json"
+
+    def save_stores(self, stores) -> None:
+        stores_file = self.stores_file()
+        stores_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = stores_file.with_suffix(stores_file.suffix + ".tmp")
+        tmp.write_text(json.dumps(stores, indent=2), encoding="utf-8")
+        os.replace(tmp, stores_file)
 
     def operational_status(self) -> dict:
         stores_state = self.load_stores_for_status()
@@ -236,6 +252,106 @@ class AutomationCenterService:
                     return get_scheduler_state(store)
 
         return get_scheduler_state({})
+
+    def scheduler_target_store(self, stores):
+        if not isinstance(stores, list):
+            return None
+
+        for store in stores:
+            if isinstance(store, dict):
+                return store
+
+        return None
+
+    def persist_scheduler_state_to_stores(self, stores, state) -> None:
+        if not isinstance(stores, list):
+            return
+
+        for store in stores:
+            if not isinstance(store, dict):
+                continue
+
+            update_scheduler_state(
+                store,
+                enabled=state.get("enabled"),
+                running=state.get("running"),
+                interval_seconds=state.get("interval_seconds"),
+                last_run=state.get("last_run"),
+                next_run=state.get("next_run"),
+                health=state.get("health"),
+            )
+
+    def control_scheduler(self, action: str) -> dict:
+        stores_state = self.load_stores_for_status()
+        if not stores_state.get("ok"):
+            return {
+                "ok": False,
+                "message": stores_state.get("warning") or "Scheduler state is unavailable.",
+                "scheduler_state": get_scheduler_state({}),
+            }
+
+        stores = stores_state["stores"]
+        target = self.scheduler_target_store(stores)
+        if target is None:
+            return {
+                "ok": False,
+                "message": "Scheduler state requires at least one store record in stores.json.",
+                "scheduler_state": get_scheduler_state({}),
+            }
+
+        action = str(action or "").strip().lower()
+        job = None
+
+        try:
+            if action == "pause":
+                scheduler_state = pause_scheduler(target)
+                message = "Scheduler paused."
+
+            elif action == "resume":
+                scheduler_state = resume_scheduler(target)
+                message = "Scheduler resumed."
+
+            elif action == "run_now":
+                job = create_scheduled_job(
+                    target,
+                    "worker_status",
+                    priority="normal",
+                    queue_service=self.queue,
+                    payload={"requested_by": "operator"},
+                )
+                scheduler_state = get_scheduler_state(target)
+                message = f"Scheduler queued job #{job.get('id')}."
+
+            else:
+                return {
+                    "ok": False,
+                    "message": "Unsupported scheduler action.",
+                    "scheduler_state": get_scheduler_state(target),
+                }
+
+        except Exception as exc:
+            return {
+                "ok": False,
+                "message": str(exc),
+                "scheduler_state": get_scheduler_state(target),
+            }
+
+        self.persist_scheduler_state_to_stores(stores, scheduler_state)
+        self.save_stores(stores)
+
+        self.activity.append({
+            "timestamp": utc_now_iso(),
+            "type": "scheduler_control",
+            "worker": "Scheduler",
+            "message": message,
+        })
+
+        return {
+            "ok": True,
+            "message": message,
+            "scheduler_state": scheduler_state,
+            "job": job,
+        }
 
     def enqueue_job(
         self,

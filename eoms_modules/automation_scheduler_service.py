@@ -186,6 +186,9 @@ def create_scheduled_job(
         raise ValueError(f"Unsupported scheduled job type: {job_type}")
 
     state = ensure_scheduler_state(store)
+    if not state.get("enabled"):
+        raise ValueError("Scheduler is paused. Resume the scheduler before creating scheduled jobs.")
+
     priority_value = normalize_priority(priority)
     job_definition = SCHEDULED_JOB_TYPES[job_type]
     scheduled_at = utc_now_iso()

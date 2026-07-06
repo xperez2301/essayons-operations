@@ -107,9 +107,17 @@
         <p><b>Latest Job:</b> <span id="latestJobDetail">--</span></p>
         <p><b>Latest Failure:</b> <span id="latestFailure">None</span></p>
         <p><b>Exception Count:</b> <span id="exceptionCount">0</span></p>
-        <p><b>Scheduler:</b> <span id="schedulerHealth">--</span></p>
-        <p><b>Scheduler Interval:</b> <span id="schedulerInterval">--</span></p>
-        <p><b>Next Scheduled Run:</b> <span id="schedulerNextRun">--</span></p>
+        <p><b>Scheduler Status:</b> <span id="schedulerHealth">--</span></p>
+        <p><b>Scheduler Mode:</b> <span id="schedulerMode">--</span></p>
+        <p><b>Scheduler Running:</b> <span id="schedulerRunning">--</span></p>
+        <p><b>Interval:</b> <span id="schedulerInterval">--</span></p>
+        <p><b>Last Run:</b> <span id="schedulerLastRun">--</span></p>
+        <p><b>Next Run:</b> <span id="schedulerNextRun">--</span></p>
+        <div class="worker-actions">
+          <button id="pauseSchedulerBtn" type="button">Pause</button>
+          <button id="resumeSchedulerBtn" type="button">Resume</button>
+          <button id="runSchedulerNowBtn" class="run-now-btn" type="button">Run Now</button>
+        </div>
         <p><b>RMS Closeouts:</b> <span id="rmsCloseouts">0</span></p>
         <p><b>Resolved Today:</b> <span id="resolvedToday">0</span></p>
         <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
@@ -481,8 +489,11 @@ async function loadAutomationCenter() {
     setText("resolvedToday", operationalData.resolved_today ?? 0, "0");
     setText("lastWorkerRun", safeText(operationalData.last_worker_run, "Never"));
     setText("latestFailure", latestFailure ? `#${latestFailure.id} ${safeText(latestFailure.error, safeText(latestFailure.status, "FAILED"))}` : "None");
-    setText("schedulerHealth", `${schedulerState.enabled ? "Enabled" : "Paused"} / ${safeText(schedulerState.health, "UNKNOWN")}`);
+    setText("schedulerHealth", safeText(schedulerState.health, "UNKNOWN"));
+    setText("schedulerMode", schedulerState.enabled ? "ENABLED" : "PAUSED");
+    setText("schedulerRunning", schedulerState.running ? "RUNNING" : "STOPPED");
     setText("schedulerInterval", schedulerState.interval_seconds ? `${schedulerState.interval_seconds} seconds` : "--");
+    setText("schedulerLastRun", safeText(schedulerState.last_run, "Never"));
     setText("schedulerNextRun", safeText(schedulerState.next_run, "Not scheduled"));
     setText("infrastructureStatus", operationalData.stores_status === "WARNING" ? "Warning" : "Online");
 
@@ -492,6 +503,26 @@ async function loadAutomationCenter() {
     renderActivity(activityData.activity || []);
   } catch (error) {
     showAutomationNotice(`Automation Center refresh failed: ${error.message}`, "error");
+  }
+}
+
+async function controlScheduler(action) {
+  try {
+    const response = await fetch("/api/automation-center/scheduler", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action})
+    });
+
+    const result = await response.json();
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.message || "Scheduler control failed.");
+    }
+
+    showAutomationNotice(result.message || "Scheduler updated.", "success");
+    await loadAutomationCenter();
+  } catch (error) {
+    showAutomationNotice(`Scheduler control failed: ${error.message}`, "error");
   }
 }
 
@@ -562,6 +593,9 @@ async function createTestQueueJob() {
 document.addEventListener("DOMContentLoaded", () => {
   loadAutomationCenter();
   document.getElementById("testQueueBtn")?.addEventListener("click", createTestQueueJob);
+  document.getElementById("pauseSchedulerBtn")?.addEventListener("click", () => controlScheduler("pause"));
+  document.getElementById("resumeSchedulerBtn")?.addEventListener("click", () => controlScheduler("resume"));
+  document.getElementById("runSchedulerNowBtn")?.addEventListener("click", () => controlScheduler("run_now"));
   setInterval(loadAutomationCenter, 10000);
 });
 </script>

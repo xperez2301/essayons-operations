@@ -4334,6 +4334,18 @@ def api_automation_center_operational_status():
     from eoms_modules.automation_center_manager import automation_center
 
     return jsonify(automation_center.operational_status())
+
+
+@app.route("/api/automation-center/scheduler", methods=["POST"])
+@admin_required
+def api_automation_center_scheduler():
+    from eoms_modules.automation_center_manager import automation_center
+
+    data = request.get_json(silent=True) or {}
+    result = automation_center.control_scheduler(data.get("action"))
+    return jsonify(result), 200 if result.get("ok") else 400
+
+
 @app.route("/api/automation/jobs", methods=["GET"])
 @admin_required
 def api_automation_jobs():
@@ -5382,7 +5394,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
 
 
