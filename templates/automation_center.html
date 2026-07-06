@@ -107,6 +107,9 @@
         <p><b>Latest Job:</b> <span id="latestJobDetail">--</span></p>
         <p><b>Latest Failure:</b> <span id="latestFailure">None</span></p>
         <p><b>Exception Count:</b> <span id="exceptionCount">0</span></p>
+        <p><b>Scheduler:</b> <span id="schedulerHealth">--</span></p>
+        <p><b>Scheduler Interval:</b> <span id="schedulerInterval">--</span></p>
+        <p><b>Next Scheduled Run:</b> <span id="schedulerNextRun">--</span></p>
         <p><b>RMS Closeouts:</b> <span id="rmsCloseouts">0</span></p>
         <p><b>Resolved Today:</b> <span id="resolvedToday">0</span></p>
         <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
@@ -460,6 +463,7 @@ async function loadAutomationCenter() {
     const jobs = jobsData.jobs || [];
     const latestJob = health.latest_job || jobs[jobs.length - 1] || null;
     const latestFailure = health.latest_failure || jobs.slice().reverse().find(job => safeText(job.status).toUpperCase() === "FAILED") || null;
+    const schedulerState = operationalData.scheduler_state || {};
 
     setText("centerStatus", health.status || "UNKNOWN");
     setText("workerCount", health.worker_count ?? workers.length ?? 0, "0");
@@ -477,6 +481,9 @@ async function loadAutomationCenter() {
     setText("resolvedToday", operationalData.resolved_today ?? 0, "0");
     setText("lastWorkerRun", safeText(operationalData.last_worker_run, "Never"));
     setText("latestFailure", latestFailure ? `#${latestFailure.id} ${safeText(latestFailure.error, safeText(latestFailure.status, "FAILED"))}` : "None");
+    setText("schedulerHealth", `${schedulerState.enabled ? "Enabled" : "Paused"} / ${safeText(schedulerState.health, "UNKNOWN")}`);
+    setText("schedulerInterval", schedulerState.interval_seconds ? `${schedulerState.interval_seconds} seconds` : "--");
+    setText("schedulerNextRun", safeText(schedulerState.next_run, "Not scheduled"));
     setText("infrastructureStatus", operationalData.stores_status === "WARNING" ? "Warning" : "Online");
 
     renderDataWarning(operationalData);

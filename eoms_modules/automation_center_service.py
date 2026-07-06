@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from eoms_modules.automation_queue_service import AutomationQueueService
+from eoms_modules.automation_scheduler_service import get_scheduler_state
 
 
 def utc_now_iso() -> str:
@@ -161,6 +162,7 @@ class AutomationCenterService:
     def operational_status(self) -> dict:
         stores_state = self.load_stores_for_status()
         stores = stores_state["stores"]
+        scheduler_state = self.scheduler_state_from_stores(stores)
 
         today = datetime.now().date().isoformat()
         open_exceptions = 0
@@ -212,8 +214,28 @@ class AutomationCenterService:
             "workers_online": len(workers),
             "stores_status": stores_state["status"],
             "stores_warning": stores_state["warning"],
+            "scheduler_state": scheduler_state,
             "checked_at": utc_now_iso(),
         }
+
+    def scheduler_state_from_stores(self, stores) -> dict:
+        if isinstance(stores, list):
+            for store in stores:
+                if not isinstance(store, dict):
+                    continue
+
+                operational = store.get("operational")
+                if not isinstance(operational, dict):
+                    continue
+
+                automation = operational.get("automation")
+                if not isinstance(automation, dict):
+                    continue
+
+                if isinstance(automation.get("scheduler"), dict):
+                    return get_scheduler_state(store)
+
+        return get_scheduler_state({})
 
     def enqueue_job(
         self,
