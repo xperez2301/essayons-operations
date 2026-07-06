@@ -4,7 +4,7 @@
 <div class="command-dashboard">
   <header class="command-topbar">
     <div class="command-title">
-      <button class="hamburger" type="button">â˜°</button>
+      <button class="hamburger" type="button">&#9776;</button>
       <div>
         <h2>Automation Center</h2>
         <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
@@ -90,11 +90,11 @@
           <h3>Automation Infrastructure</h3>
           <span id="infrastructureStatus">Online</span>
         </div>
-        <p class="alert-green">â— Automation Center service active</p>
-        <p class="alert-green">â— RMS Worker registered</p>
-        <p class="alert-green">â— Queue API active</p>
-        <p class="alert-yellow">â— Scheduler foundation locked</p>
-        <p class="alert-yellow">â— GPS7000 integration locked</p>
+        <p class="alert-green">&#9679; Automation Center service active</p>
+        <p class="alert-green">&#9679; RMS Worker registered</p>
+        <p class="alert-green">&#9679; Queue API active</p>
+        <p class="alert-yellow">&#9679; Scheduler foundation locked</p>
+        <p class="alert-yellow">&#9679; GPS7000 integration locked</p>
       </div>
 
       <div class="right-card">
@@ -119,11 +119,11 @@
         <div class="right-head">
           <h3>Build 3 Mission</h3>
         </div>
-        <p>ðŸŸ¡ Run Now worker control</p>
-        <p>ðŸ”´ Restart worker control</p>
-        <p>ðŸ”´ View worker logs</p>
-        <p>ðŸ”´ Permission validation</p>
-        <p>ðŸ”´ Error handling</p>
+        <p>&#128993; Run Now worker control</p>
+        <p>&#128308; Restart worker control</p>
+        <p>&#128308; View worker logs</p>
+        <p>&#128308; Permission validation</p>
+        <p>&#128308; Error handling</p>
       </div>
     </aside>
   </section>
@@ -332,7 +332,7 @@ function renderWorkers(workers) {
     const card = document.createElement("div");
     card.className = "worker-card";
 
-    appendText(card, "h4", `â— ${safeText(worker.name, "Unnamed Worker")}`);
+    appendText(card, "h4", `Worker: ${safeText(worker.name, "Unnamed Worker")}`);
     appendStatus(card, safeText(worker.status, "UNKNOWN"));
 
     const meta = document.createElement("div");
@@ -359,7 +359,7 @@ function renderWorkers(workers) {
     const runButton = document.createElement("button");
     runButton.className = "run-now-btn";
     runButton.type = "button";
-    runButton.textContent = "â–¶ Run Now";
+    runButton.textContent = "Run Now";
     runButton.addEventListener("click", () => runWorker(safeText(worker.name, "")));
     actions.appendChild(runButton);
 
