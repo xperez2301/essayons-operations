@@ -1,0 +1,194 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Receiving" %}
+{% set module_title = "Warehouse Receiving" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-warning">Recovery Bridge</span>
+{% endblock %}
+
+{% block content %}
+  <div id="receivingNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
+
+  <section class="eoms-summary-grid" aria-label="Receiving dashboard">
+    <div class="eoms-summary-card">
+      <span>Active Recovery Routes</span>
+      <strong>{{ workspace.summary.active_recovery_routes }}</strong>
+      <small>pending receipt routes</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Pending Receipts</span>
+      <strong>{{ workspace.summary.pending_receipts }}</strong>
+      <small>loads waiting</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Received Today</span>
+      <strong>{{ workspace.summary.received_today }}</strong>
+      <small>warehouse receipts</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Components Received</span>
+      <strong>{{ workspace.summary.total_components_received }}</strong>
+      <small>{{ workspace.summary.estimated_weight_received }} lbs estimated</small>
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Recovery Loads</h2>
+        {% if workspace.loads %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Driver</th>
+                <th>Completed Time</th>
+                <th>Recovery Status</th>
+                <th>Receiving</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for load in workspace.loads %}
+                <tr>
+                  <td>{{ load.route }}</td>
+                  <td>{{ load.driver }}</td>
+                  <td>{{ load.completed_time }}</td>
+                  <td><span class="eoms-status eoms-status-{{ load.recovery_status_class }}">{{ load.recovery_status }}</span></td>
+                  <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No recovery loads ready</strong>
+            <span>Recovered and exception loads will appear here when drivers complete recovery stops.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Receiving History</h2>
+        {% if workspace.history %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Received Load</th>
+                <th>Date</th>
+                <th>Receiver</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for load in workspace.history %}
+                <tr>
+                  <td>{{ load.store }} · {{ load.bol }}</td>
+                  <td>{{ load.received_at }}</td>
+                  <td>{{ load.received_by }}</td>
+                  <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No received loads yet</strong>
+            <span>Received recovery loads will appear here after warehouse receiving is recorded.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="eoms-card">
+      <h2>Receiving Detail</h2>
+      {% if workspace.selected_load %}
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Store</th><td>{{ workspace.selected_load.store }}</td></tr>
+            <tr><th>BOL</th><td>{{ workspace.selected_load.bol }}</td></tr>
+            <tr><th>Driver</th><td>{{ workspace.selected_load.driver }}</td></tr>
+            <tr><th>Recovery Summary</th><td>{{ workspace.selected_load.recovery_status }}</td></tr>
+            <tr><th>Recovered Weight</th><td>{{ workspace.selected_load.recovered_weight }} lbs</td></tr>
+            <tr><th>Recovery Notes</th><td>{{ workspace.selected_load.notes or "None" }}</td></tr>
+            <tr><th>Driver Exceptions</th><td>{{ workspace.selected_load.driver_exception_type or "None" }}{% if workspace.selected_load.driver_exception_notes %}: {{ workspace.selected_load.driver_exception_notes }}{% endif %}</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Recovered Components</h3>
+        <table class="eoms-table">
+          <tbody>
+            {% for component in workspace.component_names %}
+              <tr><th>{{ component }}</th><td>{{ workspace.selected_load.component_counts[component] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div style="display:grid;gap:10px;margin-top:14px;">
+          <input type="hidden" id="receivingStoreId" value="{{ workspace.selected_load.store_id }}">
+          <label>
+            <span>Warehouse Notes</span>
+            <textarea id="warehouseNotes" rows="4">{{ workspace.selected_load.warehouse_notes }}</textarea>
+          </label>
+          <button id="receiveLoadBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_load.receiving_status == "Received" %}disabled{% endif %}>
+            {% if workspace.selected_load.receiving_status == "Received" %}Received{% else %}Receive Load{% endif %}
+          </button>
+        </div>
+      {% else %}
+        <div class="eoms-empty-state">
+          <strong>No load selected</strong>
+          <span>Receiving details will appear when a recovered or exception load is ready.</span>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var receiveButton = document.getElementById("receiveLoadBtn");
+  if (!receiveButton) {
+    return;
+  }
+
+  var notice = document.getElementById("receivingNotice");
+
+  function setNotice(message, className) {
+    if (!notice) {
+      return;
+    }
+    notice.hidden = false;
+    notice.className = "eoms-status " + className;
+    notice.textContent = message;
+  }
+
+  receiveButton.addEventListener("click", async function(){
+    var payload = {
+      store_id: document.getElementById("receivingStoreId").value,
+      warehouse_notes: document.getElementById("warehouseNotes").value
+    };
+
+    receiveButton.disabled = true;
+    setNotice("Receiving", "eoms-status-neutral");
+
+    try {
+      var response = await fetch("/api/receiving/receive", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Receive failed.");
+      }
+      setNotice("Received", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Receive failed.", "eoms-status-danger");
+      receiveButton.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

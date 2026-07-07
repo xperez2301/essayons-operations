@@ -46,6 +46,7 @@ from eoms_modules.driver_center_service import (
     update_route_recovery_progress,
 )
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
+from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -1692,6 +1693,43 @@ def recovery_center():
         "recovery_center.html",
         workspace=workspace,
     )
+
+@app.route("/receiving")
+def receiving_workspace():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    workspace = build_receiving_workspace(stores, routes)
+    return render_template("receiving.html", workspace=workspace)
+
+@app.route("/api/receiving/receive", methods=["POST"])
+def api_receiving_receive():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+
+    try:
+        received = receive_load(
+            stores,
+            data.get("store_id"),
+            received_by=session.get("username", "system"),
+            warehouse_notes=data.get("warehouse_notes"),
+        )
+        already_received = bool(received.pop("already_received", False))
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    routes = read_json(ROUTES_FILE)
+    workspace = build_receiving_workspace(stores, routes)
+    audit("Receive Recovery Load", {"store_id": received.get("id"), "bol": received.get("bol"), "already_received": already_received})
+
+    return jsonify({
+        "ok": True,
+        "already_received": already_received,
+        "store": received,
+        "summary": workspace.get("summary", {}),
+    })
 
 @app.route("/api/dashboard-live")
 def api_dashboard_live():
