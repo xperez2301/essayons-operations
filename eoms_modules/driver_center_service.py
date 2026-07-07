@@ -6,11 +6,10 @@ from eoms_modules.recovery_center_service import (
     STORE_COMPONENT_FIELDS,
     calculate_estimated_weight,
     clean,
+    driver_counts_from_store,
     empty_component_counts,
-    is_completed_stop,
     normalize_quantity,
     status_class,
-    summarize_recovery_workspace_from_records,
 )
 
 
@@ -20,6 +19,8 @@ ACTIVE_DRIVER_STATUSES = {
     "in progress",
     "accepted",
 }
+
+COMPLETED_DRIVER_STATUSES = {"recovered", "exception", "completed"}
 
 DRIVER_EXCEPTION_TYPES = (
     "No Pickup",
@@ -84,6 +85,27 @@ def active_stops_for_route(route):
         status = clean(stop.get("status")).lower()
         if status in ACTIVE_DRIVER_STATUSES:
             stops.append(deepcopy(stop))
+
+    return stops
+
+
+def active_store_records_for_route(route, stores_by_id):
+    stops = []
+
+    for store_id in store_ids_for_route(route):
+        store = stores_by_id.get(clean(store_id))
+        if not isinstance(store, dict):
+            continue
+        if clean(store.get("status")).lower() not in ACTIVE_DRIVER_STATUSES:
+            continue
+        stop = deepcopy(store)
+        stop["store"] = clean(store.get("store_name") or store.get("store"))
+        stop["driver_counts"] = driver_counts_from_store(store)
+        stop["route_id"] = route_identifier(route)
+        stop["route_label"] = clean(route.get("route_number") or route.get("id")) or "Assigned Work"
+        stop["route_driver_status"] = clean(route.get("driver_status")) or clean(store.get("driver_status")) or "Pending"
+        stop["driver_work_status"] = driver_work_status(store)
+        stops.append(stop)
 
     return stops
 
@@ -266,6 +288,134 @@ def route_matches(route, route_id):
     }
 
 
+def driver_work_status(store):
+    work_status = clean(store.get("driver_work_status"))
+    if work_status:
+        return work_status
+
+    status = clean(store.get("status")).lower()
+    if status in {"dispatched", "in progress"}:
+        return "Current"
+    if status == "assigned":
+        return "Waiting"
+    if status in {"recovered", "completed"}:
+        return "Completed"
+    if status == "exception":
+        return "Exception"
+    return clean(store.get("status")) or "Waiting"
+
+
+def route_store_records(route, stores):
+    stores_by_id = {
+        clean(store.get("id")): store
+        for store in stores or []
+        if isinstance(store, dict) and clean(store.get("id"))
+    }
+    return [
+        stores_by_id[store_id]
+        for store_id in store_ids_for_route(route)
+        if store_id in stores_by_id
+    ]
+
+
+def sync_route_stop_from_store(route, store):
+    if not isinstance(route, dict) or not isinstance(store, dict):
+        return False
+
+    store_id = clean(store.get("id"))
+    changed = False
+    for stop in route.get("stops") or []:
+        if not isinstance(stop, dict) or clean(stop.get("id")) != store_id:
+            continue
+        for field in (
+            "status",
+            "driver_status",
+            "driver_work_status",
+            "driver_counts_saved_at",
+            "completed_at",
+            "completed_by",
+            "receiving_status",
+            "dispatcher_closeout_status",
+            "collected_racks",
+            "collected_pieces",
+            "corner_posts",
+            "drb40",
+            "drb48",
+            "wood_shelf",
+        ):
+            if field in store:
+                stop[field] = store.get(field)
+        changed = True
+    return changed
+
+
+def promote_next_waiting_stop(route, stores):
+    if not isinstance(route, dict):
+        return None
+
+    route_stores = route_store_records(route, stores)
+    has_current = any(
+        clean(store.get("status")).lower() in {"dispatched", "in progress"}
+        for store in route_stores
+    )
+    if has_current:
+        return None
+
+    for store in route_stores:
+        if clean(store.get("status")).lower() in COMPLETED_DRIVER_STATUSES:
+            continue
+        if clean(store.get("status")).lower() not in ACTIVE_DRIVER_STATUSES:
+            continue
+        store["status"] = "Dispatched"
+        store["driver_status"] = "Accepted"
+        store["driver_work_status"] = "Current"
+        store["driver_started_at"] = store.get("driver_started_at") or utc_now_iso()
+        sync_route_stop_from_store(route, store)
+        return store
+
+    return None
+
+
+def advance_next_driver_stop(routes, stores, completed_store_id):
+    completed_store_id = clean(completed_store_id)
+    promoted = None
+
+    for route in routes or []:
+        if not isinstance(route, dict):
+            continue
+        if completed_store_id not in set(store_ids_for_route(route)):
+            continue
+        route_stores = route_store_records(route, stores)
+        for store in route_stores:
+            sync_route_stop_from_store(route, store)
+        recovered_stores = [
+            store for store in route_stores
+            if clean(store.get("status")).lower() in COMPLETED_DRIVER_STATUSES
+        ]
+        remaining_stores = [
+            store for store in route_stores
+            if clean(store.get("status")).lower() not in COMPLETED_DRIVER_STATUSES
+        ]
+        if remaining_stores:
+            promoted = promote_next_waiting_stop(route, stores)
+            route["status"] = "Dispatched"
+        elif route_stores:
+            route["status"] = "Recovered"
+            route["driver_work_status"] = "Completed"
+            route["completed_at"] = route.get("completed_at") or utc_now_iso()
+
+        route["recovery_progress"] = {
+            "total_stops": len(route_stores),
+            "recovered_stops": len(recovered_stores),
+            "exception_stops": sum(1 for store in route_stores if clean(store.get("status")).lower() == "exception"),
+            "remaining_stops": len(remaining_stores),
+            "updated_at": utc_now_iso(),
+        }
+        break
+
+    return promoted
+
+
 def store_matches_driver(store, driver_names):
     if not driver_names:
         return True
@@ -312,16 +462,18 @@ def store_ids_for_route(route):
     ]
 
 
-def update_route_stores_status(stores, route, status, driver_status=""):
-    route_store_ids = set(store_ids_for_route(route))
+def accept_route_stores(stores, route):
     updated = []
-    for store in stores or []:
-        if not isinstance(store, dict) or clean(store.get("id")) not in route_store_ids:
+    for store in route_store_records(route, stores):
+        if clean(store.get("status")).lower() in COMPLETED_DRIVER_STATUSES:
             continue
-        store["status"] = status
-        if driver_status:
-            store["driver_status"] = driver_status
+        store["driver_status"] = "Accepted"
+        store["driver_work_status"] = "Waiting"
+        store["driver_accepted_at"] = store.get("driver_accepted_at") or utc_now_iso()
         updated.append(store)
+        sync_route_stop_from_store(route, store)
+
+    promote_next_waiting_stop(route, stores)
     return updated
 
 
@@ -335,9 +487,9 @@ def accept_driver_route(routes, stores, route_id, driver_names=None, accepted_by
         route["driver_status"] = "Accepted"
         route["driver_accepted_at"] = utc_now_iso()
         route["driver_accepted_by"] = clean(accepted_by) or "system"
-        if clean(route.get("status")).lower() == "assigned":
+        if clean(route.get("status")).lower() in {"assigned", ""}:
             route["status"] = "Dispatched"
-        updated_stores = update_route_stores_status(stores, route, "Dispatched", "Accepted")
+        updated_stores = accept_route_stores(stores, route)
         return route, updated_stores
     raise LookupError("Driver route was not found.")
 
@@ -362,6 +514,7 @@ def decline_driver_route(routes, stores, route_id, reason="", driver_names=None,
             store["truck_status"] = ""
             store["route_id"] = ""
             store["driver_status"] = "Declined"
+            store["driver_work_status"] = ""
             store["driver_decline_reason"] = clean(reason)
             store["driver_declined_at"] = utc_now_iso()
             restored.append(store)
@@ -545,8 +698,12 @@ def complete_driver_stop(stores, store_id, driver_names=None, completed_by=""):
 
         if clean(store.get("driver_exception_type")):
             store["status"] = "Exception"
+            store["driver_work_status"] = "Exception"
         else:
             store["status"] = "Recovered"
+            store["driver_work_status"] = "Completed"
+        store["receiving_status"] = "Pending"
+        store["dispatcher_closeout_status"] = "Pending"
         store["completed_by"] = clean(completed_by) or "system"
         store["completed_at"] = utc_now_iso()
         store["already_completed"] = False
@@ -606,20 +763,19 @@ def update_route_recovery_progress(routes, stores, store_id):
     return updated_routes
 
 
-def summarize_driver_route(route_summary):
-    route = deepcopy(route_summary.get("route") or {})
-    stops = active_stops_for_route(route)
+def summarize_driver_route(route, stops):
+    route = deepcopy(route or {})
     component_totals = total_stop_components(stops)
-    completed_stops = sum(1 for stop in stops if is_completed_stop(stop))
+    completed_stops = sum(1 for stop in stops if clean(stop.get("status")).lower() in COMPLETED_DRIVER_STATUSES)
 
     return {
         "route_id": route_identifier(route),
-        "label": route_summary.get("label") or "Assigned Route",
-        "truck": route_summary.get("truck") or "Unassigned",
-        "driver": route_summary.get("driver") or "Unassigned",
-        "status": route_summary.get("status") or "Assigned",
+        "label": clean(route.get("route_number") or route.get("id")) or "Assigned Work",
+        "truck": clean(route.get("truck")) or "Unassigned",
+        "driver": clean(route.get("driver")) or "Unassigned",
+        "status": clean(route.get("status")) or "Assigned",
         "driver_status": clean(route.get("driver_status")) or "Pending",
-        "status_class": status_class(route_summary.get("status")),
+        "status_class": status_class(route.get("status")),
         "stop_count": len(stops),
         "completed_stops": completed_stops,
         "component_totals": component_totals,
@@ -632,29 +788,42 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
     driver_names = normalize_driver_names(driver_names)
     stores = stores if isinstance(stores, list) else []
     store_lookup = build_store_lookup(stores)
-    recovery_workspace = summarize_recovery_workspace_from_records(routes, stores)
+    stores_by_id = {
+        clean(store.get("id")): store
+        for store in stores
+        if isinstance(store, dict) and clean(store.get("id"))
+    }
 
     assigned_routes = []
-    for route_summary in recovery_workspace.get("routes") or []:
-        if not is_active_route(route_summary):
+    active_stops = []
+    for route in routes or []:
+        if not isinstance(route, dict):
             continue
 
-        if not matches_driver(route_summary, driver_names):
+        route_driver = clean(route.get("driver"))
+        if driver_names and route_driver not in driver_names:
             continue
 
-        driver_route = summarize_driver_route(route_summary)
+        route_stops = active_store_records_for_route(route, stores_by_id)
+        if not route_stops:
+            continue
+
+        driver_route = summarize_driver_route(route, route_stops)
         if driver_route["stop_count"] > 0:
             assigned_routes.append(driver_route)
+            active_stops.extend(route_stops)
 
     selected_route = None
     selected_stop = None
     selected_stop_detail = None
-    if assigned_routes:
-        selected_index = max(0, min(int(selected_index or 0), len(assigned_routes) - 1))
-        selected_route = assigned_routes[selected_index]
-        if selected_route["stops"]:
-            selected_stop = selected_route["stops"][0]
-            selected_stop_detail = build_stop_detail(selected_stop, store_lookup)
+    if active_stops:
+        selected_index = max(0, min(int(selected_index or 0), len(active_stops) - 1))
+        selected_stop = active_stops[selected_index]
+        selected_stop_detail = build_stop_detail(selected_stop, store_lookup)
+        selected_route = next(
+            (route for route in assigned_routes if route["route_id"] == selected_stop.get("route_id")),
+            assigned_routes[0] if assigned_routes else None,
+        )
 
     component_totals = empty_component_counts()
     for route in assigned_routes:
@@ -669,6 +838,7 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
         "exception_types": DRIVER_EXCEPTION_TYPES,
         "driver_names": sorted(driver_names),
         "routes": assigned_routes,
+        "stops": active_stops,
         "selected_route": selected_route,
         "selected_stop": selected_stop,
         "selected_stop_detail": selected_stop_detail,

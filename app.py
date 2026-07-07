@@ -40,6 +40,7 @@ from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
 from eoms_modules.driver_center_service import (
     accept_driver_route,
+    advance_next_driver_stop,
     decline_driver_route,
     build_driver_workspace,
     complete_driver_stop,
@@ -5104,8 +5105,19 @@ def api_assign_route():
             store["assigned_driver"] = driver
             store["driver_phone"] = driver_phone
             store["route_id"] = route_id
+            store["driver_status"] = "Pending"
+            store["driver_work_status"] = "Waiting"
+            store["receiving_status"] = ""
+            store["dispatcher_closeout_status"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
+
+    assigned_store_lookup = {
+        clean(store.get("id")): store
+        for store in stores
+        if clean(store.get("id")) in set(assigned_ids)
+    }
+    ordered = [dict(assigned_store_lookup.get(clean(store.get("id")), store)) for store in ordered]
 
     routes = read_json(ROUTES_FILE)
     route_number = f"RT-{len(routes) + 1:05d}"
@@ -5122,7 +5134,8 @@ def api_assign_route():
         "stops": ordered,
         "metrics": metrics,
         "created_at": datetime.now().isoformat(timespec="seconds"),
-        "status": "Assigned"
+        "status": "Assigned",
+        "driver_status": "Pending",
     }
 
     routes.append(route)
@@ -5161,7 +5174,9 @@ def api_dispatch_route():
     stores = read_json(STORES_FILE)
     for store in stores:
         if store.get("id") in route_store_ids:
-            store["status"] = "Dispatched"
+            if clean(store.get("status")).lower() not in {"recovered", "exception", "completed"}:
+                store["status"] = "Assigned"
+                store["driver_work_status"] = clean(store.get("driver_work_status")) or "Waiting"
             store["dispatched_at"] = route["dispatched_at"]
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Dispatched")
@@ -5348,6 +5363,10 @@ def api_unassign_route():
             store["helper"] = ""
             store["truck_status"] = ""
             store["route_id"] = ""
+            store["driver_status"] = ""
+            store["driver_work_status"] = ""
+            store["receiving_status"] = ""
+            store["dispatcher_closeout_status"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             restored += 1
@@ -5547,6 +5566,10 @@ def api_unassign_store():
             store["helper"] = ""
             store["truck_status"] = ""
             store["route_id"] = ""
+            store["driver_status"] = ""
+            store["driver_work_status"] = ""
+            store["receiving_status"] = ""
+            store["dispatcher_closeout_status"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             restored = store
@@ -5755,6 +5778,7 @@ def api_driver_complete_stop():
         )
         already_completed = bool(updated.pop("already_completed", False))
         updated_routes = update_route_recovery_progress(routes, stores, updated.get("id"))
+        promoted = advance_next_driver_stop(routes, stores, updated.get("id"))
     except PermissionError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 403
     except LookupError as exc:
@@ -5775,6 +5799,7 @@ def api_driver_complete_stop():
         "ok": True,
         "already_completed": already_completed,
         "store": updated,
+        "next_stop": promoted,
         "updated_routes": len(updated_routes),
         "summary": workspace.get("summary", {}),
         "component_totals": workspace.get("component_totals", {}),
@@ -5782,58 +5807,49 @@ def api_driver_complete_stop():
 
 @app.route("/api/driver/complete", methods=["POST"])
 def api_driver_complete():
-    data = request.get_json(force=True)
-    store_id = data.get("store_id")
-    if data.get("collected_racks") in (None, ""):
-        return jsonify({"ok": False, "message": "Enter collected rack count before completing this stop."}), 400
-    collected_racks = num(data.get("collected_racks"))
-    if collected_racks < 0:
-        return jsonify({"ok": False, "message": "Collected rack count cannot be negative."}), 400
-    collected_pieces = None
-    if data.get("collected_pieces") not in (None, ""):
-        collected_pieces = num(data.get("collected_pieces"))
-        if collected_pieces < 0:
-            return jsonify({"ok": False, "message": "PCS count cannot be negative."}), 400
+    data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
-    updated = None
-    for store in stores:
-        if store.get("id") == store_id:
-            if current_role() == "Driver":
-                user = current_user() or {}
-                driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
-                if clean(store.get("assigned_driver")) not in driver_names:
-                    return jsonify({"ok": False, "message": "This stop is not assigned to you."}), 403
-            apply_material_counts(store, data)
-            store["collected_racks"] = collected_racks
-            store["collected_pieces"] = collected_pieces if collected_pieces is not None else collected_racks * PIECES_PER_RACK
-            store["variance"] = collected_racks - num(store.get("expected_racks"))
-            expected_pieces = num(store.get("expected_pieces")) or (num(store.get("expected_racks")) * PIECES_PER_RACK)
-            store["pieces_variance"] = num(store.get("collected_pieces")) - expected_pieces
-            store["status"] = "Recovered"
-            store["completed_at"] = datetime.now().isoformat(timespec="seconds")
-            store["receiving_status"] = "Pending"
-            store["dispatcher_closeout_status"] = "Pending"
-            if abs(num(store.get("variance"))) >= 2:
-                store["variance_review"] = True
-            updated = store
-            break
-    write_json(STORES_FILE, stores)
     routes = read_json(ROUTES_FILE)
-    for route in routes:
-        route_store_ids = set(route.get("store_ids", []))
-        if store_id in route_store_ids:
-            route_stores = [s for s in stores if s.get("id") in route_store_ids]
-            if route_stores and all(clean(s.get("status")).lower() in {"recovered", "exception", "completed"} for s in route_stores):
-                route["status"] = "Recovered"
-                route["completed_at"] = datetime.now().isoformat(timespec="seconds")
-                route["completion_summary"] = completion_summary_for_stores(route_stores)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        saved = save_driver_stop_counts(
+            stores,
+            data.get("store_id"),
+            data,
+            driver_names=driver_names,
+            saved_by=session.get("username", "system"),
+        )
+        updated = complete_driver_stop(
+            stores,
+            saved.get("id"),
+            driver_names=driver_names,
+            completed_by=session.get("username", "system"),
+        )
+        already_completed = bool(updated.pop("already_completed", False))
+        updated_routes = update_route_recovery_progress(routes, stores, updated.get("id"))
+        promoted = advance_next_driver_stop(routes, stores, updated.get("id"))
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
     write_json(ROUTES_FILE, routes)
-    if updated:
-        sync_route_stop_materials(updated)
-    audit("Driver Complete For Receiving", {"store_id": store_id, "collected_racks": collected_racks, "collected_pieces": collected_pieces})
-    if not updated:
-        return jsonify({"ok": False, "message": "Stop not found."}), 404
-    return jsonify({"ok": True, "store": updated})
+    audit("Driver Complete For Receiving", {"store_id": updated.get("id"), "bol": updated.get("bol")})
+    return jsonify({
+        "ok": True,
+        "already_completed": already_completed,
+        "store": updated,
+        "next_stop": promoted,
+        "updated_routes": len(updated_routes),
+    })
 
 # ---------------------------------------------------------------------------
 # Database Maintenance Center

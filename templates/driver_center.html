@@ -12,9 +12,9 @@
 
   <section class="eoms-summary-grid" aria-label="Driver summary">
     <div class="eoms-summary-card">
-      <span>Assigned Routes</span>
-      <strong>{{ workspace.summary.route_count }}</strong>
-      <small>active driver routes</small>
+      <span>Assigned BOLs</span>
+      <strong>{{ workspace.summary.stop_count }}</strong>
+      <small>active store stops</small>
     </div>
     <div class="eoms-summary-card">
       <span>Stops</span>
@@ -27,9 +27,9 @@
       <small>lbs assigned</small>
     </div>
     <div class="eoms-summary-card">
-      <span>Current Route</span>
-      <strong>{{ workspace.selected_route.label if workspace.selected_route else "None" }}</strong>
-      <small>assigned route</small>
+      <span>Current Store</span>
+      <strong>{{ workspace.selected_stop_detail.store if workspace.selected_stop_detail else "None" }}</strong>
+      <small>next active BOL</small>
     </div>
   </section>
 
@@ -37,29 +37,28 @@
     <div class="eoms-stack">
       <section class="eoms-card">
         <div class="eoms-toolbar">
-          <span class="eoms-status eoms-status-neutral">Assigned Route</span>
+          <span class="eoms-status eoms-status-neutral">Driver Assignment</span>
         </div>
 
         {% if workspace.selected_route %}
           <table class="eoms-table">
             <tbody>
-              <tr><th>Route</th><td>{{ workspace.selected_route.label }}</td></tr>
               <tr><th>Truck</th><td>{{ workspace.selected_route.truck }}</td></tr>
               <tr><th>Driver</th><td>{{ workspace.selected_route.driver }}</td></tr>
               <tr><th>Driver Response</th><td>{{ workspace.selected_route.driver_status }}</td></tr>
               <tr><th>Status</th><td><span class="eoms-status eoms-status-{{ workspace.selected_route.status_class }}">{{ workspace.selected_route.status }}</span></td></tr>
-              <tr><th>Stops</th><td>{{ workspace.selected_route.stop_count }}</td></tr>
+              <tr><th>Active BOLs</th><td>{{ workspace.selected_route.stop_count }}</td></tr>
               <tr><th>Estimated Weight</th><td>{{ workspace.selected_route.estimated_weight }} lbs</td></tr>
             </tbody>
           </table>
           <div class="eoms-toolbar">
-            <button id="driverAcceptRouteBtn" class="eoms-button eoms-button-primary" type="button" data-route-id="{{ workspace.selected_route.route_id }}" {% if workspace.selected_route.driver_status == "Accepted" %}disabled{% endif %}>Accept</button>
+            <button id="driverAcceptRouteBtn" class="eoms-button eoms-button-primary" type="button" data-route-id="{{ workspace.selected_route.route_id }}" {% if workspace.selected_route.driver_status == "Accepted" %}disabled{% endif %}>Accept Assignment</button>
             <button id="driverDeclineRouteBtn" class="eoms-button eoms-button-secondary" type="button" data-route-id="{{ workspace.selected_route.route_id }}">Decline</button>
           </div>
         {% else %}
           <div class="eoms-empty-state">
-            <strong>No assigned route</strong>
-            <span>Assigned driver routes will appear here when dispatch has released work.</span>
+            <strong>No assigned BOLs</strong>
+            <span>Assigned store stops will appear here when dispatch has released work.</span>
           </div>
         {% endif %}
       </section>
@@ -85,8 +84,8 @@
       </section>
 
       <section class="eoms-card">
-        <h2>Stops</h2>
-        {% if workspace.selected_route and workspace.selected_route.stops %}
+        <h2>Assigned BOLs</h2>
+        {% if workspace.stops %}
           <table class="eoms-table">
             <thead>
               <tr>
@@ -98,13 +97,13 @@
               </tr>
             </thead>
             <tbody>
-              {% for stop in workspace.selected_route.stops %}
+              {% for stop in workspace.stops %}
                 <tr>
                   <td>{{ stop.store or "Unassigned" }}</td>
                   <td>{{ stop.bol or "Not set" }}</td>
                   <td>{{ stop.city or "Unknown" }}{% if stop.state %}, {{ stop.state }}{% endif %}</td>
                   <td>{{ stop.due_date or "Not set" }}</td>
-                  <td>{{ stop.status }}</td>
+                  <td>{{ stop.driver_work_status or stop.status }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -112,7 +111,7 @@
         {% else %}
           <div class="eoms-empty-state">
             <strong>No stops assigned</strong>
-            <span>Driver stops will appear here after a route is assigned or dispatched.</span>
+            <span>Driver stops will appear here after dispatch assigns BOLs.</span>
           </div>
         {% endif %}
       </section>
@@ -130,7 +129,7 @@
             <tr><th>Contact</th><td>{{ workspace.selected_stop_detail.contact }}</td></tr>
             <tr><th>Location</th><td>{{ workspace.selected_stop_detail.city_state }}</td></tr>
             <tr><th>Due</th><td>{{ workspace.selected_stop_detail.due_date }}</td></tr>
-            <tr><th>Status</th><td>{{ workspace.selected_stop_detail.status }}</td></tr>
+            <tr><th>Status</th><td>{{ workspace.selected_stop.driver_work_status if workspace.selected_stop else workspace.selected_stop_detail.status }}</td></tr>
             {% if workspace.selected_stop_detail.driver_exception_type %}
               <tr><th>Exception</th><td>{{ workspace.selected_stop_detail.driver_exception_type }}</td></tr>
               <tr><th>Exception Notes</th><td>{{ workspace.selected_stop_detail.driver_exception_notes }}</td></tr>

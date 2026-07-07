@@ -448,6 +448,8 @@ function buildAssignedRouteCard(route, assignedStores){
     const metrics = route.metrics || {};
     const routeId = route.id || route.route_number || "";
     const storesForRoute = assignedStores || route.stops || [];
+    const driverStatus = route.driver_status || "Pending";
+    const driverStatusClass = String(driverStatus).toLowerCase() === "accepted" ? "success" : "neutral";
 
     routeBlock.innerHTML = `
         <div class="assigned-route-head">
@@ -461,7 +463,7 @@ function buildAssignedRouteCard(route, assignedStores){
                 <p><b>Hub:</b> ${route.hub || "Not set"}${metrics.mileage !== undefined ? ` &middot; <b>Miles:</b> ${metrics.mileage}` : ""}</p>
                 ${CAN_VIEW_FINANCIALS && metrics.revenue !== undefined ? `<p><b>Revenue:</b> $${metrics.revenue}</p><p><b>Driver Pay:</b> $${metrics.driver_pay}</p>` : ""}
             </div>
-            <span class="eoms-status eoms-status-neutral">${route.status || "Assigned"}</span>
+            <span class="eoms-status eoms-status-${driverStatusClass}">Driver ${driverStatus}</span>
         </div>
         <div class="route-sms-status">
             <span class="eoms-module-title">Driver SMS</span>
@@ -498,7 +500,7 @@ function buildAssignedRouteCard(route, assignedStores){
         row.innerHTML = `
             <label class="assigned-select-line">
                 <input type="checkbox" class="assigned-store-check" data-store-id="${store.id || ""}" data-route-id="${routeId}">
-                <span>${store.store_name || store.origin || "Store"}<br><small>BOL ${store.bol || ""}</small></span>
+                <span>${store.store_name || store.origin || "Store"}<br><small>BOL ${store.bol || ""} &middot; ${store.driver_work_status || store.status || "Waiting"}</small></span>
             </label>
         `;
 
