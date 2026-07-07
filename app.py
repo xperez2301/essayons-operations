@@ -1618,12 +1618,11 @@ def enforce_login():
             return render_template("access_denied.html"), 403
         if role == "Driver":
             driver_allowed = (
-                path.startswith("/driver") or path.startswith("/api/driver/") or
-                path.startswith("/route-view/") or path.startswith("/api/route/")
+                path.startswith("/driver") or path.startswith("/api/driver/")
             )
             if not driver_allowed:
                 if path.startswith("/api/"):
-                    return jsonify({"ok": False, "message": "Driver access is limited to assigned routes."}), 403
+                    return jsonify({"ok": False, "message": "Driver access is limited to assigned BOLs."}), 403
                 return redirect("/driver")
         return None
     session.clear()
@@ -1638,17 +1637,22 @@ def safe_next_url(candidate):
         return candidate
     return "/dashboard"
 
+def post_login_url_for_user(user, requested_next=""):
+    if clean((user or {}).get("role")) == "Driver":
+        return "/driver"
+    return safe_next_url(requested_next)
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in") and current_user():
-        return redirect(request.args.get("next") or "/dashboard")
+        return redirect(post_login_url_for_user(current_user(), request.args.get("next") or "/dashboard"))
     if session.get("logged_in"):
         session.clear()
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
-        next_url = safe_next_url(request.form.get("next") or request.args.get("next"))
+        requested_next = request.form.get("next") or request.args.get("next")
         matched = None
         payload = users_payload()
         for user in payload.get("users", []):
@@ -1668,7 +1672,7 @@ def login():
             session["username"] = matched.get("username")
             session["role"] = matched.get("role", "Dispatcher")
             session["assigned_cities"] = matched.get("assigned_cities", [])
-            return redirect(next_url)
+            return redirect(post_login_url_for_user(matched, requested_next))
         error = "Invalid username or password."
     return render_template("login.html", error=error, next=request.args.get("next") or "/dashboard")
 
@@ -4957,51 +4961,23 @@ def api_send_route_sms():
     if not phone:
         return jsonify({"ok": False, "message": "Add the driver phone number first."})
 
-    # FT1 SMS format: include route details directly in the text message.
-    # This avoids local 127.0.0.1 links and gives the driver all stop details even
-    # when EOMS is only running on the dispatch laptop.
     stops = route.get("stops", []) or []
-    metrics = route.get("metrics", {}) or {}
-
     body_lines = [
-        f"Essayons BAX Route {route.get('route_number')}",
+        "Essayons BAX",
+        "",
+        f"You have {len(stops)} BOL{'s' if len(stops) != 1 else ''} assigned today.",
+        "",
     ]
-
-    if route.get("driver"):
-        body_lines.append(f"Driver: {route.get('driver')}")
-    if route.get("truck"):
-        body_lines.append(f"Truck: {route.get('truck')}")
-    if route.get("helper"):
-        body_lines.append(f"Helper: {route.get('helper')}")
-
-    body_lines.append(
-        f"Stops: {len(stops)} | Racks: {metrics.get('racks', 0)} | Weight: {metrics.get('weight', 0)} lbs"
-    )
-    body_lines.append("")
 
     for idx, stop in enumerate(stops, start=1):
         store_name = clean(stop.get("store_name") or stop.get("origin_name") or "Unknown Store")
         bol = clean(stop.get("bol"))
-        origin = clean(stop.get("origin"))
-        address = clean(stop.get("address") or stop.get("origin_address"))
-        city = clean(stop.get("city") or stop.get("origin_city"))
-        state = clean(stop.get("state") or stop.get("origin_state"))
-        zip_code = clean(stop.get("zip") or stop.get("origin_zip"))
-        racks = clean(stop.get("expected_racks"))
-
-        full_address = ", ".join([part for part in [address, city, state, zip_code] if part])
-
         body_lines.append(f"{idx}. {store_name}")
         if bol:
-            body_lines.append(f"BOL: {bol}")
-        if origin:
-            body_lines.append(f"Origin: {origin}")
-        if full_address:
-            body_lines.append(f"Address: {full_address}")
-        if racks:
-            body_lines.append(f"Expected Racks: {racks}")
+            body_lines.append(f"   BOL {bol}")
         body_lines.append("")
 
+    body_lines.append("Please log into the EOMS Driver Portal to accept and complete your assignments.")
     body = "\n".join(body_lines).strip()
 
     telnyx_settings = read_json(SETTINGS_FILE)
@@ -5021,8 +4997,8 @@ def api_send_route_sms():
             return jsonify({"ok": False, "message": f"Telnyx error {resp.status_code}: {resp.text[:180]}", "body": body})
         route["last_sms_sent_at"] = datetime.now().isoformat(timespec="seconds")
         write_json(ROUTES_FILE, routes)
-        audit("Send Route SMS", {"route_id": route.get("id"), "route_number": route.get("route_number"), "to": phone})
-        return jsonify({"ok": True, "message": "Route SMS sent.", "body": body})
+        audit("Send Driver BOL SMS", {"route_id": route.get("id"), "bols": len(stops), "to": phone})
+        return jsonify({"ok": True, "message": "Driver BOL SMS sent.", "body": body})
     except Exception as exc:
         return jsonify({"ok": False, "message": "SMS send failed: " + str(exc)[:180], "body": body})
 

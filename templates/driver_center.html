@@ -1,209 +1,354 @@
 {% extends "layouts/eoms_base.html" %}
 
 {% set page_title = "Driver Portal" %}
-{% set module_title = "Driver Workspace" %}
+{% set module_title = "Today's BOLs" %}
+{% set assignment_accepted = workspace.selected_route and workspace.selected_route.driver_status == "Accepted" %}
+
+{% block head %}
+<style>
+  .driver-home {
+    display: grid;
+    gap: 16px;
+  }
+
+  .driver-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .driver-kpi {
+    min-height: 92px;
+    padding: 14px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .driver-kpi span {
+    display: block;
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .driver-kpi strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .driver-work-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .driver-current-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .driver-current-head h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+
+  .driver-current-head p,
+  .driver-stop-meta p {
+    margin: 4px 0;
+  }
+
+  .driver-primary-action {
+    width: 100%;
+    min-height: 52px;
+    font-size: 16px;
+  }
+
+  .driver-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .driver-action-row .eoms-button {
+    min-height: 48px;
+  }
+
+  .driver-stop-form {
+    display: grid;
+    gap: 12px;
+  }
+
+  .driver-count-grid,
+  .driver-expected-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .driver-stop-form label,
+  .driver-count-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .driver-stop-form input,
+  .driver-stop-form select,
+  .driver-stop-form textarea {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .driver-count-field input {
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .driver-expected {
+    padding: 10px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface-muted);
+  }
+
+  .driver-expected span {
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .driver-expected strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 20px;
+  }
+
+  .driver-bol-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .driver-bol-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .driver-bol-row b,
+  .driver-bol-row span {
+    display: block;
+  }
+
+  .driver-bol-row small {
+    color: var(--eoms-muted);
+  }
+
+  @media (max-width: 980px) {
+    .driver-kpis,
+    .driver-work-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .driver-kpis,
+    .driver-count-grid,
+    .driver-expected-grid,
+    .driver-action-row {
+      grid-template-columns: 1fr;
+    }
+
+    .driver-current-head,
+    .driver-bol-row {
+      display: grid;
+    }
+
+    .driver-kpi strong {
+      font-size: 26px;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block topbar_actions %}
-  <span class="eoms-status eoms-status-neutral">Foundation</span>
+  <span class="eoms-status eoms-status-success">Driver Workspace</span>
 {% endblock %}
 
 {% block content %}
   <div id="driverSaveNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
 
-  <section class="eoms-summary-grid" aria-label="Driver summary">
-    <div class="eoms-summary-card">
-      <span>Assigned BOLs</span>
-      <strong>{{ workspace.summary.stop_count }}</strong>
-      <small>active store stops</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Stops</span>
-      <strong>{{ workspace.summary.completed_stops }} / {{ workspace.summary.stop_count }}</strong>
-      <small>completed stops</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Estimated Weight</span>
-      <strong>{{ workspace.summary.estimated_weight }}</strong>
-      <small>lbs assigned</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Current Store</span>
-      <strong>{{ workspace.selected_stop_detail.store if workspace.selected_stop_detail else "None" }}</strong>
-      <small>next active BOL</small>
-    </div>
-  </section>
+  <div class="driver-home">
+    <section class="driver-kpis" aria-label="Driver summary">
+      <div class="driver-kpi">
+        <span>Today's Assigned BOLs</span>
+        <strong>{{ workspace.summary.today_assigned_count }}</strong>
+      </div>
+      <div class="driver-kpi">
+        <span>Current BOL</span>
+        <strong>{{ workspace.selected_stop_detail.bol if assignment_accepted and workspace.selected_stop_detail else "None" }}</strong>
+      </div>
+      <div class="driver-kpi">
+        <span>Waiting BOLs</span>
+        <strong>{{ workspace.summary.waiting_count }}</strong>
+      </div>
+      <div class="driver-kpi">
+        <span>Completed Today</span>
+        <strong>{{ workspace.summary.completed_today }}</strong>
+      </div>
+    </section>
 
-  <div class="eoms-demo-grid">
-    <div class="eoms-stack">
+    {% if workspace.selected_route and not assignment_accepted %}
       <section class="eoms-card">
-        <div class="eoms-toolbar">
-          <span class="eoms-status eoms-status-neutral">Driver Assignment</span>
+        <div class="driver-current-head">
+          <div>
+            <h2>Accept Today's Assignment</h2>
+            <p class="muted">{{ workspace.summary.today_assigned_count }} BOL{{ "" if workspace.summary.today_assigned_count == 1 else "s" }} ready.</p>
+          </div>
+          <span class="eoms-status eoms-status-warning">Pending</span>
+        </div>
+        <button id="driverAcceptRouteBtn" class="eoms-button eoms-button-primary driver-primary-action" type="button" data-route-id="{{ workspace.selected_route.route_id }}">Accept Assignment</button>
+      </section>
+    {% endif %}
+
+    <div class="driver-work-grid">
+      <section class="eoms-card">
+        <div class="driver-current-head">
+          <div>
+            <h2>{{ workspace.selected_stop_detail.store if assignment_accepted and workspace.selected_stop_detail else "No Current BOL" }}</h2>
+            {% if assignment_accepted and workspace.selected_stop_detail %}
+              <p><b>BOL {{ workspace.selected_stop_detail.bol }}</b></p>
+              <p class="muted">{{ workspace.selected_stop_detail.address }}</p>
+            {% else %}
+              <p class="muted">{{ "Accept today's assignment to begin." if workspace.selected_route and not assignment_accepted else "All assigned BOLs are complete." }}</p>
+            {% endif %}
+          </div>
+          {% if assignment_accepted and workspace.selected_stop %}
+            <span class="eoms-status eoms-status-success">{{ workspace.selected_stop.driver_work_status or "Current" }}</span>
+          {% endif %}
         </div>
 
-        {% if workspace.selected_route %}
-          <table class="eoms-table">
-            <tbody>
-              <tr><th>Truck</th><td>{{ workspace.selected_route.truck }}</td></tr>
-              <tr><th>Driver</th><td>{{ workspace.selected_route.driver }}</td></tr>
-              <tr><th>Driver Response</th><td>{{ workspace.selected_route.driver_status }}</td></tr>
-              <tr><th>Status</th><td><span class="eoms-status eoms-status-{{ workspace.selected_route.status_class }}">{{ workspace.selected_route.status }}</span></td></tr>
-              <tr><th>Active BOLs</th><td>{{ workspace.selected_route.stop_count }}</td></tr>
-              <tr><th>Estimated Weight</th><td>{{ workspace.selected_route.estimated_weight }} lbs</td></tr>
-            </tbody>
-          </table>
-          <div class="eoms-toolbar">
-            <button id="driverAcceptRouteBtn" class="eoms-button eoms-button-primary" type="button" data-route-id="{{ workspace.selected_route.route_id }}" {% if workspace.selected_route.driver_status == "Accepted" %}disabled{% endif %}>Accept Assignment</button>
-            <button id="driverDeclineRouteBtn" class="eoms-button eoms-button-secondary" type="button" data-route-id="{{ workspace.selected_route.route_id }}">Decline</button>
+        {% if assignment_accepted and workspace.selected_stop_detail %}
+          <div class="driver-stop-meta">
+            <p><b>Location:</b> {{ workspace.selected_stop_detail.city_state }}</p>
+            <p><b>Due:</b> {{ workspace.selected_stop_detail.due_date }}</p>
           </div>
-        {% else %}
-          <div class="eoms-empty-state">
-            <strong>No assigned BOLs</strong>
-            <span>Assigned store stops will appear here when dispatch has released work.</span>
-          </div>
-        {% endif %}
-      </section>
 
-      <section class="eoms-card">
-        <h2>Component Totals</h2>
-        <table class="eoms-table">
-          <thead>
-            <tr>
-              <th>Component</th>
-              <th>Assigned Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for component in workspace.component_names %}
-              <tr>
-                <td>{{ component }}</td>
-                <td>{{ workspace.component_totals[component] }}</td>
-              </tr>
+          <div class="driver-action-row">
+            <a class="eoms-button eoms-button-secondary" href="https://www.google.com/maps/search/?api=1&query={{ workspace.selected_stop_detail.address | urlencode }}" target="_blank" rel="noopener">Navigate to Store</a>
+            <button id="driverNextAssignmentBtn" class="eoms-button eoms-button-secondary" type="button">Next Assignment</button>
+          </div>
+
+          <h3>Expected Quantities</h3>
+          <div class="driver-expected-grid">
+            {% for entry in workspace.selected_stop_detail.expected_entries %}
+              <div class="driver-expected">
+                <span>{{ entry.label }}</span>
+                <strong>{{ entry.value }}</strong>
+              </div>
             {% endfor %}
-          </tbody>
-        </table>
-      </section>
+          </div>
 
-      <section class="eoms-card">
-        <h2>Assigned BOLs</h2>
-        {% if workspace.stops %}
-          <table class="eoms-table">
-            <thead>
-              <tr>
-                <th>Store</th>
-                <th>BOL</th>
-                <th>City / State</th>
-                <th>Due</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for stop in workspace.stops %}
-                <tr>
-                  <td>{{ stop.store or "Unassigned" }}</td>
-                  <td>{{ stop.bol or "Not set" }}</td>
-                  <td>{{ stop.city or "Unknown" }}{% if stop.state %}, {{ stop.state }}{% endif %}</td>
-                  <td>{{ stop.due_date or "Not set" }}</td>
-                  <td>{{ stop.driver_work_status or stop.status }}</td>
-                </tr>
+          <h3>Recovered Counts</h3>
+          <div class="driver-stop-form" data-driver-stop-form>
+            <input type="hidden" id="driverStopStoreId" value="{{ workspace.selected_stop_detail.store_id }}">
+            <div class="driver-count-grid">
+              {% for entry in workspace.selected_stop_detail.component_entries %}
+                <label class="driver-count-field">
+                  <span>{{ entry.label }}</span>
+                  <input class="driver-count-input" data-count-field="{{ entry.field_name }}" type="number" min="0" step="1" value="{{ entry.value }}">
+                </label>
               {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="eoms-empty-state">
-            <strong>No stops assigned</strong>
-            <span>Driver stops will appear here after dispatch assigns BOLs.</span>
+            </div>
+            <label>
+              <span>Damage</span>
+              <textarea id="driverDamageNotes" rows="3" placeholder="List damaged material or enter None">{{ workspace.selected_stop_detail.damage_notes }}</textarea>
+            </label>
+            <label>
+              <span>Notes</span>
+              <textarea id="driverStopNotes" rows="3">{{ workspace.selected_stop_detail.notes }}</textarea>
+            </label>
+            <label>
+              <span>Driver Exception</span>
+              <select id="driverExceptionType">
+                <option value="">No Exception</option>
+                {% for exception_type in workspace.selected_stop_detail.exception_types %}
+                  <option value="{{ exception_type }}" {% if workspace.selected_stop_detail.driver_exception_type == exception_type %}selected{% endif %}>{{ exception_type }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>Manager Name (No Pickup only)</span>
+              <input id="noPickupManagerName" type="text" value="{{ workspace.selected_stop_detail.no_pickup_manager_name }}">
+            </label>
+            <label>
+              <span>Photo References</span>
+              <textarea id="noPickupPhotos" rows="3" placeholder="Photo links or filenames, one per line">{% for photo in workspace.selected_stop_detail.no_pickup_photos %}{{ photo }}
+{% endfor %}</textarea>
+            </label>
+            <input id="driverCollectedRacks" type="hidden" value="{{ workspace.selected_stop_detail.collected_racks }}">
+            <input id="driverCollectedPieces" type="hidden" value="{{ workspace.selected_stop_detail.collected_pieces }}">
+            <textarea id="driverRevisionReason" hidden></textarea>
+            <textarea id="driverExceptionNotes" hidden>{{ workspace.selected_stop_detail.driver_exception_notes }}</textarea>
+
+            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary driver-primary-action" type="button">Complete BOL</button>
+            <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save Progress</button>
+            <button id="driverSaveExceptionBtn" class="eoms-button eoms-button-secondary" type="button">Save Exception</button>
           </div>
         {% endif %}
       </section>
-    </div>
 
-    <aside class="eoms-card">
-      <h2>Stop Detail</h2>
-      {% if workspace.selected_stop_detail %}
-        <table class="eoms-table">
-          <tbody>
-            <tr><th>Store</th><td>{{ workspace.selected_stop_detail.store }}</td></tr>
-            <tr><th>BOL</th><td>{{ workspace.selected_stop_detail.bol }}</td></tr>
-            <tr><th>Origin</th><td>{{ workspace.selected_stop_detail.origin }}</td></tr>
-            <tr><th>Address</th><td>{{ workspace.selected_stop_detail.address }}</td></tr>
-            <tr><th>Contact</th><td>{{ workspace.selected_stop_detail.contact }}</td></tr>
-            <tr><th>Location</th><td>{{ workspace.selected_stop_detail.city_state }}</td></tr>
-            <tr><th>Due</th><td>{{ workspace.selected_stop_detail.due_date }}</td></tr>
-            <tr><th>Status</th><td>{{ workspace.selected_stop.driver_work_status if workspace.selected_stop else workspace.selected_stop_detail.status }}</td></tr>
-            {% if workspace.selected_stop_detail.driver_exception_type %}
-              <tr><th>Exception</th><td>{{ workspace.selected_stop_detail.driver_exception_type }}</td></tr>
-              <tr><th>Exception Notes</th><td>{{ workspace.selected_stop_detail.driver_exception_notes }}</td></tr>
-            {% endif %}
-            {% if workspace.selected_stop_detail.no_pickup_manager_name %}
-              <tr><th>No Pickup Manager</th><td>{{ workspace.selected_stop_detail.no_pickup_manager_name }}</td></tr>
-            {% endif %}
-            {% if workspace.selected_stop_detail.no_pickup_photos %}
-              <tr><th>No Pickup Photos</th><td>{{ workspace.selected_stop_detail.no_pickup_photos | join(", ") }}</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-
-        <div style="display:grid;gap:10px;margin-top:14px;" data-driver-stop-form>
-          <input type="hidden" id="driverStopStoreId" value="{{ workspace.selected_stop_detail.store_id }}">
-          {% for entry in workspace.selected_stop_detail.component_entries %}
-            <label>
-              <span>{{ entry.label }}</span>
-              <input class="driver-count-input" data-count-field="{{ entry.field_name }}" type="number" min="0" step="1" value="{{ entry.value }}">
-            </label>
-          {% endfor %}
-          <label>
-            <span>Rack Count</span>
-            <input id="driverCollectedRacks" type="number" min="0" step="1" value="{{ workspace.selected_stop_detail.collected_racks }}">
-          </label>
-          <label>
-            <span>Piece Count</span>
-            <input id="driverCollectedPieces" type="number" min="0" step="1" value="{{ workspace.selected_stop_detail.collected_pieces }}">
-          </label>
-          <label>
-            <span>Notes</span>
-            <textarea id="driverStopNotes" rows="4">{{ workspace.selected_stop_detail.notes }}</textarea>
-          </label>
-          <label>
-            <span>Revision Reason</span>
-            <textarea id="driverRevisionReason" rows="3" placeholder="Optional when revising saved counts"></textarea>
-          </label>
-          <label>
-            <span>Driver Exception</span>
-            <select id="driverExceptionType">
-              <option value="">No Exception</option>
-              {% for exception_type in workspace.selected_stop_detail.exception_types %}
-                <option value="{{ exception_type }}" {% if workspace.selected_stop_detail.driver_exception_type == exception_type %}selected{% endif %}>{{ exception_type }}</option>
+      <aside class="eoms-stack">
+        <section class="eoms-card">
+          <h2>Waiting BOLs</h2>
+          {% if workspace.waiting_stops %}
+            <div class="driver-bol-list">
+              {% for stop in workspace.waiting_stops %}
+                <div class="driver-bol-row">
+                  <div>
+                    <b>{{ stop.store or "Store" }}</b>
+                    <small>BOL {{ stop.bol or "Not set" }}</small>
+                  </div>
+                  <span class="eoms-status eoms-status-neutral">Waiting</span>
+                </div>
               {% endfor %}
-            </select>
-          </label>
-          <label>
-            <span>Exception Notes</span>
-            <textarea id="driverExceptionNotes" rows="4">{{ workspace.selected_stop_detail.driver_exception_notes }}</textarea>
-          </label>
-          <label>
-            <span>No Pickup Manager</span>
-            <input id="noPickupManagerName" type="text" value="{{ workspace.selected_stop_detail.no_pickup_manager_name }}">
-          </label>
-          <label>
-            <span>No Pickup Photo References</span>
-            <textarea id="noPickupPhotos" rows="3" placeholder="Photo links or filenames, one per line">{% for photo in workspace.selected_stop_detail.no_pickup_photos %}{{ photo }}
-{% endfor %}</textarea>
-          </label>
-          <div class="eoms-toolbar">
-            <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save</button>
-            <button id="driverSaveExceptionBtn" class="eoms-button eoms-button-secondary" type="button">Save Exception</button>
-            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_stop_detail.is_recovered or workspace.selected_stop_detail.is_exception %}disabled{% endif %}>
-              {% if workspace.selected_stop_detail.is_exception %}Exception{% elif workspace.selected_stop_detail.is_recovered %}Recovered{% else %}Complete Stop{% endif %}
-            </button>
-          </div>
-        </div>
-      {% else %}
-        <div class="eoms-empty-state">
-          <strong>No stop selected</strong>
-          <span>Stop detail controls will be added in a later Driver Portal mission.</span>
-        </div>
-      {% endif %}
-    </aside>
+            </div>
+          {% else %}
+            <p class="muted">No BOLs waiting.</p>
+          {% endif %}
+        </section>
+
+        <section class="eoms-card">
+          <h2>Completed Today</h2>
+          {% if workspace.completed_today %}
+            <div class="driver-bol-list">
+              {% for stop in workspace.completed_today %}
+                <div class="driver-bol-row">
+                  <div>
+                    <b>{{ stop.store or "Store" }}</b>
+                    <small>BOL {{ stop.bol or "Not set" }}</small>
+                  </div>
+                  <span class="eoms-status eoms-status-success">Receiving</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="muted">Completed BOLs will appear here after you submit them.</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
   </div>
 {% endblock %}
 
@@ -214,8 +359,8 @@
   var saveExceptionButton = document.getElementById("driverSaveExceptionBtn");
   var completeButton = document.getElementById("driverCompleteStopBtn");
   var acceptButton = document.getElementById("driverAcceptRouteBtn");
-  var declineButton = document.getElementById("driverDeclineRouteBtn");
-  if (!saveButton && !saveExceptionButton && !completeButton && !acceptButton && !declineButton) {
+  var nextButton = document.getElementById("driverNextAssignmentBtn");
+  if (!saveButton && !saveExceptionButton && !completeButton && !acceptButton && !nextButton) {
     return;
   }
 
@@ -230,17 +375,24 @@
     notice.textContent = message;
   }
 
+  function fieldValue(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+
   function stopPayload() {
+    var exceptionNotes = fieldValue("driverExceptionNotes") || fieldValue("driverStopNotes");
     var payload = {
-      store_id: document.getElementById("driverStopStoreId").value,
-      notes: document.getElementById("driverStopNotes").value,
-      revision_reason: document.getElementById("driverRevisionReason") ? document.getElementById("driverRevisionReason").value : "",
-      driver_exception_type: document.getElementById("driverExceptionType").value,
-      driver_exception_notes: document.getElementById("driverExceptionNotes").value,
-      collected_racks: document.getElementById("driverCollectedRacks") ? document.getElementById("driverCollectedRacks").value : "",
-      collected_pieces: document.getElementById("driverCollectedPieces") ? document.getElementById("driverCollectedPieces").value : "",
-      no_pickup_manager_name: document.getElementById("noPickupManagerName") ? document.getElementById("noPickupManagerName").value : "",
-      no_pickup_photos: document.getElementById("noPickupPhotos") ? document.getElementById("noPickupPhotos").value.split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean) : []
+      store_id: fieldValue("driverStopStoreId"),
+      notes: fieldValue("driverStopNotes"),
+      damage_notes: fieldValue("driverDamageNotes"),
+      revision_reason: fieldValue("driverRevisionReason"),
+      driver_exception_type: fieldValue("driverExceptionType"),
+      driver_exception_notes: exceptionNotes,
+      collected_racks: fieldValue("driverCollectedRacks"),
+      collected_pieces: fieldValue("driverCollectedPieces"),
+      no_pickup_manager_name: fieldValue("noPickupManagerName"),
+      no_pickup_photos: fieldValue("noPickupPhotos").split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean)
     };
 
     document.querySelectorAll(".driver-count-input").forEach(function(input){
@@ -250,115 +402,82 @@
     return payload;
   }
 
+  async function postJson(endpoint, payload) {
+    var response = await fetch(endpoint, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    var data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.message || "Request failed.");
+    }
+    return data;
+  }
+
   if (saveButton) {
-  saveButton.addEventListener("click", async function(){
-    var payload = stopPayload();
-
-    saveButton.disabled = true;
-    setNotice("Saving", "eoms-status-neutral");
-
-    try {
-      var response = await fetch("/api/driver/save-counts", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
-      var data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Save failed.");
+    saveButton.addEventListener("click", async function(){
+      saveButton.disabled = true;
+      setNotice("Saving", "eoms-status-neutral");
+      try {
+        await postJson("/api/driver/save-counts", stopPayload());
+        setNotice("Saved", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Save failed.", "eoms-status-danger");
+        saveButton.disabled = false;
       }
-      setNotice("Saved", "eoms-status-success");
-      window.setTimeout(function(){ window.location.reload(); }, 350);
-    } catch (error) {
-      setNotice(error.message || "Save failed.", "eoms-status-danger");
-      saveButton.disabled = false;
-    }
-  });
-  }
-
-  if (saveExceptionButton) {
-  saveExceptionButton.addEventListener("click", async function(){
-    var payload = stopPayload();
-
-    saveExceptionButton.disabled = true;
-    setNotice("Saving exception", "eoms-status-neutral");
-
-    try {
-      var response = await fetch("/api/driver/save-exception", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
-      var data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Save exception failed.");
-      }
-      setNotice("Exception saved", "eoms-status-success");
-      window.setTimeout(function(){ window.location.reload(); }, 350);
-    } catch (error) {
-      setNotice(error.message || "Save exception failed.", "eoms-status-danger");
-      saveExceptionButton.disabled = false;
-    }
-  });
-  }
-
-  if (completeButton) {
-  completeButton.addEventListener("click", async function(){
-    var payload = stopPayload();
-
-    completeButton.disabled = true;
-    setNotice("Completing", "eoms-status-neutral");
-
-    try {
-      var response = await fetch("/api/driver/complete-stop", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
-      var data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Complete stop failed.");
-      }
-      setNotice("Recovered", "eoms-status-success");
-      window.setTimeout(function(){ window.location.reload(); }, 350);
-    } catch (error) {
-      setNotice(error.message || "Complete stop failed.", "eoms-status-danger");
-      completeButton.disabled = false;
-    }
-  });
-  }
-
-  async function routeAction(endpoint, routeId, payload, successMessage, button) {
-    button.disabled = true;
-    setNotice(successMessage, "eoms-status-neutral");
-    try {
-      var response = await fetch(endpoint, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(Object.assign({route_id: routeId}, payload || {}))
-      });
-      var data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Route action failed.");
-      }
-      setNotice(successMessage, "eoms-status-success");
-      window.setTimeout(function(){ window.location.reload(); }, 350);
-    } catch (error) {
-      setNotice(error.message || "Route action failed.", "eoms-status-danger");
-      button.disabled = false;
-    }
-  }
-
-  if (acceptButton) {
-    acceptButton.addEventListener("click", function(){
-      routeAction("/api/driver/accept-route", acceptButton.dataset.routeId, {}, "Route accepted", acceptButton);
     });
   }
 
-  if (declineButton) {
-    declineButton.addEventListener("click", function(){
-      var reason = window.prompt("Decline reason (optional):", "") || "";
-      routeAction("/api/driver/decline-route", declineButton.dataset.routeId, {reason: reason}, "Route declined", declineButton);
+  if (saveExceptionButton) {
+    saveExceptionButton.addEventListener("click", async function(){
+      saveExceptionButton.disabled = true;
+      setNotice("Saving exception", "eoms-status-neutral");
+      try {
+        await postJson("/api/driver/save-exception", stopPayload());
+        setNotice("Exception saved", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Save exception failed.", "eoms-status-danger");
+        saveExceptionButton.disabled = false;
+      }
+    });
+  }
+
+  if (completeButton) {
+    completeButton.addEventListener("click", async function(){
+      completeButton.disabled = true;
+      setNotice("Completing BOL", "eoms-status-neutral");
+      try {
+        await postJson("/api/driver/complete", stopPayload());
+        setNotice("BOL completed", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Complete BOL failed.", "eoms-status-danger");
+        completeButton.disabled = false;
+      }
+    });
+  }
+
+  if (acceptButton) {
+    acceptButton.addEventListener("click", async function(){
+      acceptButton.disabled = true;
+      setNotice("Accepting assignment", "eoms-status-neutral");
+      try {
+        await postJson("/api/driver/accept-route", {route_id: acceptButton.dataset.routeId});
+        setNotice("Assignment accepted", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Accept failed.", "eoms-status-danger");
+        acceptButton.disabled = false;
+      }
+    });
+  }
+
+  if (nextButton) {
+    nextButton.addEventListener("click", function(){
+      window.location.reload();
     });
   }
 })();

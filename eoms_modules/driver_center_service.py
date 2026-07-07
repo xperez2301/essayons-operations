@@ -35,10 +35,10 @@ DRIVER_EXCEPTION_TYPES = (
 )
 
 COMPONENT_ENTRY_LABELS = {
-    '84" Corner Post': '84" Corner Posts',
-    '40" DRB': '40" DRB',
-    '48" DRB': '48" DRB',
-    "Wood Shelf": "Wood Shelves",
+    '84" Corner Post': "Corner Posts",
+    '40" DRB': "Uprights",
+    '48" DRB': "Beams",
+    "Wood Shelf": "Bases",
 }
 
 
@@ -218,6 +218,25 @@ def component_entries_for_stop(stop):
     return entries
 
 
+def expected_entries_for_stop(stop, store_record):
+    record = store_record if isinstance(store_record, dict) else {}
+    entries = []
+
+    for component in COMPONENT_NAMES:
+        field_name = STORE_COMPONENT_FIELDS[component]
+        try:
+            value = int(float(record.get(field_name, stop.get(field_name, 0)) or 0))
+        except (TypeError, ValueError):
+            value = 0
+        entries.append({
+            "component": component,
+            "label": COMPONENT_ENTRY_LABELS[component],
+            "value": value,
+        })
+
+    return entries
+
+
 def build_stop_detail(stop=None, store_lookup=None):
     if not isinstance(stop, dict):
         return None
@@ -239,6 +258,7 @@ def build_stop_detail(stop=None, store_lookup=None):
         "status": display_or_default(stop.get("status"), "Assigned"),
         "due_date": display_or_default(stop.get("due_date") or store_record.get("due_date")),
         "notes": clean(stop.get("notes") or store_record.get("notes") or store_record.get("variance_review") or ""),
+        "damage_notes": clean(store_record.get("driver_damage_notes") or stop.get("driver_damage_notes")),
         "collected_racks": store_record.get("collected_racks", ""),
         "collected_pieces": store_record.get("collected_pieces", ""),
         "no_pickup_manager_name": clean(store_record.get("no_pickup_manager_name") or stop.get("no_pickup_manager_name")),
@@ -254,6 +274,7 @@ def build_stop_detail(stop=None, store_lookup=None):
         "driver_exception_reported_by": clean(store_record.get("driver_exception_reported_by") or stop.get("driver_exception_reported_by")),
         "exception_types": DRIVER_EXCEPTION_TYPES,
         "component_entries": component_entries_for_stop(stop),
+        "expected_entries": expected_entries_for_stop(stop, store_record),
     }
 
 
@@ -427,6 +448,15 @@ def utc_now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def today_iso():
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def date_value(value):
+    value = clean(value)
+    return value[:10] if value else ""
+
+
 def normalize_reference_list(value):
     if value is None:
         return []
@@ -568,6 +598,7 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=
     collected_pieces = normalize_optional_driver_quantity((data or {}).get("collected_pieces"), "Piece count")
     no_pickup_manager_name = clean((data or {}).get("no_pickup_manager_name"))
     no_pickup_photos = normalize_reference_list((data or {}).get("no_pickup_photos"))
+    damage_notes = clean((data or {}).get("damage_notes") or (data or {}).get("driver_damage_notes"))
 
     for store in stores:
         if not isinstance(store, dict):
@@ -598,6 +629,7 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=
             store["no_pickup_manager_name"] = no_pickup_manager_name
         if no_pickup_photos:
             store["no_pickup_photos"] = no_pickup_photos
+        store["driver_damage_notes"] = damage_notes
         store["notes"] = notes
         store["driver_counts_saved_at"] = utc_now_iso()
         store["driver_counts_saved_by"] = clean(saved_by) or "system"
@@ -796,6 +828,7 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
 
     assigned_routes = []
     active_stops = []
+    completed_today = []
     for route in routes or []:
         if not isinstance(route, dict):
             continue
@@ -805,13 +838,23 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
             continue
 
         route_stops = active_store_records_for_route(route, stores_by_id)
-        if not route_stops:
+        route_completed_today = [
+            deepcopy(store)
+            for store in route_store_records(route, stores)
+            if clean(store.get("status")).lower() in COMPLETED_DRIVER_STATUSES
+            and date_value(store.get("completed_at")) == today_iso()
+        ]
+        for stop in route_completed_today:
+            stop["store"] = clean(stop.get("store_name") or stop.get("store"))
+            stop["driver_work_status"] = driver_work_status(stop)
+        completed_today.extend(route_completed_today)
+
+        if not route_stops and not route_completed_today:
             continue
 
         driver_route = summarize_driver_route(route, route_stops)
-        if driver_route["stop_count"] > 0:
-            assigned_routes.append(driver_route)
-            active_stops.extend(route_stops)
+        assigned_routes.append(driver_route)
+        active_stops.extend(route_stops)
 
     selected_route = None
     selected_stop = None
@@ -831,7 +874,24 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
             component_totals[component] += route["component_totals"][component]
 
     stop_count = sum(route["stop_count"] for route in assigned_routes)
-    completed_stops = sum(route["completed_stops"] for route in assigned_routes)
+    waiting_stops = [
+        stop for stop in active_stops
+        if clean(stop.get("driver_work_status")).lower() == "waiting"
+    ]
+    current_stop = next(
+        (
+            stop for stop in active_stops
+            if clean(stop.get("driver_work_status")).lower() == "current"
+        ),
+        active_stops[0] if active_stops else None,
+    )
+    if current_stop and selected_stop != current_stop:
+        selected_stop = current_stop
+        selected_stop_detail = build_stop_detail(selected_stop, store_lookup)
+        selected_route = next(
+            (route for route in assigned_routes if route["route_id"] == selected_stop.get("route_id")),
+            assigned_routes[0] if assigned_routes else None,
+        )
 
     return {
         "component_names": COMPONENT_NAMES,
@@ -839,6 +899,8 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
         "driver_names": sorted(driver_names),
         "routes": assigned_routes,
         "stops": active_stops,
+        "waiting_stops": waiting_stops,
+        "completed_today": completed_today,
         "selected_route": selected_route,
         "selected_stop": selected_stop,
         "selected_stop_detail": selected_stop_detail,
@@ -847,7 +909,9 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
         "summary": {
             "route_count": len(assigned_routes),
             "stop_count": stop_count,
-            "completed_stops": completed_stops,
+            "today_assigned_count": stop_count + len(completed_today),
+            "waiting_count": len(waiting_stops),
+            "completed_today": len(completed_today),
             "estimated_weight": calculate_estimated_weight(component_totals),
         },
     }

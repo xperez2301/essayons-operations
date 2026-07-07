@@ -1,21 +1,27 @@
-{% set nav_items = [
-  ("Dashboard", "/dashboard", ""),
-  ("Dispatch Map", "/dispatch-map", ""),
-  ("Recovery", "/recovery", ""),
-  ("Driver", "/driver", ""),
-  ("Roadmap", "/roadmap", "&#127984;"),
-  ("Receiving", "/receiving", "&#128230;"),
-  ("Inventory", "/inventory", "&#128230;"),
-  ("Fulfillment", "/fulfillment", "&#128228;"),
-  ("Reporting", "/reporting", "&#128202;"),
-  ("Automation", "/automation-center", ""),
-  ("Database", "/database-center", ""),
-  ("Settings", "/settings", "")
-] %}
+{% if session.get("role") == "Driver" %}
+  {% set nav_items = [
+    ("Driver Portal", "/driver", "")
+  ] %}
+{% else %}
+  {% set nav_items = [
+    ("Dashboard", "/dashboard", ""),
+    ("Dispatch Map", "/dispatch-map", ""),
+    ("Recovery", "/recovery", ""),
+    ("Driver", "/driver", ""),
+    ("Roadmap", "/roadmap", "&#127984;"),
+    ("Receiving", "/receiving", "&#128230;"),
+    ("Inventory", "/inventory", "&#128230;"),
+    ("Fulfillment", "/fulfillment", "&#128228;"),
+    ("Reporting", "/reporting", "&#128202;"),
+    ("Automation", "/automation-center", ""),
+    ("Database", "/database-center", ""),
+    ("Settings", "/settings", "")
+  ] %}
+{% endif %}
 
 <aside class="eoms-sidebar" data-eoms-sidebar>
   <div class="eoms-sidebar-header">
-    <a class="eoms-brand" href="/dashboard" aria-label="EOMS Dashboard">
+    <a class="eoms-brand" href="{{ '/driver' if session.get('role') == 'Driver' else '/dashboard' }}" aria-label="EOMS Home">
       <img src="{{ url_for('static', filename='img/essayons-bax-mark.png') }}" alt="">
       <span>
         <strong>EOMS</strong>
