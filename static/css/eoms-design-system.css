@@ -389,6 +389,7 @@ table {
 .secondary-btn,
 .link-btn,
 .small-btn,
+.danger-btn,
 .tiny-btn {
   min-height: 34px;
   padding: 8px 12px;
@@ -412,6 +413,7 @@ table {
 .secondary-btn:hover,
 .link-btn:hover,
 .small-btn:hover,
+.danger-btn:hover,
 .tiny-btn:hover {
   border-color: #b9c6d8;
   background: var(--eoms-surface-muted);
@@ -456,6 +458,18 @@ table {
 .danger-mini {
   background: var(--eoms-red-bg);
   border-color: #f5b5b5;
+  color: var(--eoms-red);
+}
+
+.danger-btn {
+  background: var(--eoms-red-bg);
+  border-color: #f5b5b5;
+  color: var(--eoms-red);
+}
+
+.danger-btn:hover {
+  background: #fbd0d0;
+  border-color: #ee9a9a;
   color: var(--eoms-red);
 }
 
@@ -614,6 +628,7 @@ input[type="checkbox"] {
   gap: 14px;
   align-items: stretch;
   min-width: 0;
+  min-height: 680px;
 }
 
 .load-panel,
@@ -635,13 +650,13 @@ input[type="checkbox"] {
   border: 1px solid var(--eoms-border);
   border-radius: var(--eoms-radius);
   box-shadow: var(--eoms-shadow);
-  overflow: hidden;
 }
 
 .map-panel {
   display: flex;
   flex-direction: column;
   padding: 0;
+  overflow: visible;
 }
 
 .map-panel-head,
@@ -664,14 +679,21 @@ input[type="checkbox"] {
 }
 
 #map {
+  position: relative;
   width: 100%;
-  min-height: 560px;
+  height: 620px;
+  min-height: 620px;
   flex: 1;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 1;
+  touch-action: pan-x pan-y;
   background: #dbe7f3;
 }
 
 .map-missing-key {
-  min-height: 560px;
+  height: 620px;
+  min-height: 620px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -705,11 +727,95 @@ input[type="checkbox"] {
 }
 
 .quick-select-row,
-.map-board-actions {
+.map-board-actions,
+.route-action-row,
+.assigned-bulk-actions,
+.route-control-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   margin: 8px 0 10px;
+}
+
+.assigned-bulk-actions {
+  margin-top: 4px;
+}
+
+.assigned-select-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: var(--eoms-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.assigned-select-line input {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.route-row .assigned-select-line {
+  flex: 1;
+}
+
+.route-control-actions {
+  margin: 0;
+}
+
+.eoms-compact-select {
+  min-width: 120px;
+  max-width: 170px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius-sm);
+  background: #ffffff;
+  color: var(--eoms-text);
+  font: inherit;
+}
+
+.eoms-inline-message {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #b8d9c2;
+  border-radius: var(--eoms-radius-sm);
+  background: #eef9f1;
+  color: #246a3d;
+  font-weight: 700;
+}
+
+.eoms-inline-message-error {
+  border-color: #f0b4b4;
+  background: #fff0f0;
+  color: #9f1f1f;
+}
+
+.dispatch-sms-panel,
+.route-sms-status {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface-muted);
+}
+
+.dispatch-sms-panel {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.dispatch-sms-panel strong,
+.route-sms-status strong {
+  display: block;
+}
+
+.dispatch-sms-panel small,
+.route-sms-status small {
+  color: var(--eoms-muted);
 }
 
 .store-card {
@@ -847,6 +953,28 @@ input[type="checkbox"] {
   background: var(--eoms-surface-muted);
 }
 
+.assigned-route-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface);
+  box-shadow: var(--eoms-shadow);
+}
+
+.assigned-route-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.assigned-route-head h4 {
+  margin: 0 0 8px;
+}
+
 .preview-stop {
   grid-template-columns: 26px minmax(0, 1fr);
   align-items: start;
@@ -930,12 +1058,16 @@ input[type="checkbox"] {
 
 .azure-stop-marker,
 .azure-hub-marker {
+  position: relative;
+  z-index: 2;
   min-width: 28px;
   height: 28px;
   border: 2px solid #ffffff;
   border-radius: 999px;
   color: #ffffff;
   font-weight: 900;
+  cursor: pointer;
+  pointer-events: auto;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.3);
 }
 

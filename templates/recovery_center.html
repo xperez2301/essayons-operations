@@ -46,8 +46,11 @@
                 <th>Truck</th>
                 <th>Driver</th>
                 <th>Status</th>
+                <th>SMS / Dispatch</th>
+                <th>Truck Status</th>
                 <th>Stops</th>
                 <th>Weight</th>
+                <th>Route Controls</th>
               </tr>
             </thead>
             <tbody>
@@ -55,10 +58,49 @@
                 <tr>
                   <td>{{ item.label }}</td>
                   <td>{{ item.truck }}</td>
-                  <td>{{ item.driver }}</td>
+                  <td>
+                    <select class="eoms-compact-select recovery-driver-select"
+                            data-route-id="{{ item.route_id }}"
+                            data-current-driver="{{ item.driver_value }}"
+                            data-current-phone="{{ item.driver_phone }}">
+                      {% if item.driver_value %}
+                        <option value="{{ item.driver_value }}" data-phone="{{ item.driver_phone }}" selected>{{ item.driver_value }}</option>
+                      {% else %}
+                        <option value="" selected>Unassigned</option>
+                      {% endif %}
+                    </select>
+                  </td>
                   <td><span class="eoms-status eoms-status-{{ item.status_class }}">{{ item.status }}</span></td>
+                  <td>
+                    {% set sms_label = item.sms_dispatch.label %}
+                    {% set sms_class = item.sms_dispatch.class %}
+                    {% if not workspace.sms_status.available and sms_label == "SMS Pending" %}
+                      {% set sms_label = "SMS Not Configured" %}
+                      {% set sms_class = "warning" %}
+                    {% endif %}
+                    <span class="eoms-status eoms-status-{{ sms_class }}">{{ sms_label }}</span>
+                  </td>
+                  <td>
+                    <select class="eoms-compact-select recovery-truck-status" data-route-id="{{ item.route_id }}">
+                      {% for status in ["Ready", "Assigned", "En Route", "At Store", "Loading", "Delayed", "Issue", "Completed", "Out of Service"] %}
+                        <option value="{{ status }}" {% if item.truck_status == status %}selected{% endif %}>{{ status }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
                   <td>{{ item.completed_stops }} / {{ item.stop_count }}</td>
                   <td>{{ item.estimated_weight }} lbs</td>
+                  <td>
+                    <div class="route-control-actions">
+                      <button class="secondary-btn tiny-btn" type="button"
+                              onclick="saveRecoveryRoute('{{ item.route_id }}', '{{ item.truck_value }}')">
+                        Save
+                      </button>
+                      <button class="danger-btn tiny-btn" type="button"
+                              onclick="unassignRecoveryRoute('{{ item.route_id }}')">
+                        Unassign
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -191,4 +233,99 @@
       {% endif %}
     </aside>
   </div>
+
+  <script>
+    window.EOMS_RECOVERY_SMS_STATUS = {{ workspace.sms_status | tojson }};
+
+    function recoveryRouteMessage(message, isError){
+      const existing = document.getElementById("recovery-route-message");
+      if(existing) existing.remove();
+      const notice = document.createElement("div");
+      notice.id = "recovery-route-message";
+      notice.className = isError ? "eoms-inline-message eoms-inline-message-error" : "eoms-inline-message";
+      notice.textContent = message;
+      const table = document.querySelector(".eoms-table");
+      if(table && table.parentNode) table.parentNode.insertBefore(notice, table);
+    }
+
+    async function loadRecoveryDrivers(){
+      const selects = Array.from(document.querySelectorAll(".recovery-driver-select"));
+      if(!selects.length) return;
+
+      try{
+        const response = await fetch("/api/drivers");
+        const data = await response.json();
+        const drivers = data.drivers || [];
+
+        selects.forEach(select => {
+          const currentDriver = select.dataset.currentDriver || "";
+          const currentPhone = select.dataset.currentPhone || "";
+          select.innerHTML = "<option value='' data-phone=''>Unassigned</option>";
+
+          if(currentDriver && !drivers.some(driver => driver.name === currentDriver)){
+            const option = document.createElement("option");
+            option.value = currentDriver;
+            option.dataset.phone = currentPhone;
+            option.textContent = currentDriver;
+            select.appendChild(option);
+          }
+
+          drivers.forEach(driver => {
+            const option = document.createElement("option");
+            option.value = driver.name || "";
+            option.dataset.phone = driver.phone || "";
+            option.textContent = driver.name || "Driver";
+            select.appendChild(option);
+          });
+
+          select.value = currentDriver;
+        });
+      }catch(err){
+        console.warn("Unable to load recovery drivers", err);
+      }
+    }
+
+    async function saveRecoveryRoute(routeId, truck){
+      const driverSelect = document.querySelector(`.recovery-driver-select[data-route-id="${routeId}"]`);
+      const statusSelect = document.querySelector(`.recovery-truck-status[data-route-id="${routeId}"]`);
+      const selectedDriver = driverSelect ? driverSelect.selectedOptions[0] : null;
+
+      const response = await fetch("/api/update-route-driver", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          route_id: routeId,
+          driver: driverSelect ? driverSelect.value : "",
+          driver_phone: selectedDriver ? selectedDriver.dataset.phone || "" : "",
+          truck: truck || "",
+          helper: "",
+          truck_status: statusSelect ? statusSelect.value : ""
+        })
+      });
+      const data = await response.json();
+      if(!data.ok){
+        recoveryRouteMessage(data.message || "Route update failed.", true);
+        return;
+      }
+      recoveryRouteMessage("Route controls saved.");
+    }
+
+    async function unassignRecoveryRoute(routeId){
+      if(!confirm("Unassign this route and return its stops to Dispatch Map?")) return;
+      const response = await fetch("/api/unassign-route", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({route_id: routeId})
+      });
+      const data = await response.json();
+      if(!data.ok){
+        recoveryRouteMessage(data.message || "Unable to unassign route.", true);
+        return;
+      }
+      recoveryRouteMessage(data.message || "Route unassigned.");
+      setTimeout(() => window.location.reload(), 500);
+    }
+
+    document.addEventListener("DOMContentLoaded", loadRecoveryDrivers);
+  </script>
 {% endblock %}

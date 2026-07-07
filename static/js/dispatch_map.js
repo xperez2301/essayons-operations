@@ -5,6 +5,7 @@ const hubs = window.EOMS_HUBS || {};
 const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
 const CAN_VIEW_FINANCIALS = !!window.EOMS_CAN_VIEW_FINANCIALS;
 const MAP_SETTINGS = window.EOMS_MAP_SETTINGS || {};
+const SMS_STATUS = window.EOMS_SMS_STATUS || {available:false, reason:"SMS unavailable"};
 let selectedOrder = [];
 let activeClusterInfo = null;
 
@@ -332,30 +333,7 @@ async function assignDriver(){
         return;
     }
 
-    const route = data.route;
-    const routeBlock = document.createElement("div");
-    routeBlock.className = "route-card";
-    routeBlock.innerHTML = `
-        <h4>${route.route_number}</h4>
-        <p><b>Driver:</b> ${driver}</p>
-        <p><b>Hub:</b> ${route.hub}</p>
-        <p><b>Miles:</b> ${route.metrics.mileage}</p>
-        ${CAN_VIEW_FINANCIALS ? `<p><b>Revenue:</b> $${route.metrics.revenue}</p><p><b>Driver Pay:</b> $${route.metrics.driver_pay}</p>` : ""}
-        <button class="primary-btn dispatch-route-btn" onclick="dispatchRoute('${route.id}', this)">Dispatch Route &amp; Send SMS</button>
-    `;
-
     data.assigned.forEach(store => {
-        const row = document.createElement("div");
-        row.className = "route-row";
-        row.innerHTML = `<span>${store.store_name || store.origin}<br><small>BOL ${store.bol || ""}</small></span>`;
-
-        const btn = document.createElement("button");
-        btn.innerText = "Unassign";
-        btn.onclick = async function(){ await unassignStore(store.id, row); };
-
-        row.appendChild(btn);
-        routeBlock.appendChild(row);
-
         const original = stores.find(s => s.id === store.id);
         if(original){
             original.status = "Assigned";
@@ -363,13 +341,160 @@ async function assignDriver(){
         }
     });
 
-    document.getElementById("driver-results").appendChild(routeBlock);
+    const route = data.route;
+    const routeBlock = buildAssignedRouteCard(route, data.assigned || route.stops || []);
+    const driverResults = document.getElementById("driver-results");
+    if(driverResults && driverResults.querySelector(".small-muted")) driverResults.innerHTML = "";
+    driverResults.appendChild(routeBlock);
     selectedOrder = [];
     renderStores();
     syncSelectedMarkerVisibility();
     renderMapDispatchBoardLive();
     updateTotals();
     document.getElementById("route-preview").innerHTML = "<p class='safe'>Route assigned. Dispatch it from the Assigned Queue below.</p>";
+}
+
+function smsStatusText(){
+    if(SMS_STATUS.available) return "SMS backend available";
+    return SMS_STATUS.reason || "SMS unavailable";
+}
+
+function updateSmsPanel(){
+    const label = document.getElementById("sms-status-label");
+    const reason = document.getElementById("sms-status-reason");
+    const disabledButton = document.getElementById("sms-disabled-button");
+    if(label) label.textContent = SMS_STATUS.available ? "SMS Available" : "SMS Disabled";
+    if(reason) reason.textContent = smsStatusText();
+    if(disabledButton){
+        disabledButton.disabled = true;
+        disabledButton.title = smsStatusText();
+    }
+}
+
+function buildAssignedRouteCard(route, assignedStores){
+    const routeBlock = document.createElement("div");
+    routeBlock.className = "route-card assigned-route-card";
+    routeBlock.dataset.routeId = route.id || route.route_number || "";
+    const metrics = route.metrics || {};
+    const routeId = route.id || route.route_number || "";
+    const storesForRoute = assignedStores || route.stops || [];
+
+    routeBlock.innerHTML = `
+        <div class="assigned-route-head">
+            <div>
+                <label class="assigned-select-line">
+                    <input type="checkbox" class="assigned-route-check" data-route-id="${routeId}">
+                    Select route
+                </label>
+                <h4>${route.route_number || "Assigned Route"}</h4>
+                <p><b>Driver:</b> ${route.driver || "Unassigned"}</p>
+                <p><b>Hub:</b> ${route.hub || "Not set"}${metrics.mileage !== undefined ? ` &middot; <b>Miles:</b> ${metrics.mileage}` : ""}</p>
+                ${CAN_VIEW_FINANCIALS && metrics.revenue !== undefined ? `<p><b>Revenue:</b> $${metrics.revenue}</p><p><b>Driver Pay:</b> $${metrics.driver_pay}</p>` : ""}
+            </div>
+            <span class="eoms-status eoms-status-neutral">${route.status || "Assigned"}</span>
+        </div>
+        <div class="route-sms-status">
+            <span class="eoms-module-title">Driver SMS</span>
+            <strong>${SMS_STATUS.available ? "Ready to send" : "Send SMS disabled"}</strong>
+            <small>${smsStatusText()}</small>
+        </div>
+        <div class="route-action-row">
+            <button class="primary-btn dispatch-route-btn" type="button">Dispatch Route &amp; Send SMS</button>
+            <button class="secondary-btn send-route-sms-btn" type="button" ${SMS_STATUS.available ? "" : "disabled"}>Send SMS</button>
+            <button class="danger-btn unassign-route-btn" type="button">Unassign Route</button>
+        </div>
+    `;
+
+    routeBlock.querySelector(".dispatch-route-btn").addEventListener("click", function(){
+        dispatchRoute(routeId, this);
+    });
+    routeBlock.querySelector(".send-route-sms-btn").addEventListener("click", function(){
+        sendRouteSms(routeId, this);
+    });
+    routeBlock.querySelector(".unassign-route-btn").addEventListener("click", function(){
+        unassignRoute(routeId, route.store_ids || storesForRoute.map(store => store.id).filter(Boolean), routeBlock);
+    });
+    routeBlock.querySelector(".assigned-route-check").addEventListener("change", function(){
+        routeBlock.querySelectorAll(".assigned-store-check").forEach(check => {
+            check.checked = this.checked;
+        });
+    });
+
+    storesForRoute.forEach(store => {
+        const row = document.createElement("div");
+        row.className = "route-row";
+        row.dataset.storeId = store.id || "";
+        row.dataset.routeId = routeId;
+        row.innerHTML = `
+            <label class="assigned-select-line">
+                <input type="checkbox" class="assigned-store-check" data-store-id="${store.id || ""}" data-route-id="${routeId}">
+                <span>${store.store_name || store.origin || "Store"}<br><small>BOL ${store.bol || ""}</small></span>
+            </label>
+        `;
+
+        const btn = document.createElement("button");
+        btn.className = "tiny-btn";
+        btn.type = "button";
+        btn.innerText = "Unassign Stop";
+        btn.onclick = async function(){ await unassignStore(store.id, row); };
+
+        row.appendChild(btn);
+        routeBlock.appendChild(row);
+    });
+
+    return routeBlock;
+}
+
+async function loadAssignedRoutes(){
+    const results = document.getElementById("driver-results");
+    if(!results) return;
+    try{
+        const response = await fetch("/api/routes");
+        const data = await response.json();
+        if(!data.ok) return;
+        const visibleStoreIds = new Set(stores.map(store => store.id));
+        const activeRoutes = (data.routes || []).filter(route => {
+            const status = String(route.status || "Assigned");
+            if(["Completed", "Recovered", "Exception"].includes(status)) return false;
+            return (route.store_ids || []).some(storeId => visibleStoreIds.has(storeId));
+        });
+        results.innerHTML = "";
+        if(!activeRoutes.length){
+            results.innerHTML = "<p class='muted small-muted'>No assigned routes yet.</p>";
+            return;
+        }
+        activeRoutes.slice().reverse().forEach(route => {
+            const routeStoreIds = new Set(route.store_ids || []);
+            const routeStores = (route.stops && route.stops.length ? route.stops : stores.filter(store => routeStoreIds.has(store.id)));
+            results.appendChild(buildAssignedRouteCard(route, routeStores));
+        });
+    }catch(err){
+        console.warn("Unable to load assigned routes", err);
+    }
+}
+
+async function sendRouteSms(routeId, button){
+    if(!SMS_STATUS.available){
+        alert(smsStatusText());
+        return;
+    }
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = "Sending SMS...";
+    try{
+        const response = await fetch("/api/send-route-sms", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({route_id:routeId})
+        });
+        const data = await response.json();
+        if(!data.ok) throw new Error(data.message || "SMS unavailable");
+        button.textContent = "SMS Sent";
+    }catch(err){
+        button.disabled = false;
+        button.textContent = originalText;
+        alert(err.message);
+    }
 }
 
 async function dispatchRoute(routeId, button){
@@ -398,6 +523,105 @@ async function dispatchRoute(routeId, button){
 }
 window.dispatchRoute = dispatchRoute;
 
+function markStoresUnassigned(storeIds){
+    (storeIds || []).forEach(storeId => {
+        const original = stores.find(s => s.id === storeId);
+        if(original){
+            original.status = "Unassigned";
+            original.assigned_driver = "";
+            original.driver_phone = "";
+            original.truck = "";
+            original.helper = "";
+            original.route_id = "";
+        }
+        if(markers[storeId]) setMarkerVisible(markers[storeId], true);
+    });
+}
+
+function refreshDispatchAfterUnassign(storeIds, message){
+    selectedOrder = selectedOrder.filter(id => !(storeIds || []).includes(id));
+    renderStores();
+    syncSelectedMarkerVisibility();
+    renderMapDispatchBoardLive();
+    updateTotals();
+    document.getElementById("route-preview").innerHTML = `<p class="safe">${message || "Route unassigned."}</p>`;
+}
+
+async function unassignRoute(routeId, storeIds, routeBlock, skipConfirm){
+    if(!skipConfirm && !confirm("Unassign this entire route and return its stops to Available Stores?")) return;
+    const response = await fetch("/api/unassign-route", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({route_id:routeId})
+    });
+
+    const data = await response.json();
+    if(!data.ok){
+        alert(data.message || "Unable to unassign route.");
+        return;
+    }
+
+    markStoresUnassigned(storeIds);
+    if(routeBlock) routeBlock.remove();
+    refreshDispatchAfterUnassign(storeIds, data.message || "Route unassigned.");
+}
+window.unassignRoute = unassignRoute;
+
+function selectAllAssigned(){
+    document.querySelectorAll(".assigned-route-check, .assigned-store-check").forEach(check => {
+        check.checked = true;
+    });
+}
+window.selectAllAssigned = selectAllAssigned;
+
+async function unassignSelectedAssigned(){
+    const routeChecks = Array.from(document.querySelectorAll(".assigned-route-check:checked"));
+    const selectedRouteIds = new Set(routeChecks.map(check => check.dataset.routeId).filter(Boolean));
+    const selectedStoreIds = new Set(
+        Array.from(document.querySelectorAll(".assigned-store-check:checked"))
+            .map(check => check.dataset.storeId)
+            .filter(Boolean)
+    );
+
+    routeChecks.forEach(check => {
+        const routeBlock = check.closest(".assigned-route-card");
+        if(routeBlock){
+            routeBlock.querySelectorAll(".assigned-store-check").forEach(storeCheck => {
+                if(storeCheck.dataset.storeId) selectedStoreIds.add(storeCheck.dataset.storeId);
+            });
+        }
+    });
+
+    if(!selectedRouteIds.size && !selectedStoreIds.size){
+        alert("Select one or more assigned routes or stops first.");
+        return;
+    }
+
+    if(!confirm("Unassign selected routes/stops and return them to Available Stores?")) return;
+
+    const changedStoreIds = [];
+    for(const routeId of selectedRouteIds){
+        const routeBlock = document.querySelector(`.assigned-route-card[data-route-id="${routeId}"]`);
+        const routeStoreIds = routeBlock
+            ? Array.from(routeBlock.querySelectorAll(".assigned-store-check")).map(check => check.dataset.storeId).filter(Boolean)
+            : [];
+        await unassignRoute(routeId, routeStoreIds, routeBlock, true);
+        changedStoreIds.push(...routeStoreIds);
+    }
+
+    const routeOwnedStoreIds = new Set(changedStoreIds);
+    for(const storeId of selectedStoreIds){
+        if(routeOwnedStoreIds.has(storeId)) continue;
+        const row = document.querySelector(`.route-row[data-store-id="${storeId}"]`);
+        await unassignStore(storeId, row);
+        changedStoreIds.push(storeId);
+    }
+
+    markStoresUnassigned(changedStoreIds);
+    refreshDispatchAfterUnassign(changedStoreIds, "Selected routes/stops unassigned.");
+}
+window.unassignSelectedAssigned = unassignSelectedAssigned;
+
 async function unassignStore(storeId, row){
     const response = await fetch("/api/unassign-store", {
         method:"POST",
@@ -412,11 +636,15 @@ async function unassignStore(storeId, row){
         if(original){
             original.status = "Unassigned";
             original.assigned_driver = "";
+            original.driver_phone = "";
+            original.truck = "";
+            original.helper = "";
+            original.route_id = "";
         }
 
         if(markers[storeId]) setMarkerVisible(markers[storeId], true);
 
-        row.remove();
+        if(row) row.remove();
         renderStores();
         updateTotals();
     }
@@ -850,6 +1078,8 @@ async function renderMapDispatchBoardLive(){
 
 document.addEventListener("DOMContentLoaded", function(){
     if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
+    updateSmsPanel();
+    loadAssignedRoutes();
     setTimeout(renderMapDispatchBoardLive, 500);
     const refreshSeconds = Number(MAP_SETTINGS.map_live_refresh_seconds || 30);
     if(refreshSeconds >= 10){

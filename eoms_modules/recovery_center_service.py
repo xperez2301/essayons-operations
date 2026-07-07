@@ -357,18 +357,40 @@ def recovery_route_label(route, index=0):
     return f"Recovery Route {index + 1}"
 
 
+def sms_dispatch_status(route):
+    route_status = clean(route.get("recovery_status") or route.get("status"))
+    if route_status.lower() in {"completed", "complete", "recovered"}:
+        return {"label": "Completed", "class": "success"}
+
+    if not clean(route.get("driver")):
+        return {"label": "Unassigned", "class": "neutral"}
+
+    if clean(route.get("last_sms_sent_at")):
+        return {"label": "SMS Sent", "class": "success"}
+
+    return {"label": "SMS Pending", "class": "warning"}
+
+
 def summarize_recovery_route(route, index=0):
     route = refresh_route_totals(deepcopy(route))
     stops = route.get("recovery_stops") or []
     completed_stops = sum(1 for stop in stops if is_completed_stop(stop))
+    route_id = clean(route.get("route_id") or route.get("id") or route.get("route_number"))
 
     return {
+        "route_id": route_id,
         "label": recovery_route_label(route, index),
         "truck": clean(route.get("truck")) or "Unassigned",
+        "truck_value": clean(route.get("truck")),
+        "truck_status": clean(route.get("truck_status")) or "Assigned",
         "driver": clean(route.get("driver")) or "Unassigned",
+        "driver_value": clean(route.get("driver")),
+        "driver_phone": clean(route.get("driver_phone")),
         "dispatcher": clean(route.get("dispatcher")) or "Unassigned",
         "status": route.get("recovery_status") or route.get("status") or DEFAULT_ROUTE_STATUS,
         "status_class": status_class(route.get("recovery_status") or route.get("status")),
+        "sms_dispatch": sms_dispatch_status(route),
+        "last_sms_sent_at": clean(route.get("last_sms_sent_at")),
         "stop_count": len(stops),
         "completed_stops": completed_stops,
         "estimated_weight": route.get("estimated_weight", 0),
@@ -497,6 +519,9 @@ def recovery_route_from_route_record(route, stores_by_id=None, index=0):
 
     recovery_route["route_id"] = clean(route.get("id")) or f"route-{index + 1}"
     recovery_route["route_number"] = clean(route.get("route_number")) or f"REC-{index + 1:04d}"
+    recovery_route["driver_phone"] = clean(route.get("driver_phone"))
+    recovery_route["truck_status"] = clean(route.get("truck_status"))
+    recovery_route["last_sms_sent_at"] = clean(route.get("last_sms_sent_at"))
     recovery_route["source"] = "routes"
     return refresh_route_totals(recovery_route)
 

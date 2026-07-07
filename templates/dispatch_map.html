@@ -67,14 +67,24 @@
             <button class="secondary-btn" onclick="previewRoute()">Preview My Order</button>
             <button class="primary-btn" onclick="assignDriver()">Assign Route</button>
         </div>
+        <div class="dispatch-sms-panel" id="dispatch-sms-panel">
+            <div>
+                <span class="eoms-module-title">Driver SMS</span>
+                <strong id="sms-status-label">{{ "SMS Available" if sms_status.available else "SMS Disabled" }}</strong>
+                <small id="sms-status-reason">{{ sms_status.reason }}</small>
+            </div>
+            <button class="secondary-btn small-btn" type="button" id="sms-disabled-button" disabled>
+                Send SMS
+            </button>
+        </div>
     </section>
 
-    <section class="map-panel crane-panel">
+    <section class="map-panel crane-panel" aria-label="Interactive dispatch map">
         <div class="map-panel-head">
             <div><span class="eoms-module-title">BOL Stop Numbers</span><h3>Operations Map</h3></div>
             <button class="secondary-btn small-btn" onclick="geocodeStores()">Fix / Reload Pins</button>
         </div>
-        <div id="map"></div>
+        <div id="map" aria-label="Interactive map with dispatch pins"></div>
     </section>
 
     <section class="panel preview-panel">
@@ -83,6 +93,10 @@
         <div id="route-preview" class="muted">Select stores to build the route. The first store selected becomes stop 1.</div>
         <hr>
         <h3>Assigned Queue</h3>
+        <div class="assigned-bulk-actions">
+            <button class="secondary-btn tiny-btn" type="button" onclick="selectAllAssigned()">Select All Assigned</button>
+            <button class="danger-btn tiny-btn" type="button" onclick="unassignSelectedAssigned()">Unassign Selected</button>
+        </div>
         <div id="driver-results"></div>
     </section>
 </div>
@@ -116,6 +130,7 @@ window.MAX_PAYLOAD = {{ max_payload }};
 window.EOMS_CAN_VIEW_FINANCIALS = {{ can_view_financials | tojson }};
 window.EOMS_MAP_SETTINGS = {{ map_settings | tojson }};
 window.AZURE_MAPS_KEY = {{ azure_maps_key | tojson }};
+window.EOMS_SMS_STATUS = {{ sms_status | tojson }};
 async function geocodeStores(){
     if(!confirm("Fix existing store pin locations now? This may take a minute.")) return;
     const response = await fetch("/api/geocode-stores", {method:"POST"});

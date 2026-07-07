@@ -1444,6 +1444,30 @@ def map_settings_payload():
         "due_amber_days": int(num(settings_data.get("due_amber_days")) or 7),
     }
 
+def sms_status_payload(settings_data=None):
+    settings_data = settings_data if isinstance(settings_data, dict) else read_json(SETTINGS_FILE)
+    api_key_saved = bool(clean(os.environ.get("TELNYX_API_KEY")) or clean(settings_data.get("telnyx_api_key")))
+    from_number_saved = bool(clean(os.environ.get("TELNYX_FROM_NUMBER")) or clean(settings_data.get("telnyx_from_number")))
+
+    if api_key_saved and from_number_saved:
+        return {
+            "available": True,
+            "status": "available",
+            "reason": "SMS backend available",
+        }
+
+    missing = []
+    if not api_key_saved:
+        missing.append("Telnyx API key")
+    if not from_number_saved:
+        missing.append("Telnyx from number")
+
+    return {
+        "available": False,
+        "status": "not_configured",
+        "reason": "SMS not configured: " + ", ".join(missing),
+    }
+
 def active_map_stores(stores):
     hidden_statuses = {"Completed", "Recovered", "Exception", "RMS Closed"}
     hidden_rms = {"Closed in RMS", "Missing from RMS"}
@@ -1727,6 +1751,7 @@ def recovery_center():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
     workspace = summarize_recovery_workspace_from_records(routes, stores)
+    workspace["sms_status"] = sms_status_payload(read_json(SETTINGS_FILE))
     return render_template(
         "recovery_center.html",
         workspace=workspace,
@@ -2087,6 +2112,7 @@ def dispatch_map():
         "dispatch_map.html", stores=stores, hubs=HUBS,
         max_payload=MAX_PAYLOAD, azure_maps_key=maps_key,
         map_settings=map_settings_payload(),
+        sms_status=sms_status_payload(settings_data),
         can_view_financials=permissions.can_view_financials(current_user())
     )
 
@@ -4983,13 +5009,16 @@ def api_assign_route():
     if metrics["status"] == "OVER LIMIT":
         return jsonify({"ok": False, "message": "Route is over 25,001 lbs. Remove stores before assigning."})
 
-    stores = read_json(STORES_FILE)
     assigned_ids = [s["id"] for s in ordered]
+    route_id = str(uuid4())
+    stores = read_json(STORES_FILE)
 
     for store in stores:
         if store["id"] in assigned_ids:
             store["status"] = "Assigned"
             store["assigned_driver"] = driver
+            store["driver_phone"] = driver_phone
+            store["route_id"] = route_id
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
 
@@ -4997,7 +5026,7 @@ def api_assign_route():
     route_number = f"RT-{len(routes) + 1:05d}"
 
     route = {
-        "id": str(uuid4()),
+        "id": route_id,
         "route_number": route_number,
         "driver": driver,
         "driver_phone": driver_phone,
@@ -5068,6 +5097,7 @@ def api_update_route_driver():
     driver_phone = clean(data.get("driver_phone"))
     truck = clean(data.get("truck"))
     helper = clean(data.get("helper"))
+    truck_status = clean(data.get("truck_status"))
 
     routes = read_json(ROUTES_FILE)
     stores = read_json(STORES_FILE)
@@ -5079,6 +5109,7 @@ def api_update_route_driver():
             route["driver_phone"] = driver_phone
             route["truck"] = truck
             route["helper"] = helper
+            route["truck_status"] = truck_status
             route["updated_at"] = datetime.now().isoformat(timespec="seconds")
             updated = route
 
@@ -5089,6 +5120,7 @@ def api_update_route_driver():
                     store["driver_phone"] = driver_phone
                     store["truck"] = truck
                     store["helper"] = helper
+                    store["truck_status"] = truck_status
                     store["status"] = "Assigned"
                     if store.get("pdf_path"):
                         store["pdf_path"] = move_pdf(store["pdf_path"], "Assigned")
@@ -5099,7 +5131,7 @@ def api_update_route_driver():
 
     write_json(ROUTES_FILE, routes)
     write_json(STORES_FILE, stores)
-    audit("Update Route Driver", {"route_id": route_id, "driver": driver, "driver_phone": driver_phone, "truck": truck, "helper": helper})
+    audit("Update Route Driver", {"route_id": route_id, "driver": driver, "driver_phone": driver_phone, "truck": truck, "helper": helper, "truck_status": truck_status})
 
     return jsonify({"ok": True, "route": updated})
 
@@ -5204,6 +5236,7 @@ def route_print(route_id):
     return render_template("route_print.html", route=route)
 
 @app.route("/api/unassign-route", methods=["POST"])
+@dispatch_required
 def api_unassign_route():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
@@ -5230,6 +5263,11 @@ def api_unassign_route():
         if store.get("id") in route_store_ids:
             store["status"] = "Unassigned"
             store["assigned_driver"] = ""
+            store["driver_phone"] = ""
+            store["truck"] = ""
+            store["helper"] = ""
+            store["truck_status"] = ""
+            store["route_id"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             restored += 1
@@ -5390,6 +5428,11 @@ def api_unassign_store():
         if store.get("id") == store_id:
             store["status"] = "Unassigned"
             store["assigned_driver"] = ""
+            store["driver_phone"] = ""
+            store["truck"] = ""
+            store["helper"] = ""
+            store["truck_status"] = ""
+            store["route_id"] = ""
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Imported")
             restored = store
