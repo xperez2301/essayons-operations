@@ -1,0 +1,254 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Inventory" %}
+{% set module_title = "Warehouse Inventory" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-success">Stock Control</span>
+{% endblock %}
+
+{% block content %}
+  <div id="inventoryNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
+
+  <section aria-label="Inventory dashboard">
+    <h2>Inventory Dashboard</h2>
+    <div class="eoms-summary-grid">
+      <div class="eoms-summary-card">
+        <span>Total Components</span>
+        <strong>{{ workspace.summary.total_components }}</strong>
+        <small>warehouse stock</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Available Inventory</span>
+        <strong>{{ workspace.summary.available_inventory }}</strong>
+        <small>available components</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Reserved Inventory</span>
+        <strong>{{ workspace.summary.reserved_inventory }}</strong>
+        <small>reserved components</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Inventory Weight</span>
+        <strong>{{ workspace.summary.inventory_weight }} lbs</strong>
+        <small>{{ workspace.summary.warehouse_capacity_used }}% of {{ workspace.summary.warehouse_capacity }}</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Inventory List</h2>
+        {% if workspace.inventory %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Quantity</th>
+                <th>Weight</th>
+                <th>Available</th>
+                <th>Reserved</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in workspace.inventory %}
+                <tr>
+                  <td><a href="/inventory?component={{ item.component|urlencode }}">{{ item.component }}</a></td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ item.weight }} lbs</td>
+                  <td>{{ item.available }}</td>
+                  <td>{{ item.reserved }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No inventory available</strong>
+            <span>Inventory will appear after recovered material is received into the warehouse.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Inventory History</h2>
+        {% if workspace.history %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Component</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Operator</th>
+                <th>Running Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in workspace.history %}
+                <tr>
+                  <td>{{ event.type }}</td>
+                  <td>{{ event.component }}</td>
+                  <td>{{ event.amount }}</td>
+                  <td>{{ event.date }}</td>
+                  <td>{{ event.operator }}</td>
+                  <td>{{ event.running_total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No inventory history</strong>
+            <span>Receipts and warehouse adjustments will appear here as inventory changes.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="eoms-card">
+      <h2>Inventory Detail</h2>
+      {% if workspace.detail %}
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Component</th><td>{{ workspace.detail.component }}</td></tr>
+            <tr><th>Current Quantity</th><td>{{ workspace.detail.current_quantity }}</td></tr>
+            <tr><th>Weight</th><td>{{ workspace.detail.weight }} lbs</td></tr>
+            <tr><th>Last Updated</th><td>{{ workspace.detail.last_updated }}</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Receiving History</h3>
+        {% if workspace.detail.receiving_history %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Load</th>
+                <th>Quantity</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for receipt in workspace.detail.receiving_history %}
+                <tr>
+                  <td>{{ receipt.store }} / {{ receipt.bol }}</td>
+                  <td>{{ receipt.quantity }}</td>
+                  <td>{{ receipt.date }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No receipts</strong>
+            <span>This component has not been received into inventory yet.</span>
+          </div>
+        {% endif %}
+
+        <h3>Adjust Inventory</h3>
+        <div style="display:grid;gap:10px;margin-top:10px;">
+          <label>
+            <span>Component</span>
+            <select id="inventoryComponent">
+              {% for component in workspace.component_names %}
+                <option value="{{ component }}" {% if component == workspace.detail.component %}selected{% endif %}>{{ component }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Adjustment Amount</span>
+            <input id="inventoryAmount" type="number" step="1" value="0">
+          </label>
+          <label>
+            <span>Adjustment Reason</span>
+            <textarea id="inventoryReason" rows="4"></textarea>
+          </label>
+          <button id="adjustInventoryBtn" class="eoms-button eoms-button-primary" type="button">Save Adjustment</button>
+        </div>
+
+        <h3>Adjustments</h3>
+        {% if workspace.detail.adjustments %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Amount</th>
+                <th>Reason</th>
+                <th>Adjusted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for adjustment in workspace.detail.adjustments %}
+                <tr>
+                  <td>{{ adjustment.amount }}</td>
+                  <td>{{ adjustment.reason }}</td>
+                  <td>{{ adjustment.adjusted_at }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No adjustments</strong>
+            <span>Warehouse adjustments for this component will appear here.</span>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="eoms-empty-state">
+          <strong>No component selected</strong>
+          <span>Select a component to view inventory detail.</span>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var adjustButton = document.getElementById("adjustInventoryBtn");
+  if (!adjustButton) {
+    return;
+  }
+
+  var notice = document.getElementById("inventoryNotice");
+
+  function setNotice(message, className) {
+    if (!notice) {
+      return;
+    }
+    notice.hidden = false;
+    notice.className = "eoms-status " + className;
+    notice.textContent = message;
+  }
+
+  adjustButton.addEventListener("click", async function(){
+    var payload = {
+      component: document.getElementById("inventoryComponent").value,
+      amount: document.getElementById("inventoryAmount").value,
+      reason: document.getElementById("inventoryReason").value
+    };
+
+    adjustButton.disabled = true;
+    setNotice("Saving adjustment", "eoms-status-neutral");
+
+    try {
+      var response = await fetch("/api/inventory/adjust", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Adjustment failed.");
+      }
+      setNotice("Adjustment saved", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Adjustment failed.", "eoms-status-danger");
+      adjustButton.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

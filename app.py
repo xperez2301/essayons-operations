@@ -47,6 +47,7 @@ from eoms_modules.driver_center_service import (
 )
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
+from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -1728,6 +1729,38 @@ def api_receiving_receive():
         "ok": True,
         "already_received": already_received,
         "store": received,
+        "summary": workspace.get("summary", {}),
+    })
+
+@app.route("/inventory")
+def inventory_workspace():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    workspace = build_inventory_workspace(stores, request.args.get("component"))
+    return render_template("inventory.html", workspace=workspace)
+
+@app.route("/api/inventory/adjust", methods=["POST"])
+def api_inventory_adjust():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+
+    try:
+        adjustment = adjust_inventory(
+            stores,
+            data.get("component"),
+            data.get("amount"),
+            data.get("reason"),
+            adjusted_by=session.get("username", "system"),
+        )
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    workspace = build_inventory_workspace(stores, adjustment.get("component"))
+    audit("Adjust Inventory", adjustment)
+
+    return jsonify({
+        "ok": True,
+        "adjustment": adjustment,
         "summary": workspace.get("summary", {}),
     })
 

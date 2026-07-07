@@ -1,7 +1,7 @@
 {
-  "current_version": "4.6A",
+  "current_version": "4.4",
   "current_branch": "ft3-automation-worker",
-  "current_build": "FT4.6A",
+  "current_build": "FT4.4",
   "eras": [
     {
       "id": "era-i",
@@ -300,37 +300,37 @@
       "id": "FT4.6A",
       "title": "EOMS Roadmap Workspace",
       "era": "era-ii",
-      "status": "Current",
+      "status": "Completed",
       "description": "Internal development dashboard for EOMS roadmap, progress, standards, and future planning.",
       "completion_date": "",
       "release_version": "4.6A",
       "commit": "",
       "dependencies": ["FT4.2E"],
-      "notes": "Current build."
+      "notes": ""
     },
     {
       "id": "FT4.3",
       "title": "Receiving Workspace Foundation",
       "era": "era-ii",
-      "status": "Planned",
+      "status": "Completed",
       "description": "Warehouse receiving visibility for recovered loads after driver recovery completion.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.2E"],
-      "notes": "No inventory mutation until receiving scope is approved."
+      "notes": "Receiving records place recovered material into warehouse receiving without implementing inventory management."
     },
     {
       "id": "FT4.4",
       "title": "Inventory Workspace Foundation",
       "era": "era-ii",
-      "status": "Planned",
+      "status": "Current",
       "description": "Inventory visibility after receiving is defined, with component-level stock surfaces.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.3"],
-      "notes": ""
+      "notes": "Current build."
     },
     {
       "id": "FT4.5",
