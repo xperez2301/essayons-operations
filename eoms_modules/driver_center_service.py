@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import datetime, timezone
 
 from eoms_modules.recovery_center_service import (
     COMPONENT_NAMES,
@@ -17,6 +18,7 @@ ACTIVE_DRIVER_STATUSES = {
     "assigned",
     "dispatched",
     "in progress",
+    "recovered",
 }
 
 COMPONENT_ENTRY_LABELS = {
@@ -203,6 +205,9 @@ def build_stop_detail(stop=None, store_lookup=None):
         "status": display_or_default(stop.get("status"), "Assigned"),
         "due_date": display_or_default(stop.get("due_date") or store_record.get("due_date")),
         "notes": clean(stop.get("notes") or store_record.get("notes") or store_record.get("variance_review") or ""),
+        "counts_saved_at": clean(store_record.get("driver_counts_saved_at")),
+        "completed_by": clean(store_record.get("completed_by")),
+        "completed_at": clean(store_record.get("completed_at")),
         "component_entries": component_entries_for_stop(stop),
     }
 
@@ -224,7 +229,11 @@ def store_matches_driver(store, driver_names):
     return clean(store.get("assigned_driver")) in driver_names
 
 
-def save_driver_stop_counts(stores, store_id, data, driver_names=None):
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=""):
     if not isinstance(stores, list):
         raise ValueError("Stores must be provided as a list.")
 
@@ -250,9 +259,92 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None):
             store[field_name] = value
 
         store["notes"] = notes
+        store["driver_counts_saved_at"] = utc_now_iso()
+        store["driver_counts_saved_by"] = clean(saved_by) or "system"
         return store
 
     raise LookupError("Driver stop was not found.")
+
+
+def is_driver_stop_saved(store):
+    if not isinstance(store, dict):
+        return False
+
+    return bool(clean(store.get("driver_counts_saved_at")))
+
+
+def complete_driver_stop(stores, store_id, driver_names=None, completed_by=""):
+    if not isinstance(stores, list):
+        raise ValueError("Stores must be provided as a list.")
+
+    store_id = clean(store_id)
+    if not store_id:
+        raise ValueError("A store id is required.")
+
+    driver_names = normalize_driver_names(driver_names)
+
+    for store in stores:
+        if not isinstance(store, dict):
+            continue
+
+        if clean(store.get("id")) != store_id:
+            continue
+
+        if not store_matches_driver(store, driver_names):
+            raise PermissionError("This stop is not assigned to you.")
+
+        if not is_driver_stop_saved(store):
+            raise ValueError("Save recovery counts and notes before completing this stop.")
+
+        store["status"] = "Recovered"
+        store["completed_by"] = clean(completed_by) or "system"
+        store["completed_at"] = utc_now_iso()
+        return store
+
+    raise LookupError("Driver stop was not found.")
+
+
+def is_recovered_store(store):
+    return clean(store.get("status")).lower() in {"recovered", "completed"}
+
+
+def update_route_recovery_progress(routes, stores, store_id):
+    if not isinstance(routes, list):
+        raise ValueError("Routes must be provided as a list.")
+
+    stores_by_id = {
+        clean(store.get("id")): store
+        for store in stores or []
+        if isinstance(store, dict) and clean(store.get("id"))
+    }
+    store_id = clean(store_id)
+    updated_routes = []
+
+    for route in routes:
+        if not isinstance(route, dict):
+            continue
+
+        route_store_ids = [clean(route_store_id) for route_store_id in route.get("store_ids") or []]
+        if store_id not in route_store_ids:
+            continue
+
+        route_stores = [
+            stores_by_id[route_store_id]
+            for route_store_id in route_store_ids
+            if route_store_id in stores_by_id
+        ]
+        total_stops = len(route_stores)
+        recovered_stops = sum(1 for store in route_stores if is_recovered_store(store))
+
+        route["recovery_progress"] = {
+            "total_stops": total_stops,
+            "recovered_stops": recovered_stops,
+            "remaining_stops": max(total_stops - recovered_stops, 0),
+            "updated_at": utc_now_iso(),
+        }
+        updated_routes.append(route)
+
+    return updated_routes
 
 
 def summarize_driver_route(route_summary):

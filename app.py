@@ -38,7 +38,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
-from eoms_modules.driver_center_service import build_driver_workspace, save_driver_stop_counts
+from eoms_modules.driver_center_service import (
+    build_driver_workspace,
+    complete_driver_stop,
+    save_driver_stop_counts,
+    update_route_recovery_progress,
+)
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -5262,6 +5267,7 @@ def api_driver_save_counts():
             data.get("store_id"),
             data,
             driver_names=driver_names,
+            saved_by=session.get("username", "system"),
         )
     except PermissionError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 403
@@ -5282,6 +5288,49 @@ def api_driver_save_counts():
     return jsonify({
         "ok": True,
         "store": updated,
+        "summary": workspace.get("summary", {}),
+        "component_totals": workspace.get("component_totals", {}),
+    })
+
+@app.route("/api/driver/complete-stop", methods=["POST"])
+def api_driver_complete_stop():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        updated = complete_driver_stop(
+            stores,
+            data.get("store_id"),
+            driver_names=driver_names,
+            completed_by=session.get("username", "system"),
+        )
+        updated_routes = update_route_recovery_progress(routes, stores, updated.get("id"))
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    workspace = build_driver_workspace(
+        routes=routes,
+        stores=stores,
+        driver_names=driver_names,
+    )
+    audit("Driver Stop Recovered", {"store_id": updated.get("id"), "bol": updated.get("bol")})
+
+    return jsonify({
+        "ok": True,
+        "store": updated,
+        "updated_routes": len(updated_routes),
         "summary": workspace.get("summary", {}),
         "component_totals": workspace.get("component_totals", {}),
     })
@@ -5458,4 +5507,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-

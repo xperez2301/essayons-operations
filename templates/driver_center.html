@@ -143,7 +143,7 @@
           </label>
           <div class="eoms-toolbar">
             <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save</button>
-            <button class="eoms-button eoms-button-primary" type="button" disabled>Complete Stop</button>
+            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button">Complete Stop</button>
           </div>
         </div>
       {% else %}
@@ -160,7 +160,8 @@
 <script>
 (function(){
   var saveButton = document.getElementById("driverSaveCountsBtn");
-  if (!saveButton) {
+  var completeButton = document.getElementById("driverCompleteStopBtn");
+  if (!saveButton && !completeButton) {
     return;
   }
 
@@ -175,7 +176,7 @@
     notice.textContent = message;
   }
 
-  saveButton.addEventListener("click", async function(){
+  function stopPayload() {
     var payload = {
       store_id: document.getElementById("driverStopStoreId").value,
       notes: document.getElementById("driverStopNotes").value
@@ -184,6 +185,13 @@
     document.querySelectorAll(".driver-count-input").forEach(function(input){
       payload[input.dataset.countField] = input.value;
     });
+
+    return payload;
+  }
+
+  if (saveButton) {
+  saveButton.addEventListener("click", async function(){
+    var payload = stopPayload();
 
     saveButton.disabled = true;
     setNotice("Saving", "eoms-status-neutral");
@@ -205,6 +213,33 @@
       saveButton.disabled = false;
     }
   });
+  }
+
+  if (completeButton) {
+  completeButton.addEventListener("click", async function(){
+    var payload = stopPayload();
+
+    completeButton.disabled = true;
+    setNotice("Completing", "eoms-status-neutral");
+
+    try {
+      var response = await fetch("/api/driver/complete-stop", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Complete stop failed.");
+      }
+      setNotice("Recovered", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Complete stop failed.", "eoms-status-danger");
+      completeButton.disabled = false;
+    }
+  });
+  }
 })();
 </script>
 {% endblock %}
