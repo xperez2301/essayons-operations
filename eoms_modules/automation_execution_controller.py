@@ -131,6 +131,7 @@ def evaluate_execution_policy(job, store, current_jobs=None, max_retries=DEFAULT
         return decision(False, "Invalid automation job.", details={"max_retries": max_retries})
 
     job_type = normalize_job_type(job)
+    payload = job_payload(job)
     policy = get_job_policy(job_type)
     mode = policy.get("mode")
 
@@ -139,7 +140,8 @@ def evaluate_execution_policy(job, store, current_jobs=None, max_retries=DEFAULT
         return decision(False, "Only queued or validating jobs can be considered for automatic execution.", policy, job_type)
 
     scheduler_state = get_scheduler_state(store if isinstance(store, dict) else {})
-    if not scheduler_state.get("enabled"):
+    is_scheduler_job = clean(payload.get("source")).lower() == "scheduler"
+    if is_scheduler_job and not scheduler_state.get("enabled"):
         return decision(False, "Scheduler is paused.", policy, job_type, {"scheduler_state": scheduler_state})
 
     if kill_switch_enabled(store):
@@ -149,6 +151,17 @@ def evaluate_execution_policy(job, store, current_jobs=None, max_retries=DEFAULT
         return decision(False, "Job is blocked by automation policy.", policy, job_type)
 
     if mode == APPROVAL_REQUIRED:
+        if payload.get("operator_approved") is True:
+            return decision(
+                True,
+                "Approved by operator.",
+                policy,
+                job_type,
+                {
+                    "scheduler_state": scheduler_state,
+                    "approved_by": clean(payload.get("approved_by")) or "operator",
+                },
+            )
         return decision(False, "Job requires operator approval.", policy, job_type)
 
     if mode != AUTOMATIC:

@@ -571,6 +571,11 @@ async function runWorker(workerName) {
       body: JSON.stringify({
         worker: workerName,
         action: "run",
+        payload: {
+          job_type: workerName === "RMS Worker" ? "rms_auto_grab" : "worker_run",
+          operator_approved: true,
+          approved_by: "automation_center_run_now"
+        },
         run_now: true
       })
     });

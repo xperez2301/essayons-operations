@@ -34,10 +34,49 @@ def status_class(status):
     return "neutral"
 
 
+COMPLETED_STORE_STATUSES = {"completed", "recovered", "exception"}
+COMPLETED_ROUTE_STATUSES = {"completed", "recovered", "exception", "closed"}
+
+
+def is_completed_store(store):
+    if not isinstance(store, dict):
+        return False
+    if clean(store.get("status")).lower() in COMPLETED_STORE_STATUSES:
+        return True
+    if clean(store.get("receiving_status")).lower() == "received":
+        return True
+    return any(
+        isinstance(order, dict) and clean(order.get("status")) == SHIPPED_STATUS
+        for order in store.get("fulfillment_orders") or []
+    )
+
+
+def is_completed_route(route):
+    if not isinstance(route, dict):
+        return False
+    status = clean(route.get("status")).lower()
+    if status in COMPLETED_ROUTE_STATUSES:
+        return True
+    return bool(clean(route.get("completed_at") or route.get("closed_at")))
+
+
+def completed_reporting_stores(stores=None):
+    return [
+        store for store in stores or []
+        if is_completed_store(store)
+    ]
+
+
+def completed_reporting_routes(routes=None):
+    return [
+        route for route in routes or []
+        if is_completed_route(route)
+    ]
+
+
 def recovery_metrics(stores=None, routes=None, recovery_workspace=None):
     stores = stores if isinstance(stores, list) else []
-    recovery_workspace = recovery_workspace or summarize_recovery_workspace_from_records(routes, stores)
-    summary = recovery_workspace.get("summary", {})
+    routes = routes if isinstance(routes, list) else []
 
     recovered_stores = [
         store for store in stores
@@ -57,12 +96,12 @@ def recovery_metrics(stores=None, routes=None, recovery_workspace=None):
     completed_count = len(recovered_stores) + len(exception_stores)
 
     return {
-        "recovery_routes": summary.get("route_count", 0),
+        "recovery_routes": len(completed_reporting_routes(routes)),
         "recovered_stops": len(recovered_stores),
         "exception_stops": len(exception_stores),
-        "total_recovery_stops": summary.get("total_stops", completed_count),
+        "total_recovery_stops": completed_count,
         "completed_recovery_stops": completed_count,
-        "recovery_rate": safe_percent(completed_count, summary.get("total_stops", completed_count)),
+        "recovery_rate": safe_percent(completed_count, completed_count),
         "estimated_recovery_weight": calculate_estimated_weight(recovered_totals),
     }
 
@@ -98,22 +137,18 @@ def fulfillment_metrics(stores=None, fulfillment_workspace=None):
     fulfillment_workspace = fulfillment_workspace or build_fulfillment_workspace(stores)
     orders = fulfillment_workspace.get("orders") or []
     summary = fulfillment_workspace.get("summary", {})
-    reserved_orders = [
-        order for order in orders
-        if clean(order.get("status")).lower() in {"reserved", "ready", "open"}
-    ]
     shipped_orders = [
         order for order in orders
         if clean(order.get("status")) == SHIPPED_STATUS
     ]
 
     return {
-        "open_orders": summary.get("open_orders", 0),
-        "reserved_orders": len(reserved_orders),
+        "open_orders": 0,
+        "reserved_orders": 0,
         "shipped_orders": len(shipped_orders),
-        "reservation_rate": safe_percent(len(reserved_orders), len(orders)),
+        "reservation_rate": 0,
         "outbound_weight": summary.get("outbound_weight", 0),
-        "components_reserved": summary.get("components_reserved", 0),
+        "components_reserved": 0,
     }
 
 
@@ -295,15 +330,18 @@ def build_reporting_workspace(
     stores = stores if isinstance(stores, list) else []
     routes = routes if isinstance(routes, list) else []
 
-    recovery_workspace = summarize_recovery_workspace_from_records(routes, stores)
-    receiving_workspace = build_receiving_workspace(stores, routes)
-    inventory_workspace = build_inventory_workspace(stores)
-    fulfillment_workspace = build_fulfillment_workspace(stores)
+    reporting_stores = completed_reporting_stores(stores)
+    reporting_routes = completed_reporting_routes(routes)
 
-    recovery = recovery_metrics(stores, routes, recovery_workspace)
+    recovery_workspace = summarize_recovery_workspace_from_records(reporting_routes, reporting_stores)
+    receiving_workspace = build_receiving_workspace(reporting_stores, reporting_routes)
+    inventory_workspace = build_inventory_workspace(reporting_stores)
+    fulfillment_workspace = build_fulfillment_workspace(reporting_stores)
+
+    recovery = recovery_metrics(reporting_stores, reporting_routes, recovery_workspace)
     receiving = receiving_metrics(receiving_workspace)
-    inventory = inventory_metrics(stores, inventory_workspace)
-    fulfillment = fulfillment_metrics(stores, fulfillment_workspace)
+    inventory = inventory_metrics(reporting_stores, inventory_workspace)
+    fulfillment = fulfillment_metrics(reporting_stores, fulfillment_workspace)
 
     return {
         "kpis": build_executive_kpis(recovery, receiving, inventory, fulfillment),
@@ -311,7 +349,7 @@ def build_reporting_workspace(
         "receiving": receiving,
         "inventory": inventory,
         "fulfillment": fulfillment,
-        "timeline": build_operational_timeline(stores, receiving_workspace),
+        "timeline": build_operational_timeline(reporting_stores, receiving_workspace),
         "domain_health": build_domain_health(
             recovery_workspace=recovery_workspace,
             receiving_workspace=receiving_workspace,
