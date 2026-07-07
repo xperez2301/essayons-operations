@@ -192,27 +192,3 @@
     </aside>
   </div>
 {% endblock %}
-
-{% block detail_panel %}
-  <aside class="eoms-detail-panel">
-    <h2>Route Details</h2>
-    {% if workspace.selected_summary %}
-      <table class="eoms-table">
-        <tbody>
-          <tr><th>Route</th><td>{{ workspace.selected_summary.label }}</td></tr>
-          <tr><th>Truck</th><td>{{ workspace.selected_summary.truck }}</td></tr>
-          <tr><th>Driver</th><td>{{ workspace.selected_summary.driver }}</td></tr>
-          <tr><th>Dispatcher</th><td>{{ workspace.selected_summary.dispatcher }}</td></tr>
-          <tr><th>Status</th><td><span class="eoms-status eoms-status-{{ workspace.selected_summary.status_class }}">{{ workspace.selected_summary.status }}</span></td></tr>
-          <tr><th>Warehouse ETA</th><td>{{ workspace.selected_summary.warehouse_eta }}</td></tr>
-          <tr><th>Estimated Weight</th><td>{{ workspace.selected_summary.estimated_weight }} lbs</td></tr>
-        </tbody>
-      </table>
-    {% else %}
-      <div class="eoms-empty-state">
-        <strong>No route selected</strong>
-        <span>Route details will appear here after recovery routes are available.</span>
-      </div>
-    {% endif %}
-  </aside>
-{% endblock %}

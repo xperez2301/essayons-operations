@@ -1,16 +1,14 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "layouts/eoms_base.html" %}
 
-<header class="topbar">
-    <div>
-        <h2>Operations Control Center</h2>
-        <p>Monitor EOMS health, repairs, validation, backups, RMS status, deployments, and system activity.</p>
-    </div>
-    <div>
-        <a class="link-btn" href="/database-health">Legacy Health Page</a>
-        <a class="link-btn" href="/api/database/backups" target="_blank">Backup JSON</a>
-    </div>
-</header>
+{% set page_title = "Database Center" %}
+{% set module_title = "Operations Control" %}
+
+{% block topbar_actions %}
+    <a class="eoms-button" href="/database-health">Legacy Health Page</a>
+    <a class="eoms-button eoms-button-secondary" href="/api/database/backups" target="_blank">Backup JSON</a>
+{% endblock %}
+
+{% block content %}
 
 <section class="panel import-panel">
     <div class="right-head">

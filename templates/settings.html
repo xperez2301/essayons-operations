@@ -1,16 +1,14 @@
-{% extends "base.html" %}
-{% block content %}
-<header class="topbar">
-    <div>
-        <h2>Settings</h2>
-        <p>Saved RMS credentials, connection status, and automation URLs.</p>
-    </div>
-    <div>
-        <a class="link-btn" href="/api/system-health" target="_blank">System Health</a>
-        <a class="link-btn" href="/rms-sync">RMS Sync</a>
-    </div>
-</header>
+{% extends "layouts/eoms_base.html" %}
 
+{% set page_title = "Settings" %}
+{% set module_title = "Admin Workspace" %}
+
+{% block topbar_actions %}
+    <a class="eoms-button" href="/api/system-health" target="_blank">System Health</a>
+    <a class="eoms-button eoms-button-secondary" href="/rms-sync">RMS Sync</a>
+{% endblock %}
+
+{% block content %}
 <section class="panel import-panel">
     <h3>RMS Login Settings</h3>
 

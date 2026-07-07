@@ -1,33 +1,37 @@
-{% extends "base.html" %}
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Automation Center" %}
+{% set module_title = "Worker Command" %}
+
+{% block topbar_actions %}
+  <a class="eoms-button eoms-button-secondary" href="/dashboard">Dashboard</a>
+{% endblock %}
+
 {% block content %}
 
-<div class="command-dashboard">
-  <header class="command-topbar">
-    <div class="command-title">
-      <button class="hamburger" type="button">&#9776;</button>
-      <div>
-        <h2>Automation Center</h2>
-        <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
-      </div>
+<div class="eoms-stack">
+  <section class="eoms-command-hero">
+    <div>
+      <span class="eoms-module-title">Automation</span>
+      <h2>Automation Center</h2>
+      <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
     </div>
-    <div class="command-actions">
-      <a class="big-red-btn" href="/dashboard">Back to Dashboard<br><small>Operations</small></a>
-    </div>
-  </header>
-
-  <section class="command-kpis">
-    <div class="kpi-card"><span>Center Status</span><strong id="centerStatus" class="green">Loading</strong><small>automation health</small></div>
-    <div class="kpi-card"><span>Workers</span><strong id="workerCount" class="blue">0</strong><small>registered</small></div>
-    <div class="kpi-card"><span>Queue Depth</span><strong id="queueDepth" class="yellow">0</strong><small>jobs waiting</small></div>
-    <div class="kpi-card"><span>Latest Job</span><strong id="latestJob" class="purple">--</strong><small>queue activity</small></div>
-    <div class="kpi-card"><span>Open Exceptions</span><strong id="openExceptions" class="red">0</strong><small>operational</small></div>
+    <span class="eoms-status eoms-status-warning">Live Controls</span>
   </section>
 
-  <section class="command-layout">
-    <div class="command-main">
+  <section class="eoms-summary-grid">
+    <div class="eoms-summary-card"><span>Center Status</span><strong id="centerStatus">Loading</strong><small>automation health</small></div>
+    <div class="eoms-summary-card"><span>Workers</span><strong id="workerCount">0</strong><small>registered</small></div>
+    <div class="eoms-summary-card"><span>Queue Depth</span><strong id="queueDepth">0</strong><small>jobs waiting</small></div>
+    <div class="eoms-summary-card"><span>Latest Job</span><strong id="latestJob">--</strong><small>queue activity</small></div>
+    <div class="eoms-summary-card"><span>Open Exceptions</span><strong id="openExceptions">0</strong><small>operational</small></div>
+  </section>
 
-      <div class="activity-card">
-        <div class="activity-head">
+  <section class="eoms-command-grid">
+    <div class="eoms-stack">
+
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Automation Workers</h3>
           <span id="lastChecked">Loading...</span>
         </div>
@@ -38,13 +42,13 @@
         </div>
       </div>
 
-      <div class="activity-card">
-        <div class="activity-head">
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Automation Queue</h3>
-          <button id="testQueueBtn" class="queue-test-btn" type="button">Test RMS Status Job</button>
+          <button id="testQueueBtn" class="eoms-button queue-test-btn" type="button">Test RMS Status Job</button>
         </div>
 
-        <table class="activity-table">
+        <table class="eoms-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -61,13 +65,13 @@
         </table>
       </div>
 
-      <div class="activity-card">
-        <div class="activity-head">
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Recent Automation Activity</h3>
           <span>Live refresh</span>
         </div>
 
-        <table class="activity-table">
+        <table class="eoms-table">
           <thead>
             <tr>
               <th>Time</th>
@@ -84,9 +88,9 @@
 
     </div>
 
-    <aside class="command-right">
-      <div class="right-card">
-        <div class="right-head">
+    <aside class="eoms-stack">
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Automation Infrastructure</h3>
           <span id="infrastructureStatus">Online</span>
         </div>
@@ -97,8 +101,8 @@
         <p class="alert-yellow">&#9679; GPS7000 integration locked</p>
       </div>
 
-      <div class="right-card">
-        <div class="right-head">
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Operational Status</h3>
         </div>
         <p><b>Worker State:</b> <span id="workerState">--</span></p>
@@ -123,8 +127,8 @@
         <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
       </div>
 
-      <div class="right-card">
-        <div class="right-head">
+      <div class="eoms-card">
+        <div class="eoms-section-head">
           <h3>Build 3 Mission</h3>
         </div>
         <p>&#128993; Run Now worker control</p>
@@ -145,15 +149,15 @@
 }
 
 .worker-card {
-  background: rgba(10, 15, 20, 0.88);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 10px;
+  background: var(--eoms-surface-muted);
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
   padding: 16px;
 }
 
 .worker-card h4 {
   margin: 0 0 8px;
-  color: #f4d28a;
+  color: var(--eoms-text);
   font-size: 18px;
 }
 
@@ -163,7 +167,7 @@
   border-radius: 999px;
   font-weight: bold;
   font-size: 12px;
-  background: rgba(255,255,255,0.08);
+  background: var(--eoms-neutral-bg);
 }
 
 .worker-status.ready,
@@ -192,7 +196,7 @@
   margin-top: 12px;
   font-size: 13px;
   line-height: 1.7;
-  color: #ddd;
+  color: var(--eoms-muted);
 }
 
 .worker-actions {
@@ -204,10 +208,10 @@
 
 .worker-actions button,
 .queue-test-btn {
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.07);
-  color: white;
-  border-radius: 7px;
+  border: 1px solid var(--eoms-border);
+  background: var(--eoms-surface);
+  color: var(--eoms-text);
+  border-radius: var(--eoms-radius);
   padding: 7px 10px;
 }
 
@@ -222,17 +226,18 @@
 }
 
 .worker-actions button.run-now-btn {
-  border-color: rgba(103,232,122,0.45);
-  background: rgba(103,232,122,0.12);
+  border-color: #b8dec9;
+  background: var(--eoms-green-bg);
+  color: var(--eoms-green);
 }
 
 .automation-notice {
   margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.08);
-  color: #fff;
+  border: 1px solid var(--eoms-border);
+  background: var(--eoms-surface-muted);
+  color: var(--eoms-text);
   font-size: 14px;
 }
 
@@ -244,6 +249,26 @@
 .automation-notice.error {
   border-color: rgba(255,103,103,0.45);
   color: #ff6767;
+}
+
+.alert-green {
+  color: var(--eoms-green);
+}
+
+.alert-yellow {
+  color: var(--eoms-amber);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #edf4ff;
+  color: var(--eoms-blue-dark);
 }
 </style>
 

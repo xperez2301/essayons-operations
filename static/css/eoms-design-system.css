@@ -39,14 +39,14 @@ a {
 
 .eoms-shell {
   display: grid;
-  grid-template-columns: var(--eoms-sidebar-width) minmax(0, 1fr) auto;
+  grid-template-columns: var(--eoms-sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
   background: var(--eoms-bg);
   overflow-x: clip;
 }
 
 .eoms-shell.sidebar-collapsed {
-  grid-template-columns: var(--eoms-sidebar-collapsed) minmax(0, 1fr) auto;
+  grid-template-columns: var(--eoms-sidebar-collapsed) minmax(0, 1fr);
 }
 
 .eoms-workspace {
@@ -250,14 +250,18 @@ a {
 
 .eoms-card,
 .eoms-summary-card,
-.eoms-detail-panel {
+.eoms-detail-panel,
+.panel,
+.card {
   background: var(--eoms-surface);
   border: 1px solid var(--eoms-border);
   border-radius: var(--eoms-radius);
   box-shadow: var(--eoms-shadow);
 }
 
-.eoms-card {
+.eoms-card,
+.panel,
+.card {
   padding: 18px;
 }
 
@@ -270,8 +274,16 @@ a {
 }
 
 .eoms-card p,
-.eoms-detail-panel p {
+.eoms-detail-panel p,
+.panel p,
+.card p,
+.muted {
   color: var(--eoms-muted);
+}
+
+.panel,
+.import-panel {
+  margin-bottom: 18px;
 }
 
 .eoms-summary-grid {
@@ -343,14 +355,23 @@ a {
   font-size: 14px;
 }
 
+.activity-table,
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
 .eoms-table th,
-.eoms-table td {
+.eoms-table td,
+.activity-table th,
+.activity-table td {
   padding: 11px 10px;
   border-bottom: 1px solid var(--eoms-border);
   text-align: left;
 }
 
-.eoms-table th {
+.eoms-table th,
+.activity-table th {
   color: var(--eoms-muted);
   font-size: 12px;
   text-transform: uppercase;
@@ -358,11 +379,16 @@ a {
   background: var(--eoms-surface-muted);
 }
 
-.eoms-table tr:last-child td {
+.eoms-table tr:last-child td,
+.activity-table tr:last-child td {
   border-bottom: 0;
 }
 
-.eoms-button {
+.eoms-button,
+.primary-btn,
+.secondary-btn,
+.link-btn,
+.small-btn {
   min-height: 34px;
   padding: 8px 12px;
   border: 1px solid var(--eoms-border);
@@ -380,36 +406,130 @@ a {
   gap: 7px;
 }
 
-.eoms-button:hover {
+.eoms-button:hover,
+.primary-btn:hover,
+.secondary-btn:hover,
+.link-btn:hover,
+.small-btn:hover {
   border-color: #b9c6d8;
   background: var(--eoms-surface-muted);
+  text-decoration: none;
 }
 
-.eoms-button-primary {
+.eoms-button-primary,
+.primary-btn {
   background: var(--eoms-blue);
   border-color: var(--eoms-blue);
   color: #ffffff;
 }
 
-.eoms-button-primary:hover {
+.eoms-button-primary:hover,
+.primary-btn:hover {
   background: var(--eoms-blue-dark);
   border-color: var(--eoms-blue-dark);
+  color: #ffffff;
 }
 
-.eoms-button-secondary {
+.eoms-button-secondary,
+.secondary-btn,
+.link-btn {
   background: #edf4ff;
   border-color: #c8dcff;
   color: var(--eoms-blue-dark);
 }
 
+.right-head,
+.metrics-grid,
+.password-row,
+.button-stack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.right-head {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric {
+  min-height: 94px;
+  display: grid;
+  align-content: space-between;
+  padding: 14px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface-muted);
+}
+
+.metric span {
+  color: var(--eoms-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metric strong {
+  font-size: 22px;
+}
+
+.notice,
+.settings-status {
+  padding: 12px 14px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface-muted);
+  color: var(--eoms-text);
+}
+
+label {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--eoms-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+input,
+select,
+textarea {
+  width: min(100%, 520px);
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface);
+  color: var(--eoms-text);
+  font: inherit;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+}
+
+.check-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+}
+
 .eoms-detail-panel {
-  grid-column: 3;
+  grid-column: 2;
   width: 320px;
-  margin: 86px 18px 18px 0;
+  margin: 0 24px 24px auto;
   padding: 18px;
   align-self: start;
-  position: sticky;
-  top: 88px;
+  position: static;
 }
 
 .eoms-command-hero {
@@ -762,7 +882,8 @@ a {
 
   .eoms-command-kpis,
   .eoms-command-grid,
-  .eoms-domain-grid {
+  .eoms-domain-grid,
+  .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -847,7 +968,8 @@ a {
 
   .eoms-command-kpis,
   .eoms-command-grid,
-  .eoms-domain-grid {
+  .eoms-domain-grid,
+  .metrics-grid {
     grid-template-columns: 1fr;
   }
 }
