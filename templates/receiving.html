@@ -1,265 +1,438 @@
 {% extends "layouts/eoms_base.html" %}
 
 {% set page_title = "Receiving" %}
-{% set module_title = "Warehouse Receiving" %}
+{% set module_title = "Warehouse Verification" %}
+
+{% set component_fields = {
+  '84" Corner Post': 'corner_posts',
+  '40" DRB': 'drb40',
+  '48" DRB': 'drb48',
+  'Wood Shelf': 'wood_shelf'
+} %}
+
+{% block head %}
+<style>
+  .receiving-workspace {
+    display: grid;
+    gap: 16px;
+  }
+
+  .receiving-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .receiving-kpi {
+    min-height: 92px;
+    padding: 14px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .receiving-kpi span {
+    display: block;
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .receiving-kpi strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .receiving-grid {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .receiving-queue {
+    display: grid;
+    gap: 10px;
+  }
+
+  .receiving-queue-row {
+    padding: 12px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .receiving-queue-row.active {
+    border-color: var(--eoms-blue);
+    box-shadow: inset 4px 0 0 var(--eoms-blue);
+  }
+
+  .receiving-queue-row b,
+  .receiving-queue-row span,
+  .receiving-queue-row small {
+    display: block;
+  }
+
+  .receiving-queue-row small {
+    color: var(--eoms-muted);
+    margin-top: 3px;
+  }
+
+  .receiving-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .receiving-head h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+
+  .receiving-head p {
+    margin: 4px 0;
+  }
+
+  .receiving-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .receiving-meta div {
+    padding: 10px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface-muted);
+  }
+
+  .receiving-meta span {
+    display: block;
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .receiving-meta strong {
+    display: block;
+    margin-top: 5px;
+  }
+
+  .receiving-form {
+    display: grid;
+    gap: 14px;
+  }
+
+  .receiving-count-grid,
+  .receiving-damage-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .receiving-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .receiving-field input,
+  .receiving-field textarea,
+  .receiving-field select {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .receiving-field input {
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .receiving-primary {
+    width: 100%;
+    min-height: 54px;
+    font-size: 16px;
+  }
+
+  .receiving-two-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .receiving-note-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .receiving-note-list div {
+    padding: 10px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface-muted);
+  }
+
+  .difference-positive {
+    color: var(--eoms-green);
+    font-weight: 800;
+  }
+
+  .difference-negative {
+    color: var(--eoms-red);
+    font-weight: 800;
+  }
+
+  @media (max-width: 1100px) {
+    .receiving-grid,
+    .receiving-two-column {
+      grid-template-columns: 1fr;
+    }
+
+    .receiving-kpis,
+    .receiving-meta,
+    .receiving-count-grid,
+    .receiving-damage-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    .receiving-kpis,
+    .receiving-meta,
+    .receiving-count-grid,
+    .receiving-damage-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .receiving-head {
+      display: grid;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block topbar_actions %}
-  <span class="eoms-status eoms-status-warning">Recovery Bridge</span>
+  <span class="eoms-status eoms-status-warning">Warehouse Queue</span>
 {% endblock %}
 
 {% block content %}
   <div id="receivingNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
 
-  <section class="eoms-summary-grid" aria-label="Receiving dashboard">
-    <div class="eoms-summary-card">
-      <span>Active Recovery Routes</span>
-      <strong>{{ workspace.summary.active_recovery_routes }}</strong>
-      <small>pending receipt routes</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Pending Receipts</span>
-      <strong>{{ workspace.summary.pending_receipts }}</strong>
-      <small>loads waiting</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Received Today</span>
-      <strong>{{ workspace.summary.received_today }}</strong>
-      <small>warehouse receipts</small>
-    </div>
-    <div class="eoms-summary-card">
-      <span>Components Received</span>
-      <strong>{{ workspace.summary.total_components_received }}</strong>
-      <small>{{ workspace.summary.estimated_weight_received }} lbs estimated</small>
-    </div>
-  </section>
+  <div class="receiving-workspace">
+    <section class="receiving-kpis" aria-label="Receiving dashboard">
+      <div class="receiving-kpi">
+        <span>Next BOL</span>
+        <strong>{{ workspace.selected_load.bol if workspace.selected_load else "None" }}</strong>
+      </div>
+      <div class="receiving-kpi">
+        <span>Waiting Verification</span>
+        <strong>{{ workspace.summary.pending_receipts }}</strong>
+      </div>
+      <div class="receiving-kpi">
+        <span>Verified Today</span>
+        <strong>{{ workspace.summary.received_today }}</strong>
+      </div>
+      <div class="receiving-kpi">
+        <span>Close-Out Queue</span>
+        <strong>{{ workspace.closeout_queue | length }}</strong>
+      </div>
+    </section>
 
-  <div class="eoms-demo-grid">
-    <div class="eoms-stack">
-      <section class="eoms-card">
-        <h2>Recovery Loads</h2>
-        {% if workspace.loads %}
-          <table class="eoms-table">
-            <thead>
-              <tr>
-                <th>Route</th>
-                <th>Driver</th>
-                <th>BOL</th>
-                <th>Completed Time</th>
-                <th>Recovery Status</th>
-                <th>Receiving</th>
-                <th>Close-Out</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for load in workspace.loads %}
-                <tr>
-                  <td>{{ load.route }}</td>
-                  <td>{{ load.driver }}</td>
-                  <td>{{ load.bol }}</td>
-                  <td>{{ load.completed_time }}</td>
-                  <td><span class="eoms-status eoms-status-{{ load.recovery_status_class }}">{{ load.recovery_status }}</span></td>
-                  <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
-                  <td>{{ load.dispatcher_closeout_status }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="eoms-empty-state">
-            <strong>No recovery loads ready</strong>
-            <span>Recovered and exception loads will appear here when drivers complete recovery stops.</span>
-          </div>
-        {% endif %}
-      </section>
-
-      <section class="eoms-card">
-        <h2>Dispatcher Close-Out</h2>
-        {% if workspace.closeout_queue %}
-          <table class="eoms-table">
-            <thead>
-              <tr>
-                <th>BOL</th>
-                <th>Driver</th>
-                <th>Driver Qty</th>
-                <th>Verified Qty</th>
-                <th>Damage</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for load in workspace.closeout_queue %}
-                <tr>
-                  <td>{{ load.bol }}</td>
-                  <td>{{ load.driver }}</td>
-                  <td>{{ load.driver_submitted_racks or 0 }} racks / {{ load.driver_submitted_pieces or 0 }} pcs</td>
-                  <td>{{ load.warehouse_verified_racks or 0 }} racks / {{ load.warehouse_verified_pieces or 0 }} pcs</td>
-                  <td>{{ load.damaged_component_total }}</td>
-                  <td>
-                    <button class="eoms-button eoms-button-primary closeout-btn" type="button" data-store-id="{{ load.store_id }}">Close Out</button>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="eoms-empty-state">
-            <strong>No BOLs waiting on Dispatch</strong>
-            <span>Warehouse verified loads will appear here for final close-out.</span>
-          </div>
-        {% endif %}
-      </section>
-
-      <section class="eoms-card">
-        <h2>Receiving History</h2>
-        {% if workspace.history %}
-          <table class="eoms-table">
-            <thead>
-              <tr>
-                <th>Received Load</th>
-                <th>Date</th>
-                <th>Receiver</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for load in workspace.history %}
-                <tr>
-                  <td>{{ load.store }} / {{ load.bol }}</td>
-                  <td>{{ load.received_at }}</td>
-                  <td>{{ load.received_by }}</td>
-                  <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="eoms-empty-state">
-            <strong>No received loads yet</strong>
-            <span>Received recovery loads will appear here after warehouse receiving is recorded.</span>
-          </div>
-        {% endif %}
-      </section>
-    </div>
-
-    <aside class="eoms-card">
-      <h2>Receiving Detail</h2>
-      {% if workspace.selected_load %}
-        <table class="eoms-table">
-          <tbody>
-            <tr><th>Store</th><td>{{ workspace.selected_load.store }}</td></tr>
-            <tr><th>BOL</th><td>{{ workspace.selected_load.bol }}</td></tr>
-            <tr><th>Driver</th><td>{{ workspace.selected_load.driver }}</td></tr>
-            <tr><th>Hub</th><td>{{ workspace.selected_load.origin }}</td></tr>
-            <tr><th>Arrival</th><td>{{ workspace.selected_load.completed_time }}</td></tr>
-            <tr><th>Recovery Summary</th><td>{{ workspace.selected_load.recovery_status }}</td></tr>
-            <tr><th>Recovered Weight</th><td>{{ workspace.selected_load.recovered_weight }} lbs</td></tr>
-            <tr><th>Driver Rack / PCS</th><td>{{ workspace.selected_load.driver_submitted_racks or 0 }} / {{ workspace.selected_load.driver_submitted_pieces or 0 }}</td></tr>
-            <tr><th>Recovery Notes</th><td>{{ workspace.selected_load.notes or "None" }}</td></tr>
-            <tr><th>Driver Exceptions</th><td>{{ workspace.selected_load.driver_exception_type or "None" }}{% if workspace.selected_load.driver_exception_notes %}: {{ workspace.selected_load.driver_exception_notes }}{% endif %}</td></tr>
-            {% if workspace.selected_load.no_pickup_manager_name %}
-              <tr><th>No Pickup Manager</th><td>{{ workspace.selected_load.no_pickup_manager_name }}</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-
-        <h3>Driver Submitted Components</h3>
-        <table class="eoms-table">
-          <tbody>
-            {% for component in workspace.component_names %}
-              <tr><th>{{ component }}</th><td>{{ workspace.selected_load.component_counts[component] }}</td></tr>
+    <div class="receiving-grid">
+      <aside class="eoms-card">
+        <h2>Receiving Queue</h2>
+        {% if workspace.pending_loads %}
+          <div class="receiving-queue">
+            {% for load in workspace.pending_loads %}
+              <div class="receiving-queue-row {% if workspace.selected_load and load.store_id == workspace.selected_load.store_id %}active{% endif %}">
+                <b>BOL {{ load.bol }}</b>
+                <span>{{ load.store }}</span>
+                <small>{{ load.driver }}{% if load.truck != "Not assigned" %} / {{ load.truck }}{% endif %}</small>
+                <small>{{ load.hub }} / {{ load.completed_time }}</small>
+                <small>{{ load.driver_submitted_racks or 0 }} racks / {{ load.driver_submitted_pieces or 0 }} pcs</small>
+                <span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span>
+              </div>
             {% endfor %}
-          </tbody>
-        </table>
-
-        {% if workspace.selected_load.driver_count_revisions %}
-          <h3>Driver Revision History</h3>
-          <table class="eoms-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Operator</th>
-                <th>Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for revision in workspace.selected_load.driver_count_revisions %}
-                <tr>
-                  <td>{{ revision.timestamp }}</td>
-                  <td>{{ revision.operator }}</td>
-                  <td>{{ revision.reason or "Not provided" }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          </div>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No BOLs waiting</strong>
+            <span>Driver-completed BOLs will appear here automatically.</span>
+          </div>
         {% endif %}
+      </aside>
 
-        <div style="display:grid;gap:10px;margin-top:14px;">
-          <input type="hidden" id="receivingStoreId" value="{{ workspace.selected_load.store_id }}">
-          <label>
-            <span>Verified Rack Count</span>
-            <input id="warehouseVerifiedRacks" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_racks if workspace.selected_load.warehouse_verified_racks != '' else workspace.selected_load.driver_submitted_racks }}">
-          </label>
-          <label>
-            <span>Verified Piece Count</span>
-            <input id="warehouseVerifiedPieces" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_pieces if workspace.selected_load.warehouse_verified_pieces != '' else workspace.selected_load.driver_submitted_pieces }}">
-          </label>
-          <h3>Warehouse Verified Components</h3>
-          {% for component in workspace.component_names %}
-            {% set field_name = {
-              '84" Corner Post': 'corner_posts',
-              '40" DRB': 'drb40',
-              '48" DRB': 'drb48',
-              'Wood Shelf': 'wood_shelf'
-            }[component] %}
-            <label>
-              <span>{{ component }}</span>
-              <input class="warehouse-verified-count" data-count-field="{{ field_name }}" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_counts[component] or workspace.selected_load.component_counts[component] }}">
-            </label>
-          {% endfor %}
-          <h3>Damage Categories</h3>
-          {% for category in workspace.damage_categories %}
-            <strong>{{ category }}</strong>
-            {% for component in workspace.component_names %}
-              {% set field_name = {
-                '84" Corner Post': 'corner_posts',
-                '40" DRB': 'drb40',
-                '48" DRB': 'drb48',
-                'Wood Shelf': 'wood_shelf'
-              }[component] %}
-              <label>
-                <span>{{ component }}</span>
-                <input class="damage-count" data-damage-category="{{ category }}" data-count-field="{{ field_name }}" type="number" min="0" step="1" value="{{ workspace.selected_load.damage_counts[category][component] }}">
+      <section class="eoms-card">
+        {% if workspace.selected_load %}
+          <div class="receiving-head">
+            <div>
+              <h2>{{ workspace.selected_load.store }}</h2>
+              <p><b>BOL {{ workspace.selected_load.bol }}</b></p>
+              <p class="muted">Verify this BOL, then the next waiting BOL will load.</p>
+            </div>
+            <span class="eoms-status eoms-status-warning">Verify Next</span>
+          </div>
+
+          <div class="receiving-meta">
+            <div><span>Driver</span><strong>{{ workspace.selected_load.driver }}</strong></div>
+            <div><span>Truck</span><strong>{{ workspace.selected_load.truck }}</strong></div>
+            <div><span>Hub</span><strong>{{ workspace.selected_load.hub }}</strong></div>
+            <div><span>Arrival</span><strong>{{ workspace.selected_load.completed_time }}</strong></div>
+          </div>
+
+          <div class="receiving-two-column">
+            <section>
+              <h3>Driver Submitted</h3>
+              <div class="receiving-note-list">
+                <div><b>Rack Count</b><br>{{ workspace.selected_load.driver_submitted_racks or 0 }} racks / {{ workspace.selected_load.driver_submitted_pieces or 0 }} pcs</div>
+                <div><b>Damage Reported</b><br>{{ workspace.selected_load.driver_damage_notes or "None" }}</div>
+                <div><b>Notes</b><br>{{ workspace.selected_load.notes or "None" }}</div>
+                {% if workspace.selected_load.driver_exception_type %}
+                  <div><b>Exception</b><br>{{ workspace.selected_load.driver_exception_type }}{% if workspace.selected_load.driver_exception_notes %}: {{ workspace.selected_load.driver_exception_notes }}{% endif %}</div>
+                {% endif %}
+                {% if workspace.selected_load.no_pickup_manager_name %}
+                  <div><b>Manager Name</b><br>{{ workspace.selected_load.no_pickup_manager_name }}</div>
+                {% endif %}
+                {% if workspace.selected_load.no_pickup_photos %}
+                  <div><b>Photo References</b><br>{{ workspace.selected_load.no_pickup_photos | join(", ") }}</div>
+                {% endif %}
+              </div>
+
+              <h3>Driver Components</h3>
+              <table class="eoms-table">
+                <thead>
+                  <tr><th>Component</th><th>Driver</th></tr>
+                </thead>
+                <tbody>
+                  {% for component in workspace.component_names %}
+                    <tr>
+                      <td>{{ component }}</td>
+                      <td>{{ workspace.selected_load.component_counts[component] }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </section>
+
+            <section>
+              <h3>Difference</h3>
+              <table class="eoms-table">
+                <thead>
+                  <tr><th>Component</th><th>Driver</th><th>Warehouse</th><th>Diff</th></tr>
+                </thead>
+                <tbody>
+                  {% for component in workspace.component_names %}
+                    {% set diff = workspace.selected_load.quantity_difference[component] %}
+                    <tr>
+                      <td>{{ component }}</td>
+                      <td>{{ workspace.selected_load.component_counts[component] }}</td>
+                      <td>{{ workspace.selected_load.warehouse_verified_counts[component] or workspace.selected_load.component_counts[component] }}</td>
+                      <td class="{% if diff > 0 %}difference-positive{% elif diff < 0 %}difference-negative{% endif %}">{{ diff }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </section>
+          </div>
+
+          <form class="receiving-form" data-receiving-form>
+            <input type="hidden" id="receivingStoreId" value="{{ workspace.selected_load.store_id }}">
+            <h3>Warehouse Verification</h3>
+            <div class="receiving-count-grid">
+              <label class="receiving-field">
+                <span>Rack Count</span>
+                <input id="warehouseVerifiedRacks" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_racks if workspace.selected_load.warehouse_verified_racks != '' else workspace.selected_load.driver_submitted_racks }}">
               </label>
-            {% endfor %}
-          {% endfor %}
-          <label>
-            <span>Damaged Material</span>
-            <textarea id="damagedMaterial" rows="3">{{ workspace.selected_load.damaged_material }}</textarea>
-          </label>
-          <label>
-            <span>Damage Notes</span>
-            <textarea id="damageNotes" rows="3">{{ workspace.selected_load.damage_notes }}</textarea>
-          </label>
-          <label>
-            <span>Photos</span>
-            <textarea id="warehousePhotos" rows="3" placeholder="Photo links or filenames, one per line">{% for photo in workspace.selected_load.warehouse_photos %}{{ photo }}
+              <label class="receiving-field">
+                <span>Piece Count</span>
+                <input id="warehouseVerifiedPieces" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_pieces if workspace.selected_load.warehouse_verified_pieces != '' else workspace.selected_load.driver_submitted_pieces }}">
+              </label>
+              {% for component in workspace.component_names %}
+                <label class="receiving-field">
+                  <span>{{ component }}</span>
+                  <input class="warehouse-verified-count" data-count-field="{{ component_fields[component] }}" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_counts[component] or workspace.selected_load.component_counts[component] }}">
+                </label>
+              {% endfor %}
+            </div>
+
+            <h3>Damage Classification</h3>
+            <div class="receiving-damage-grid">
+              {% for category in workspace.damage_categories %}
+                {% for component in workspace.component_names %}
+                  <label class="receiving-field">
+                    <span>{{ category }} / {{ component }}</span>
+                    <input class="damage-count" data-damage-category="{{ category }}" data-count-field="{{ component_fields[component] }}" type="number" min="0" step="1" value="{{ workspace.selected_load.damage_counts[category][component] }}">
+                  </label>
+                {% endfor %}
+              {% endfor %}
+            </div>
+
+            <label class="receiving-field">
+              <span>Damaged Material</span>
+              <textarea id="damagedMaterial" rows="3">{{ workspace.selected_load.damaged_material }}</textarea>
+            </label>
+            <label class="receiving-field">
+              <span>Warehouse Notes</span>
+              <textarea id="warehouseNotes" rows="3">{{ workspace.selected_load.warehouse_notes }}</textarea>
+            </label>
+            <label class="receiving-field">
+              <span>Damage Notes</span>
+              <textarea id="damageNotes" rows="3">{{ workspace.selected_load.damage_notes }}</textarea>
+            </label>
+            <label class="receiving-field">
+              <span>Photo References</span>
+              <textarea id="warehousePhotos" rows="3" placeholder="Photo links or filenames, one per line">{% for photo in workspace.selected_load.warehouse_photos %}{{ photo }}
 {% endfor %}</textarea>
-          </label>
-          <label>
-            <span>Warehouse Notes</span>
-            <textarea id="warehouseNotes" rows="4">{{ workspace.selected_load.warehouse_notes }}</textarea>
-          </label>
-          <button id="receiveLoadBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_load.receiving_status == "Received" %}disabled{% endif %}>
-            {% if workspace.selected_load.receiving_status == "Received" %}Received{% else %}Receive Load{% endif %}
-          </button>
-        </div>
+            </label>
+
+            <button id="receiveLoadBtn" class="eoms-button eoms-button-primary receiving-primary" type="button">Verify &amp; Next</button>
+          </form>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No BOL to verify</strong>
+            <span>The receiving queue is clear.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="eoms-card">
+      <h2>Ready for Dispatcher Close-Out</h2>
+      {% if workspace.closeout_queue %}
+        <table class="eoms-table">
+          <thead>
+            <tr>
+              <th>BOL</th>
+              <th>Driver</th>
+              <th>Store</th>
+              <th>Verified Qty</th>
+              <th>Damage</th>
+              <th>Close-Out</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for load in workspace.closeout_queue %}
+              <tr>
+                <td>{{ load.bol }}</td>
+                <td>{{ load.driver }}</td>
+                <td>{{ load.store }}</td>
+                <td>{{ load.warehouse_verified_racks or 0 }} racks / {{ load.warehouse_verified_pieces or 0 }} pcs</td>
+                <td>{{ load.damaged_component_total }}</td>
+                <td><button class="eoms-button eoms-button-secondary closeout-btn" type="button" data-store-id="{{ load.store_id }}">Close Out</button></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       {% else %}
-        <div class="eoms-empty-state">
-          <strong>No load selected</strong>
-          <span>Receiving details will appear when a recovered or exception load is ready.</span>
-        </div>
+        <p class="muted">Verified BOLs will appear here for final dispatcher approval.</p>
       {% endif %}
-    </aside>
+    </section>
   </div>
 {% endblock %}
 
@@ -283,12 +456,17 @@
     notice.textContent = message;
   }
 
-  if (receiveButton) {
-  receiveButton.addEventListener("click", async function(){
+  function value(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+
+  function receivingPayload() {
     var verifiedCounts = {};
     document.querySelectorAll(".warehouse-verified-count").forEach(function(input){
       verifiedCounts[input.dataset.countField] = input.value;
     });
+
     var damageCounts = {};
     document.querySelectorAll(".damage-count").forEach(function(input){
       var category = input.dataset.damageCategory;
@@ -298,38 +476,45 @@
       damageCounts[category][input.dataset.countField] = input.value;
     });
 
-    var payload = {
-      store_id: document.getElementById("receivingStoreId").value,
-      warehouse_notes: document.getElementById("warehouseNotes").value,
-      warehouse_verified_racks: document.getElementById("warehouseVerifiedRacks").value,
-      warehouse_verified_pieces: document.getElementById("warehouseVerifiedPieces").value,
+    return {
+      store_id: value("receivingStoreId"),
+      warehouse_notes: value("warehouseNotes"),
+      warehouse_verified_racks: value("warehouseVerifiedRacks"),
+      warehouse_verified_pieces: value("warehouseVerifiedPieces"),
       warehouse_verified_counts: verifiedCounts,
       damage_counts: damageCounts,
-      damaged_material: document.getElementById("damagedMaterial").value,
-      damage_notes: document.getElementById("damageNotes").value,
-      warehouse_photos: document.getElementById("warehousePhotos").value.split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean)
+      damaged_material: value("damagedMaterial"),
+      damage_notes: value("damageNotes"),
+      warehouse_photos: value("warehousePhotos").split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean)
     };
+  }
 
-    receiveButton.disabled = true;
-    setNotice("Receiving", "eoms-status-neutral");
-
-    try {
-      var response = await fetch("/api/receiving/receive", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
-      var data = await response.json();
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Receive failed.");
-      }
-      setNotice("Received", "eoms-status-success");
-      window.setTimeout(function(){ window.location.reload(); }, 350);
-    } catch (error) {
-      setNotice(error.message || "Receive failed.", "eoms-status-danger");
-      receiveButton.disabled = false;
+  async function postJson(endpoint, payload) {
+    var response = await fetch(endpoint, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    var data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.message || "Request failed.");
     }
-  });
+    return data;
+  }
+
+  if (receiveButton) {
+    receiveButton.addEventListener("click", async function(){
+      receiveButton.disabled = true;
+      setNotice("Verifying BOL", "eoms-status-neutral");
+      try {
+        await postJson("/api/receiving/receive", receivingPayload());
+        setNotice("Verified. Loading next BOL.", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 300);
+      } catch (error) {
+        setNotice(error.message || "Verification failed.", "eoms-status-danger");
+        receiveButton.disabled = false;
+      }
+    });
   }
 
   closeoutButtons.forEach(function(button){
@@ -338,15 +523,10 @@
       button.disabled = true;
       setNotice("Closing out", "eoms-status-neutral");
       try {
-        var response = await fetch("/api/dispatcher/closeout", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({store_id: button.dataset.storeId, dispatcher_closeout_notes: notes})
+        await postJson("/api/dispatcher/closeout", {
+          store_id: button.dataset.storeId,
+          dispatcher_closeout_notes: notes
         });
-        var data = await response.json();
-        if (!response.ok || !data.ok) {
-          throw new Error(data.message || "Close-out failed.");
-        }
         setNotice("Closed out", "eoms-status-success");
         window.setTimeout(function(){ window.location.reload(); }, 350);
       } catch (error) {

@@ -1839,6 +1839,7 @@ def api_receiving_receive():
         "ok": True,
         "already_received": already_received,
         "store": received,
+        "next_load": workspace.get("selected_load"),
         "summary": workspace.get("summary", {}),
     })
 

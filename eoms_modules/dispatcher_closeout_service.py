@@ -52,7 +52,7 @@ def validate_closeout(stores, store_id):
             if clean(store.get("dispatcher_closeout_status")) == DISPATCHER_CLOSED_STATUS:
                 raise ValueError("This BOL has already been closed out by Dispatch.")
             raise ValueError("Warehouse receiving must be complete before dispatcher close-out.")
-        if not any(warehouse_verified_counts_from_store(store).values()):
+        if not isinstance(store.get("warehouse_verified_counts"), dict):
             raise ValueError("Warehouse verified component quantities are required before close-out.")
         return store
 

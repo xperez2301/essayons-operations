@@ -58,12 +58,16 @@ def route_lookup(routes):
 
         route_label = clean(route.get("route_number") or route.get("id")) or "Unassigned Route"
         route_driver = clean(route.get("driver")) or "Unassigned"
+        route_truck = clean(route.get("truck"))
+        route_hub = clean(route.get("hub"))
 
         for store_id in route.get("store_ids") or []:
             if clean(store_id):
                 lookup[clean(store_id)] = {
                     "route": route_label,
                     "driver": route_driver,
+                    "truck": route_truck,
+                    "hub": route_hub,
                 }
 
         for stop in route.get("stops") or []:
@@ -71,6 +75,8 @@ def route_lookup(routes):
                 lookup[clean(stop.get("id"))] = {
                     "route": route_label,
                     "driver": route_driver,
+                    "truck": route_truck,
+                    "hub": route_hub,
                 }
 
     return lookup
@@ -191,7 +197,9 @@ def receiving_status_class(status):
 def build_recovery_load(store, route_info=None):
     route_info = route_info or {}
     counts = driver_counts_from_store(store)
+    has_verified_counts = isinstance(store.get("warehouse_verified_counts"), dict)
     verified_counts = warehouse_verified_counts_from_store(store)
+    display_verified_counts = verified_counts if has_verified_counts else counts
     receiving_status = clean(store.get("receiving_status")) or "Pending"
     recovery_status = clean(store.get("status")) or "Unknown"
     verified_racks = store.get("warehouse_verified_racks")
@@ -204,6 +212,8 @@ def build_recovery_load(store, route_info=None):
         "origin": clean(store.get("origin")) or "Unknown",
         "route": clean(route_info.get("route")) or "Unassigned Route",
         "driver": clean(route_info.get("driver") or store.get("assigned_driver")) or "Unassigned",
+        "truck": clean(route_info.get("truck") or store.get("truck")) or "Not assigned",
+        "hub": clean(route_info.get("hub") or store.get("hub") or store.get("origin")) or "Unknown",
         "completed_time": store_completed_time(store) or "Not set",
         "recovery_status": recovery_status,
         "recovery_status_class": receiving_status_class(recovery_status),
@@ -214,8 +224,8 @@ def build_recovery_load(store, route_info=None):
         "warehouse_notes": clean(store.get("warehouse_notes")),
         "warehouse_verified_racks": verified_racks if verified_racks not in (None, "") else "",
         "warehouse_verified_pieces": verified_pieces if verified_pieces not in (None, "") else "",
-        "warehouse_verified_counts": verified_counts,
-        "quantity_difference": quantity_difference(counts, verified_counts),
+        "warehouse_verified_counts": display_verified_counts,
+        "quantity_difference": quantity_difference(counts, display_verified_counts),
         "damage_counts": damage_counts_from_store(store),
         "damaged_material": clean(store.get("damaged_material")),
         "damage_notes": clean(store.get("damage_notes")),
@@ -225,6 +235,7 @@ def build_recovery_load(store, route_info=None):
         "dispatcher_closed_at": clean(store.get("dispatcher_closed_at")),
         "dispatcher_closeout_notes": clean(store.get("dispatcher_closeout_notes")),
         "notes": clean(store.get("notes")),
+        "driver_damage_notes": clean(store.get("driver_damage_notes")),
         "driver_submitted_racks": store.get("collected_racks", ""),
         "driver_submitted_pieces": store.get("collected_pieces", ""),
         "driver_count_revisions": store.get("driver_count_revisions") if isinstance(store.get("driver_count_revisions"), list) else [],
@@ -234,7 +245,7 @@ def build_recovery_load(store, route_info=None):
         "driver_exception_notes": clean(store.get("driver_exception_notes")),
         "component_counts": counts,
         "recovered_weight": calculate_estimated_weight(counts),
-        "verified_weight": calculate_estimated_weight(verified_counts),
+        "verified_weight": calculate_estimated_weight(display_verified_counts),
         "damaged_component_total": total_damaged_components(store),
     }
 
