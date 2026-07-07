@@ -43,9 +43,11 @@
               <tr>
                 <th>Route</th>
                 <th>Driver</th>
+                <th>BOL</th>
                 <th>Completed Time</th>
                 <th>Recovery Status</th>
                 <th>Receiving</th>
+                <th>Close-Out</th>
               </tr>
             </thead>
             <tbody>
@@ -53,9 +55,11 @@
                 <tr>
                   <td>{{ load.route }}</td>
                   <td>{{ load.driver }}</td>
+                  <td>{{ load.bol }}</td>
                   <td>{{ load.completed_time }}</td>
                   <td><span class="eoms-status eoms-status-{{ load.recovery_status_class }}">{{ load.recovery_status }}</span></td>
                   <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
+                  <td>{{ load.dispatcher_closeout_status }}</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -64,6 +68,43 @@
           <div class="eoms-empty-state">
             <strong>No recovery loads ready</strong>
             <span>Recovered and exception loads will appear here when drivers complete recovery stops.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Dispatcher Close-Out</h2>
+        {% if workspace.closeout_queue %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>BOL</th>
+                <th>Driver</th>
+                <th>Driver Qty</th>
+                <th>Verified Qty</th>
+                <th>Damage</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for load in workspace.closeout_queue %}
+                <tr>
+                  <td>{{ load.bol }}</td>
+                  <td>{{ load.driver }}</td>
+                  <td>{{ load.driver_submitted_racks or 0 }} racks / {{ load.driver_submitted_pieces or 0 }} pcs</td>
+                  <td>{{ load.warehouse_verified_racks or 0 }} racks / {{ load.warehouse_verified_pieces or 0 }} pcs</td>
+                  <td>{{ load.damaged_component_total }}</td>
+                  <td>
+                    <button class="eoms-button eoms-button-primary closeout-btn" type="button" data-store-id="{{ load.store_id }}">Close Out</button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No BOLs waiting on Dispatch</strong>
+            <span>Warehouse verified loads will appear here for final close-out.</span>
           </div>
         {% endif %}
       </section>
@@ -83,7 +124,7 @@
             <tbody>
               {% for load in workspace.history %}
                 <tr>
-                  <td>{{ load.store }} · {{ load.bol }}</td>
+                  <td>{{ load.store }} / {{ load.bol }}</td>
                   <td>{{ load.received_at }}</td>
                   <td>{{ load.received_by }}</td>
                   <td><span class="eoms-status eoms-status-{{ load.receiving_status_class }}">{{ load.receiving_status }}</span></td>
@@ -108,14 +149,20 @@
             <tr><th>Store</th><td>{{ workspace.selected_load.store }}</td></tr>
             <tr><th>BOL</th><td>{{ workspace.selected_load.bol }}</td></tr>
             <tr><th>Driver</th><td>{{ workspace.selected_load.driver }}</td></tr>
+            <tr><th>Hub</th><td>{{ workspace.selected_load.origin }}</td></tr>
+            <tr><th>Arrival</th><td>{{ workspace.selected_load.completed_time }}</td></tr>
             <tr><th>Recovery Summary</th><td>{{ workspace.selected_load.recovery_status }}</td></tr>
             <tr><th>Recovered Weight</th><td>{{ workspace.selected_load.recovered_weight }} lbs</td></tr>
+            <tr><th>Driver Rack / PCS</th><td>{{ workspace.selected_load.driver_submitted_racks or 0 }} / {{ workspace.selected_load.driver_submitted_pieces or 0 }}</td></tr>
             <tr><th>Recovery Notes</th><td>{{ workspace.selected_load.notes or "None" }}</td></tr>
             <tr><th>Driver Exceptions</th><td>{{ workspace.selected_load.driver_exception_type or "None" }}{% if workspace.selected_load.driver_exception_notes %}: {{ workspace.selected_load.driver_exception_notes }}{% endif %}</td></tr>
+            {% if workspace.selected_load.no_pickup_manager_name %}
+              <tr><th>No Pickup Manager</th><td>{{ workspace.selected_load.no_pickup_manager_name }}</td></tr>
+            {% endif %}
           </tbody>
         </table>
 
-        <h3>Recovered Components</h3>
+        <h3>Driver Submitted Components</h3>
         <table class="eoms-table">
           <tbody>
             {% for component in workspace.component_names %}
@@ -124,8 +171,80 @@
           </tbody>
         </table>
 
+        {% if workspace.selected_load.driver_count_revisions %}
+          <h3>Driver Revision History</h3>
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Operator</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for revision in workspace.selected_load.driver_count_revisions %}
+                <tr>
+                  <td>{{ revision.timestamp }}</td>
+                  <td>{{ revision.operator }}</td>
+                  <td>{{ revision.reason or "Not provided" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+
         <div style="display:grid;gap:10px;margin-top:14px;">
           <input type="hidden" id="receivingStoreId" value="{{ workspace.selected_load.store_id }}">
+          <label>
+            <span>Verified Rack Count</span>
+            <input id="warehouseVerifiedRacks" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_racks if workspace.selected_load.warehouse_verified_racks != '' else workspace.selected_load.driver_submitted_racks }}">
+          </label>
+          <label>
+            <span>Verified Piece Count</span>
+            <input id="warehouseVerifiedPieces" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_pieces if workspace.selected_load.warehouse_verified_pieces != '' else workspace.selected_load.driver_submitted_pieces }}">
+          </label>
+          <h3>Warehouse Verified Components</h3>
+          {% for component in workspace.component_names %}
+            {% set field_name = {
+              '84" Corner Post': 'corner_posts',
+              '40" DRB': 'drb40',
+              '48" DRB': 'drb48',
+              'Wood Shelf': 'wood_shelf'
+            }[component] %}
+            <label>
+              <span>{{ component }}</span>
+              <input class="warehouse-verified-count" data-count-field="{{ field_name }}" type="number" min="0" step="1" value="{{ workspace.selected_load.warehouse_verified_counts[component] or workspace.selected_load.component_counts[component] }}">
+            </label>
+          {% endfor %}
+          <h3>Damage Categories</h3>
+          {% for category in workspace.damage_categories %}
+            <strong>{{ category }}</strong>
+            {% for component in workspace.component_names %}
+              {% set field_name = {
+                '84" Corner Post': 'corner_posts',
+                '40" DRB': 'drb40',
+                '48" DRB': 'drb48',
+                'Wood Shelf': 'wood_shelf'
+              }[component] %}
+              <label>
+                <span>{{ component }}</span>
+                <input class="damage-count" data-damage-category="{{ category }}" data-count-field="{{ field_name }}" type="number" min="0" step="1" value="{{ workspace.selected_load.damage_counts[category][component] }}">
+              </label>
+            {% endfor %}
+          {% endfor %}
+          <label>
+            <span>Damaged Material</span>
+            <textarea id="damagedMaterial" rows="3">{{ workspace.selected_load.damaged_material }}</textarea>
+          </label>
+          <label>
+            <span>Damage Notes</span>
+            <textarea id="damageNotes" rows="3">{{ workspace.selected_load.damage_notes }}</textarea>
+          </label>
+          <label>
+            <span>Photos</span>
+            <textarea id="warehousePhotos" rows="3" placeholder="Photo links or filenames, one per line">{% for photo in workspace.selected_load.warehouse_photos %}{{ photo }}
+{% endfor %}</textarea>
+          </label>
           <label>
             <span>Warehouse Notes</span>
             <textarea id="warehouseNotes" rows="4">{{ workspace.selected_load.warehouse_notes }}</textarea>
@@ -148,7 +267,8 @@
 <script>
 (function(){
   var receiveButton = document.getElementById("receiveLoadBtn");
-  if (!receiveButton) {
+  var closeoutButtons = document.querySelectorAll(".closeout-btn");
+  if (!receiveButton && !closeoutButtons.length) {
     return;
   }
 
@@ -163,10 +283,31 @@
     notice.textContent = message;
   }
 
+  if (receiveButton) {
   receiveButton.addEventListener("click", async function(){
+    var verifiedCounts = {};
+    document.querySelectorAll(".warehouse-verified-count").forEach(function(input){
+      verifiedCounts[input.dataset.countField] = input.value;
+    });
+    var damageCounts = {};
+    document.querySelectorAll(".damage-count").forEach(function(input){
+      var category = input.dataset.damageCategory;
+      if (!damageCounts[category]) {
+        damageCounts[category] = {};
+      }
+      damageCounts[category][input.dataset.countField] = input.value;
+    });
+
     var payload = {
       store_id: document.getElementById("receivingStoreId").value,
-      warehouse_notes: document.getElementById("warehouseNotes").value
+      warehouse_notes: document.getElementById("warehouseNotes").value,
+      warehouse_verified_racks: document.getElementById("warehouseVerifiedRacks").value,
+      warehouse_verified_pieces: document.getElementById("warehouseVerifiedPieces").value,
+      warehouse_verified_counts: verifiedCounts,
+      damage_counts: damageCounts,
+      damaged_material: document.getElementById("damagedMaterial").value,
+      damage_notes: document.getElementById("damageNotes").value,
+      warehouse_photos: document.getElementById("warehousePhotos").value.split(/\n+/).map(function(item){ return item.trim(); }).filter(Boolean)
     };
 
     receiveButton.disabled = true;
@@ -188,6 +329,31 @@
       setNotice(error.message || "Receive failed.", "eoms-status-danger");
       receiveButton.disabled = false;
     }
+  });
+  }
+
+  closeoutButtons.forEach(function(button){
+    button.addEventListener("click", async function(){
+      var notes = window.prompt("Dispatcher close-out notes", "") || "";
+      button.disabled = true;
+      setNotice("Closing out", "eoms-status-neutral");
+      try {
+        var response = await fetch("/api/dispatcher/closeout", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({store_id: button.dataset.storeId, dispatcher_closeout_notes: notes})
+        });
+        var data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || "Close-out failed.");
+        }
+        setNotice("Closed out", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Close-out failed.", "eoms-status-danger");
+        button.disabled = false;
+      }
+    });
   });
 })();
 </script>

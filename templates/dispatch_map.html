@@ -49,6 +49,8 @@
         <span class="eoms-module-title">Material Yard</span>
         <h3>Available Stores</h3>
         <p class="muted">Click store cards or a map cluster. Your selection order is the route order and is never optimized automatically.</p>
+        <label>Search Ready BOLs</label>
+        <input id="store-search" type="search" placeholder="Search BOL, store, city, hub">
         <div class="quick-select-row">
             <button class="tiny-btn" onclick="selectAllVisible()">Select All</button>
             <button class="tiny-btn" onclick="selectDueToday()">Due / Overdue</button>
@@ -57,6 +59,14 @@
         <div id="available-stores"></div>
         <hr>
         <input id="route-mode" type="hidden" value="selection">
+        <label>Route Hub</label>
+        <select id="route-hub-select">
+            <option value="">Auto Assign Hub</option>
+            {% for hub_name in hubs.keys() %}
+              <option value="{{ hub_name }}">{{ hub_name }}</option>
+            {% endfor %}
+        </select>
+        <small class="muted small-muted" id="hub-required-message" hidden>Hub Required</small>
         <hr>
         <label>Assign Driver</label>
         <select id="driver-select">
@@ -95,6 +105,7 @@
         <h3>Assigned Queue</h3>
         <div class="assigned-bulk-actions">
             <button class="secondary-btn tiny-btn" type="button" onclick="selectAllAssigned()">Select All Assigned</button>
+            <button class="secondary-btn tiny-btn" type="button" onclick="sendSmsSelectedAssigned()">Bulk SMS</button>
             <button class="danger-btn tiny-btn" type="button" onclick="unassignSelectedAssigned()">Unassign Selected</button>
         </div>
         <div id="driver-results"></div>

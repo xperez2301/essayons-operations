@@ -39,6 +39,8 @@ from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
 from eoms_modules.driver_center_service import (
+    accept_driver_route,
+    decline_driver_route,
     build_driver_workspace,
     complete_driver_stop,
     save_driver_exception,
@@ -51,6 +53,7 @@ from eoms_modules.recovery_center_service import (
 )
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
+from eoms_modules.dispatcher_closeout_service import closeout_store, refresh_route_closeout
 from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
 from eoms_modules.command_center_service import build_command_center_workspace
 from eoms_modules.reporting_service import build_reporting_workspace
@@ -967,13 +970,43 @@ def calculate_route_metrics(ordered_stores, hub_name):
         "status": status
     }
 
-def build_route_order(store_ids, mode):
+def resolve_route_hub(selected_stores, requested_hub=""):
+    requested_hub = clean(requested_hub)
+    if requested_hub in HUBS:
+        return requested_hub, ""
+
+    valid_hubs = {
+        clean(store.get("hub"))
+        for store in selected_stores
+        if clean(store.get("hub")) in HUBS
+    }
+    invalid_hubs = [
+        clean(store.get("hub")) or "Hub Required"
+        for store in selected_stores
+        if clean(store.get("hub")) not in HUBS
+    ]
+
+    if len(valid_hubs) == 1 and not invalid_hubs:
+        return next(iter(valid_hubs)), ""
+
+    if invalid_hubs:
+        return "", "Hub Required"
+
+    if len(valid_hubs) > 1:
+        return "", "Select one hub for this route."
+
+    return "", "Hub Required"
+
+
+def build_route_order(store_ids, mode, requested_hub=""):
     all_stores = read_json(STORES_FILE)
     selected = [s for s in all_stores if s.get("id") in store_ids and s.get("status") == "Unassigned"]
     if not selected:
         return None, [], None
 
-    hub_name = selected[0].get("hub") if selected[0].get("hub") in HUBS else "San Antonio"
+    hub_name, hub_error = resolve_route_hub(selected, requested_hub)
+    if not hub_name:
+        return None, selected, {"status": "HUB REQUIRED", "message": hub_error or "Hub Required"}
 
     if mode == "selection":
         order = {sid: i for i, sid in enumerate(store_ids)}
@@ -1778,6 +1811,13 @@ def api_receiving_receive():
             data.get("store_id"),
             received_by=session.get("username", "system"),
             warehouse_notes=data.get("warehouse_notes"),
+            verified_racks=data.get("warehouse_verified_racks"),
+            verified_pieces=data.get("warehouse_verified_pieces"),
+            verified_counts=data.get("warehouse_verified_counts"),
+            damage_counts=data.get("damage_counts"),
+            damaged_material=data.get("damaged_material"),
+            damage_notes=data.get("damage_notes"),
+            warehouse_photos=data.get("warehouse_photos"),
         )
         already_received = bool(received.pop("already_received", False))
     except LookupError as exc:
@@ -1795,6 +1835,42 @@ def api_receiving_receive():
         "already_received": already_received,
         "store": received,
         "summary": workspace.get("summary", {}),
+    })
+
+@app.route("/api/dispatcher/closeout", methods=["POST"])
+@dispatch_required
+def api_dispatcher_closeout():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+
+    try:
+        closed = closeout_store(
+            stores,
+            data.get("store_id"),
+            closed_by=session.get("username", "system"),
+            notes=data.get("dispatcher_closeout_notes"),
+        )
+        updated_routes = refresh_route_closeout(routes, stores, closed.get("id"))
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    workspace = build_inventory_workspace(stores)
+    audit("Dispatcher Close-Out", {
+        "store_id": closed.get("id"),
+        "bol": closed.get("bol"),
+        "inventory_source": closed.get("inventory_source"),
+    })
+
+    return jsonify({
+        "ok": True,
+        "store": closed,
+        "updated_routes": len(updated_routes),
+        "inventory_summary": workspace.get("summary", {}),
     })
 
 @app.route("/inventory")
@@ -4973,15 +5049,18 @@ def api_preview_route():
     data = request.get_json(force=True)
     store_ids = data.get("store_ids", [])
     mode = data.get("mode", "optimized")
+    requested_hub = clean(data.get("hub"))
 
     allowed_ids = {s.get("id") for s in filter_stores_for_user(read_json(STORES_FILE))}
     if any(store_id not in allowed_ids for store_id in store_ids):
         return jsonify({"ok": False, "message": "One or more stores are outside your assigned cities."}), 403
 
-    hub_name, ordered, metrics = build_route_order(store_ids, mode)
+    hub_name, ordered, metrics = build_route_order(store_ids, mode, requested_hub)
 
     if not ordered:
         return jsonify({"ok": False, "message": "No unassigned stores selected."})
+    if not hub_name:
+        return jsonify({"ok": False, "message": (metrics or {}).get("message") or "Hub Required", "hub_required": True})
 
     return jsonify({
         "ok": True,
@@ -4999,15 +5078,18 @@ def api_assign_route():
     driver_phone = clean(data.get("driver_phone"))
     store_ids = data.get("store_ids", [])
     mode = data.get("mode", "optimized")
+    requested_hub = clean(data.get("hub"))
 
     allowed_ids = {s.get("id") for s in filter_stores_for_user(read_json(STORES_FILE))}
     if any(store_id not in allowed_ids for store_id in store_ids):
         return jsonify({"ok": False, "message": "One or more stores are outside your assigned cities."}), 403
 
-    hub_name, ordered, metrics = build_route_order(store_ids, mode)
+    hub_name, ordered, metrics = build_route_order(store_ids, mode, requested_hub)
 
     if not ordered:
         return jsonify({"ok": False, "message": "No unassigned stores selected."})
+    if not hub_name:
+        return jsonify({"ok": False, "message": (metrics or {}).get("message") or "Hub Required", "hub_required": True})
 
     if metrics["status"] == "OVER LIMIT":
         return jsonify({"ok": False, "message": "Route is over 25,001 lbs. Remove stores before assigning."})
@@ -5142,7 +5224,6 @@ def api_update_route_driver():
 def api_complete_route():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
-    force = bool(data.get("force"))
 
     routes = read_json(ROUTES_FILE)
     stores = read_json(STORES_FILE)
@@ -5162,31 +5243,27 @@ def api_complete_route():
     route_stores = [s for s in stores if s.get("id") in route_store_ids]
     missing_closeout = [
         s for s in route_stores
-        if s.get("collected_racks") in (None, "")
+        if clean(s.get("dispatcher_closeout_status")) != "Closed"
     ]
 
-    if missing_closeout and not force:
+    if missing_closeout:
         return jsonify({
             "ok": False,
             "code": "CLOSEOUT_REQUIRED",
-            "message": f"{len(missing_closeout)} stop(s) do not have collected rack counts. Complete driver closeout first or confirm manager override.",
+            "message": f"{len(missing_closeout)} stop(s) require warehouse verification and dispatcher close-out before route completion.",
             "missing": [{"bol": s.get("bol"), "store": s.get("store_name"), "city": s.get("city")} for s in missing_closeout[:10]],
         })
 
     for store in stores:
         if store.get("id") in route_store_ids:
+            if clean(store.get("dispatcher_closeout_status")) != "Closed":
+                continue
             store["status"] = "Completed"
             store["completed_at"] = route.get("completed_at")
             if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
                 store["closed_source"] = "Both"
             else:
                 store["closed_source"] = "EOMS"
-            if store.get("collected_racks") in (None, ""):
-                store["collected_racks"] = num(store.get("expected_racks"))
-                store["variance"] = 0
-                store["closeout_override"] = True
-            if store.get("collected_pieces") in (None, ""):
-                store["collected_pieces"] = num(store.get("collected_racks")) * PIECES_PER_RACK
             if store.get("pdf_path"):
                 store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
 
@@ -5506,6 +5583,76 @@ def driver_portal():
     )
     return render_template("driver_center.html", workspace=workspace)
 
+
+@app.route("/api/driver/accept-route", methods=["POST"])
+def api_driver_accept_route():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        route, updated_stores = accept_driver_route(
+            routes,
+            stores,
+            data.get("route_id"),
+            driver_names=driver_names,
+            accepted_by=session.get("username", "system"),
+        )
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    audit("Driver Route Accepted", {
+        "route_id": route.get("id"),
+        "route_number": route.get("route_number"),
+        "stores": len(updated_stores),
+    })
+    return jsonify({"ok": True, "route": route, "updated_stores": len(updated_stores)})
+
+
+@app.route("/api/driver/decline-route", methods=["POST"])
+def api_driver_decline_route():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        route, restored_stores = decline_driver_route(
+            routes,
+            stores,
+            data.get("route_id"),
+            reason=data.get("reason"),
+            driver_names=driver_names,
+            declined_by=session.get("username", "system"),
+        )
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    audit("Driver Route Declined", {
+        "route_id": route.get("id"),
+        "route_number": route.get("route_number"),
+        "stores": len(restored_stores),
+        "reason": clean(data.get("reason")),
+    })
+    return jsonify({"ok": True, "route": route, "restored_stores": len(restored_stores)})
+
 @app.route("/api/driver/save-counts", methods=["POST"])
 def api_driver_save_counts():
     data = request.get_json(force=True) or {}
@@ -5662,16 +5809,12 @@ def api_driver_complete():
             store["variance"] = collected_racks - num(store.get("expected_racks"))
             expected_pieces = num(store.get("expected_pieces")) or (num(store.get("expected_racks")) * PIECES_PER_RACK)
             store["pieces_variance"] = num(store.get("collected_pieces")) - expected_pieces
-            store["status"] = "Completed"
+            store["status"] = "Recovered"
             store["completed_at"] = datetime.now().isoformat(timespec="seconds")
-            if clean(store.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}:
-                store["closed_source"] = "Both"
-            else:
-                store["closed_source"] = "EOMS"
+            store["receiving_status"] = "Pending"
+            store["dispatcher_closeout_status"] = "Pending"
             if abs(num(store.get("variance"))) >= 2:
                 store["variance_review"] = True
-            if store.get("pdf_path"):
-                store["pdf_path"] = move_pdf(store["pdf_path"], "Completed")
             updated = store
             break
     write_json(STORES_FILE, stores)
@@ -5680,14 +5823,14 @@ def api_driver_complete():
         route_store_ids = set(route.get("store_ids", []))
         if store_id in route_store_ids:
             route_stores = [s for s in stores if s.get("id") in route_store_ids]
-            if route_stores and all((s.get("status") == "Completed") for s in route_stores):
-                route["status"] = "Completed"
+            if route_stores and all(clean(s.get("status")).lower() in {"recovered", "exception", "completed"} for s in route_stores):
+                route["status"] = "Recovered"
                 route["completed_at"] = datetime.now().isoformat(timespec="seconds")
                 route["completion_summary"] = completion_summary_for_stores(route_stores)
     write_json(ROUTES_FILE, routes)
     if updated:
         sync_route_stop_materials(updated)
-    audit("Driver Complete", {"store_id": store_id, "collected_racks": collected_racks, "collected_pieces": collected_pieces})
+    audit("Driver Complete For Receiving", {"store_id": store_id, "collected_racks": collected_racks, "collected_pieces": collected_pieces})
     if not updated:
         return jsonify({"ok": False, "message": "Stop not found."}), 404
     return jsonify({"ok": True, "store": updated})

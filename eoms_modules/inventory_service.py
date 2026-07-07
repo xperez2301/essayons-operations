@@ -11,6 +11,12 @@ from eoms_modules.recovery_center_service import (
     normalize_quantity,
 )
 from eoms_modules.receiving_service import RECEIVED_STATUS, is_received_store
+from eoms_modules.receiving_service import (
+    DAMAGE_CATEGORIES,
+    DISPATCHER_CLOSED_STATUS,
+    damage_counts_from_store,
+    warehouse_verified_counts_from_store,
+)
 
 
 WAREHOUSE_CAPACITY_COMPONENTS = 25000
@@ -38,13 +44,20 @@ def normalize_adjustment_amount(value):
 def received_stores(stores=None):
     return [
         store for store in stores or []
-        if isinstance(store, dict) and is_received_store(store)
+        if (
+            isinstance(store, dict)
+            and is_received_store(store)
+            and clean(store.get("dispatcher_closeout_status")) == DISPATCHER_CLOSED_STATUS
+        )
     ]
 
 
 def receipt_counts_for_store(store):
-    if not is_received_store(store):
+    if store not in received_stores([store]):
         return empty_component_counts()
+    verified_counts = warehouse_verified_counts_from_store(store)
+    if any(verified_counts.values()):
+        return verified_counts
     return driver_counts_from_store(store)
 
 
@@ -88,20 +101,18 @@ def component_receipt_history(stores=None, component=""):
     if component not in COMPONENT_NAMES:
         return history
 
-    field = STORE_COMPONENT_FIELDS[component]
-
     for store in received_stores(stores):
-        quantity = normalize_quantity(store.get(field), component)
+        quantity = receipt_counts_for_store(store).get(component, 0)
         if quantity <= 0:
             continue
 
         history.append({
-            "type": "Receipt",
+            "type": "Warehouse Verified Receipt",
             "store": clean(store.get("store_name") or store.get("store")) or "Unknown Store",
             "bol": clean(store.get("bol")) or "Not set",
             "quantity": quantity,
-            "date": clean(store.get("received_at")) or clean(store.get("completed_at")) or "Not set",
-            "operator": clean(store.get("received_by")) or "Not recorded",
+            "date": clean(store.get("dispatcher_closed_at")) or clean(store.get("received_at")) or "Not set",
+            "operator": clean(store.get("dispatcher_closed_by")) or clean(store.get("received_by")) or "Not recorded",
         })
 
     return sorted(history, key=lambda entry: entry["date"], reverse=True)
@@ -142,6 +153,31 @@ def inventory_totals(stores=None):
 
     for component in COMPONENT_NAMES:
         totals[component] = max(0, receipts[component] + adjustments[component])
+
+    return totals
+
+
+def category_inventory_totals(stores=None):
+    totals = {
+        category: empty_component_counts()
+        for category in DAMAGE_CATEGORIES
+    }
+
+    for store in received_stores(stores):
+        verified_counts = receipt_counts_for_store(store)
+        damage_counts = damage_counts_from_store(store)
+
+        assigned = empty_component_counts()
+        for category in DAMAGE_CATEGORIES:
+            if category == "Good Inventory":
+                continue
+            for component in COMPONENT_NAMES:
+                value = damage_counts[category].get(component, 0)
+                totals[category][component] += value
+                assigned[component] += value
+
+        for component in COMPONENT_NAMES:
+            totals["Good Inventory"][component] += max(0, verified_counts.get(component, 0) - assigned[component])
 
     return totals
 
@@ -241,6 +277,23 @@ def build_inventory_summary(rows):
     }
 
 
+def build_inventory_categories(stores=None):
+    category_totals = category_inventory_totals(stores)
+    categories = []
+
+    for category in DAMAGE_CATEGORIES:
+        component_counts = category_totals[category]
+        quantity = sum(component_counts.values())
+        categories.append({
+            "category": category,
+            "quantity": quantity,
+            "weight": calculate_estimated_weight(component_counts),
+            "components": component_counts,
+        })
+
+    return categories
+
+
 def build_inventory_detail(stores=None, component=""):
     component = clean(component) or COMPONENT_NAMES[0]
     if component not in COMPONENT_NAMES:
@@ -266,6 +319,7 @@ def build_inventory_workspace(stores=None, selected_component=""):
     return {
         "component_names": COMPONENT_NAMES,
         "summary": build_inventory_summary(rows),
+        "categories": build_inventory_categories(stores),
         "inventory": rows,
         "detail": build_inventory_detail(stores, selected_component),
         "history": build_inventory_history(stores),

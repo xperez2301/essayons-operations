@@ -18,11 +18,11 @@ ACTIVE_DRIVER_STATUSES = {
     "assigned",
     "dispatched",
     "in progress",
-    "recovered",
-    "exception",
+    "accepted",
 }
 
 DRIVER_EXCEPTION_TYPES = (
+    "No Pickup",
     "No Recovery",
     "Partial Recovery",
     "Store Closed",
@@ -217,6 +217,10 @@ def build_stop_detail(stop=None, store_lookup=None):
         "status": display_or_default(stop.get("status"), "Assigned"),
         "due_date": display_or_default(stop.get("due_date") or store_record.get("due_date")),
         "notes": clean(stop.get("notes") or store_record.get("notes") or store_record.get("variance_review") or ""),
+        "collected_racks": store_record.get("collected_racks", ""),
+        "collected_pieces": store_record.get("collected_pieces", ""),
+        "no_pickup_manager_name": clean(store_record.get("no_pickup_manager_name") or stop.get("no_pickup_manager_name")),
+        "no_pickup_photos": store_record.get("no_pickup_photos") if isinstance(store_record.get("no_pickup_photos"), list) else [],
         "counts_saved_at": clean(store_record.get("driver_counts_saved_at")),
         "completed_by": clean(store_record.get("completed_by")),
         "completed_at": clean(store_record.get("completed_at")),
@@ -241,6 +245,27 @@ def normalize_driver_count_payload(data):
     return counts
 
 
+def normalize_optional_driver_quantity(value, label):
+    if value in (None, ""):
+        return ""
+    return normalize_quantity(value, label)
+
+
+def route_identifier(route):
+    return clean(route.get("id") or route.get("route_id") or route.get("route_number"))
+
+
+def route_matches(route, route_id):
+    route_id = clean(route_id)
+    if not route_id or not isinstance(route, dict):
+        return False
+    return route_id in {
+        clean(route.get("id")),
+        clean(route.get("route_id")),
+        clean(route.get("route_number")),
+    }
+
+
 def store_matches_driver(store, driver_names):
     if not driver_names:
         return True
@@ -250,6 +275,128 @@ def store_matches_driver(store, driver_names):
 
 def utc_now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def normalize_reference_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        candidates = value
+    else:
+        candidates = str(value).replace("\r", "\n").replace(",", "\n").split("\n")
+    return [
+        clean(candidate)
+        for candidate in candidates
+        if clean(candidate)
+    ]
+
+
+def route_matches_driver(route, driver_names):
+    if not driver_names:
+        return True
+    return clean(route.get("driver")) in driver_names
+
+
+def store_ids_for_route(route):
+    ids = [
+        clean(store_id)
+        for store_id in route.get("store_ids") or []
+        if clean(store_id)
+    ]
+    if ids:
+        return ids
+    return [
+        clean(stop.get("id"))
+        for stop in route.get("stops") or []
+        if isinstance(stop, dict) and clean(stop.get("id"))
+    ]
+
+
+def update_route_stores_status(stores, route, status, driver_status=""):
+    route_store_ids = set(store_ids_for_route(route))
+    updated = []
+    for store in stores or []:
+        if not isinstance(store, dict) or clean(store.get("id")) not in route_store_ids:
+            continue
+        store["status"] = status
+        if driver_status:
+            store["driver_status"] = driver_status
+        updated.append(store)
+    return updated
+
+
+def accept_driver_route(routes, stores, route_id, driver_names=None, accepted_by=""):
+    driver_names = normalize_driver_names(driver_names)
+    for route in routes or []:
+        if not route_matches(route, route_id):
+            continue
+        if not route_matches_driver(route, driver_names):
+            raise PermissionError("This route is not assigned to you.")
+        route["driver_status"] = "Accepted"
+        route["driver_accepted_at"] = utc_now_iso()
+        route["driver_accepted_by"] = clean(accepted_by) or "system"
+        if clean(route.get("status")).lower() == "assigned":
+            route["status"] = "Dispatched"
+        updated_stores = update_route_stores_status(stores, route, "Dispatched", "Accepted")
+        return route, updated_stores
+    raise LookupError("Driver route was not found.")
+
+
+def decline_driver_route(routes, stores, route_id, reason="", driver_names=None, declined_by=""):
+    driver_names = normalize_driver_names(driver_names)
+    for index, route in enumerate(routes or []):
+        if not route_matches(route, route_id):
+            continue
+        if not route_matches_driver(route, driver_names):
+            raise PermissionError("This route is not assigned to you.")
+        route_store_ids = set(store_ids_for_route(route))
+        restored = []
+        for store in stores or []:
+            if not isinstance(store, dict) or clean(store.get("id")) not in route_store_ids:
+                continue
+            store["status"] = "Unassigned"
+            store["assigned_driver"] = ""
+            store["driver_phone"] = ""
+            store["truck"] = ""
+            store["helper"] = ""
+            store["truck_status"] = ""
+            store["route_id"] = ""
+            store["driver_status"] = "Declined"
+            store["driver_decline_reason"] = clean(reason)
+            store["driver_declined_at"] = utc_now_iso()
+            restored.append(store)
+        declined_route = routes.pop(index)
+        declined_route["driver_status"] = "Declined"
+        declined_route["driver_decline_reason"] = clean(reason)
+        declined_route["driver_declined_at"] = utc_now_iso()
+        declined_route["driver_declined_by"] = clean(declined_by) or "system"
+        return declined_route, restored
+    raise LookupError("Driver route was not found.")
+
+
+def count_snapshot(store):
+    snapshot = {
+        field_name: normalize_quantity(store.get(field_name, 0), component)
+        for component, field_name in STORE_COMPONENT_FIELDS.items()
+    }
+    snapshot["collected_racks"] = store.get("collected_racks", "")
+    snapshot["collected_pieces"] = store.get("collected_pieces", "")
+    return snapshot
+
+
+def append_driver_revision(store, previous_counts, new_counts, operator="", reason=""):
+    revisions = store.setdefault("driver_count_revisions", [])
+    if not isinstance(revisions, list):
+        revisions = []
+        store["driver_count_revisions"] = revisions
+    revisions.append({
+        "timestamp": utc_now_iso(),
+        "operator": clean(operator) or "system",
+        "reason": clean(reason),
+        "previous_counts": previous_counts,
+        "new_counts": new_counts,
+        "previous_notes": clean(store.get("notes")),
+    })
 
 
 def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=""):
@@ -263,6 +410,11 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=
     driver_names = normalize_driver_names(driver_names)
     counts = normalize_driver_count_payload(data)
     notes = clean((data or {}).get("notes"))
+    revision_reason = clean((data or {}).get("revision_reason"))
+    collected_racks = normalize_optional_driver_quantity((data or {}).get("collected_racks"), "Rack count")
+    collected_pieces = normalize_optional_driver_quantity((data or {}).get("collected_pieces"), "Piece count")
+    no_pickup_manager_name = clean((data or {}).get("no_pickup_manager_name"))
+    no_pickup_photos = normalize_reference_list((data or {}).get("no_pickup_photos"))
 
     for store in stores:
         if not isinstance(store, dict):
@@ -274,9 +426,25 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=
         if not store_matches_driver(store, driver_names):
             raise PermissionError("This stop is not assigned to you.")
 
+        if clean(store.get("receiving_status")).lower() == "received" or clean(store.get("received_at")):
+            raise ValueError("Driver counts cannot be revised after Receiving begins.")
+
+        previous_counts = count_snapshot(store)
+        has_previous_submission = bool(clean(store.get("driver_counts_saved_at")))
+        if has_previous_submission:
+            append_driver_revision(store, previous_counts, counts, saved_by, revision_reason)
+
         for field_name, value in counts.items():
             store[field_name] = value
 
+        if collected_racks != "":
+            store["collected_racks"] = collected_racks
+        if collected_pieces != "":
+            store["collected_pieces"] = collected_pieces
+        if no_pickup_manager_name:
+            store["no_pickup_manager_name"] = no_pickup_manager_name
+        if no_pickup_photos:
+            store["no_pickup_photos"] = no_pickup_photos
         store["notes"] = notes
         store["driver_counts_saved_at"] = utc_now_iso()
         store["driver_counts_saved_by"] = clean(saved_by) or "system"
@@ -295,6 +463,8 @@ def save_driver_exception(stores, store_id, data, driver_names=None, reported_by
 
     exception_type = clean((data or {}).get("driver_exception_type"))
     exception_notes = clean((data or {}).get("driver_exception_notes") or (data or {}).get("notes"))
+    no_pickup_manager_name = clean((data or {}).get("no_pickup_manager_name"))
+    no_pickup_photos = normalize_reference_list((data or {}).get("no_pickup_photos"))
 
     if not exception_type:
         raise ValueError("Select a driver exception type.")
@@ -304,6 +474,9 @@ def save_driver_exception(stores, store_id, data, driver_names=None, reported_by
 
     if not exception_notes:
         raise ValueError("Notes are required when reporting a driver exception.")
+
+    if exception_type in {"No Pickup", "No Recovery"} and not no_pickup_manager_name:
+        raise ValueError("Manager name is required for No Pickup.")
 
     driver_names = normalize_driver_names(driver_names)
 
@@ -321,6 +494,15 @@ def save_driver_exception(stores, store_id, data, driver_names=None, reported_by
         store["driver_exception_notes"] = exception_notes
         store["driver_exception_reported_at"] = utc_now_iso()
         store["driver_exception_reported_by"] = clean(reported_by) or "system"
+        if exception_type in {"No Pickup", "No Recovery"}:
+            store["collected_racks"] = 0
+            store["collected_pieces"] = 0
+            for field_name in STORE_COMPONENT_FIELDS.values():
+                store[field_name] = 0
+            store["no_pickup_manager_name"] = no_pickup_manager_name
+            store["no_pickup_photos"] = no_pickup_photos
+            store["driver_counts_saved_at"] = store.get("driver_counts_saved_at") or utc_now_iso()
+            store["driver_counts_saved_by"] = clean(reported_by) or "system"
         store["notes"] = exception_notes
         return store
 
@@ -431,10 +613,12 @@ def summarize_driver_route(route_summary):
     completed_stops = sum(1 for stop in stops if is_completed_stop(stop))
 
     return {
+        "route_id": route_identifier(route),
         "label": route_summary.get("label") or "Assigned Route",
         "truck": route_summary.get("truck") or "Unassigned",
         "driver": route_summary.get("driver") or "Unassigned",
         "status": route_summary.get("status") or "Assigned",
+        "driver_status": clean(route.get("driver_status")) or "Pending",
         "status_class": status_class(route_summary.get("status")),
         "stop_count": len(stops),
         "completed_stops": completed_stops,

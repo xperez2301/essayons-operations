@@ -8,6 +8,26 @@ const MAP_SETTINGS = window.EOMS_MAP_SETTINGS || {};
 const SMS_STATUS = window.EOMS_SMS_STATUS || {available:false, reason:"SMS unavailable"};
 let selectedOrder = [];
 let activeClusterInfo = null;
+let storeSearchTerm = "";
+
+function dispatchContext(){
+    const available = document.getElementById("available-stores");
+    return {
+        search: storeSearchTerm,
+        scrollTop: available ? available.scrollTop : 0,
+        selected: [...selectedOrder]
+    };
+}
+
+function restoreDispatchContext(context){
+    if(!context) return;
+    storeSearchTerm = context.search || storeSearchTerm;
+    const search = document.getElementById("store-search");
+    if(search) search.value = storeSearchTerm;
+    if(Array.isArray(context.selected)) selectedOrder = context.selected.filter(id => stores.some(store => store.id === id && store.status === "Unassigned"));
+    const available = document.getElementById("available-stores");
+    if(available) available.scrollTop = context.scrollTop || 0;
+}
 
 function parseDueDate(value){
     if(!value) return null;
@@ -134,7 +154,43 @@ function selectStoreFromMap(storeId){
 window.selectStoreFromMap = selectStoreFromMap;
 
 
-function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned" && !selectedOrder.includes(s.id)); }
+function routeHubValue(){
+    const hubSelect = document.getElementById("route-hub-select");
+    return hubSelect ? hubSelect.value : "";
+}
+
+function setHubRequired(message){
+    const hubMessage = document.getElementById("hub-required-message");
+    if(hubMessage){
+        hubMessage.hidden = false;
+        hubMessage.textContent = message || "Hub Required";
+    }
+}
+
+function clearHubRequired(){
+    const hubMessage = document.getElementById("hub-required-message");
+    if(hubMessage){
+        hubMessage.hidden = true;
+        hubMessage.textContent = "Hub Required";
+    }
+}
+
+function storeMatchesSearch(store){
+    const term = storeSearchTerm.trim().toLowerCase();
+    if(!term) return true;
+    const haystack = [
+        store.bol,
+        store.store_name,
+        store.origin,
+        store.city,
+        store.state,
+        store.hub,
+        store.dispatch_group
+    ].join(" ").toLowerCase();
+    return haystack.includes(term);
+}
+
+function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned" && !selectedOrder.includes(s.id) && storeMatchesSearch(s)); }
 
 function selectedIds(){
     return [...selectedOrder];
@@ -148,18 +204,23 @@ function updateSelectionOrder(){
 
 
 function selectAllVisible(){
+    const context = dispatchContext();
     visibleUnassignedStores().forEach(store => { if(!selectedOrder.includes(store.id)) selectedOrder.push(store.id); });
     renderStores();
+    restoreDispatchContext(context);
     syncSelectedMarkerVisibility();
     updateTotals();
 }
 function clearSelection(){
+    const context = dispatchContext();
     selectedOrder = [];
     renderStores();
+    restoreDispatchContext({...context, selected: []});
     syncSelectedMarkerVisibility();
     updateTotals();
 }
 function selectDueToday(){
+    const context = dispatchContext();
     const today = new Date(); today.setHours(0,0,0,0);
     visibleUnassignedStores().forEach(store => {
         const due = parseDueDate(store.due_date);
@@ -168,6 +229,7 @@ function selectDueToday(){
         if(shouldSelect && !selectedOrder.includes(store.id)) selectedOrder.push(store.id);
     });
     renderStores();
+    restoreDispatchContext(context);
     syncSelectedMarkerVisibility();
     updateTotals();
 }
@@ -193,6 +255,7 @@ async function loadDrivers(){
 
 function renderStores(){
     const container = document.getElementById("available-stores");
+    const scrollTop = container.scrollTop;
     container.innerHTML = "";
     const available = visibleUnassignedStores();
 
@@ -217,6 +280,7 @@ function renderStores(){
         `;
         container.appendChild(label);
     });
+    container.scrollTop = scrollTop;
 }
 
 function updateTotals(){
@@ -271,15 +335,17 @@ async function previewRoute(){
     const response = await fetch("/api/preview-route", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({store_ids: ids, mode: mode})
+        body: JSON.stringify({store_ids: ids, mode: mode, hub: routeHubValue()})
     });
 
     const data = await response.json();
     if(!data.ok){
+        if(data.hub_required) setHubRequired(data.message || "Hub Required");
         alert(data.message || "Preview failed");
         return;
     }
 
+    clearHubRequired();
     renderPreview(data);
 }
 
@@ -321,17 +387,20 @@ async function assignDriver(){
     const selectedDriverOption = document.getElementById("driver-select").selectedOptions[0];
     const driverPhone = selectedDriverOption ? selectedDriverOption.dataset.phone || "" : "";
 
+    const context = dispatchContext();
     const response = await fetch("/api/assign-route", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({driver: driver, driver_phone: driverPhone, store_ids: ids, mode: mode})
+        body: JSON.stringify({driver: driver, driver_phone: driverPhone, store_ids: ids, mode: mode, hub: routeHubValue()})
     });
 
     const data = await response.json();
     if(!data.ok){
+        if(data.hub_required) setHubRequired(data.message || "Hub Required");
         alert(data.message || "Assignment failed");
         return;
     }
+    clearHubRequired();
 
     data.assigned.forEach(store => {
         const original = stores.find(s => s.id === store.id);
@@ -346,8 +415,9 @@ async function assignDriver(){
     const driverResults = document.getElementById("driver-results");
     if(driverResults && driverResults.querySelector(".small-muted")) driverResults.innerHTML = "";
     driverResults.appendChild(routeBlock);
-    selectedOrder = [];
+    selectedOrder = selectedOrder.filter(id => !ids.includes(id));
     renderStores();
+    restoreDispatchContext({...context, selected: selectedOrder});
     syncSelectedMarkerVisibility();
     renderMapDispatchBoardLive();
     updateTotals();
@@ -574,6 +644,27 @@ function selectAllAssigned(){
 }
 window.selectAllAssigned = selectAllAssigned;
 
+async function sendSmsSelectedAssigned(){
+    const routeIds = new Set(
+        Array.from(document.querySelectorAll(".assigned-route-check:checked, .assigned-store-check:checked"))
+            .map(check => check.dataset.routeId)
+            .filter(Boolean)
+    );
+    if(!routeIds.size){
+        alert("Select one or more assigned routes/stops first.");
+        return;
+    }
+    if(!SMS_STATUS.available){
+        alert(smsStatusText());
+        return;
+    }
+    for(const routeId of routeIds){
+        const button = document.querySelector(`.assigned-route-card[data-route-id="${routeId}"] .send-route-sms-btn`) || {disabled:false, textContent:""};
+        await sendRouteSms(routeId, button);
+    }
+}
+window.sendSmsSelectedAssigned = sendSmsSelectedAssigned;
+
 async function unassignSelectedAssigned(){
     const routeChecks = Array.from(document.querySelectorAll(".assigned-route-check:checked"));
     const selectedRouteIds = new Set(routeChecks.map(check => check.dataset.routeId).filter(Boolean));
@@ -789,7 +880,7 @@ async function buildRoute(mode){
     const previewResponse = await fetch("/api/preview-route", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({store_ids: storeIds, mode})
+        body: JSON.stringify({store_ids: storeIds, mode, hub: routeHubValue()})
     });
     const preview = await previewResponse.json();
     if(!preview.ok){
@@ -811,7 +902,7 @@ async function buildRoute(mode){
     const assignResponse = await fetch("/api/assign-route", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({store_ids: storeIds, mode, driver})
+        body: JSON.stringify({store_ids: storeIds, mode, driver, hub: routeHubValue()})
     });
     const result = await assignResponse.json();
 
@@ -827,6 +918,7 @@ async function buildRoute(mode){
 
 document.addEventListener("change", function(e){
     if(e.target && e.target.classList.contains("store-box")){
+        const context = dispatchContext();
         const id = e.target.dataset.storeId;
         if(e.target.checked){
             if(!selectedOrder.includes(id)) selectedOrder.push(id);
@@ -834,6 +926,7 @@ document.addEventListener("change", function(e){
             selectedOrder = selectedOrder.filter(x => x !== id);
         }
         renderStores();
+        restoreDispatchContext({...context, selected: selectedOrder});
         syncSelectedMarkerVisibility();
         updateTotals();
     }
@@ -932,6 +1025,7 @@ function mapBoardActions(store, status){
 
 async function setMapBoardStatus(storeId, status){
     if(!confirm("Move this BOL to " + status + "?")) return;
+    const context = dispatchContext();
     const response = await fetch("/api/store-status", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -942,7 +1036,19 @@ async function setMapBoardStatus(storeId, status){
         alert(data.message || "Unable to update status.");
         return;
     }
-    location.reload();
+    const original = stores.find(store => store.id === storeId);
+    if(original && data.store){
+        Object.assign(original, data.store);
+    }else if(original){
+        original.status = status;
+    }
+    selectedOrder = selectedOrder.filter(id => id !== storeId);
+    renderStores();
+    restoreDispatchContext({...context, selected: selectedOrder});
+    syncSelectedMarkerVisibility();
+    renderMapDispatchBoard();
+    renderMapDispatchBoardLive();
+    updateTotals();
 }
 
 async function saveMapBoardMaterials(storeId){
@@ -1078,6 +1184,21 @@ async function renderMapDispatchBoardLive(){
 
 document.addEventListener("DOMContentLoaded", function(){
     if (typeof renderMapDispatchBoard === "function") renderMapDispatchBoard();
+    const search = document.getElementById("store-search");
+    if(search){
+        storeSearchTerm = search.value || "";
+        search.addEventListener("input", function(){
+            const context = dispatchContext();
+            storeSearchTerm = this.value || "";
+            renderStores();
+            restoreDispatchContext({...context, search: storeSearchTerm});
+        });
+    }
+    const hubSelect = document.getElementById("route-hub-select");
+    if(hubSelect){
+        hubSelect.addEventListener("change", clearHubRequired);
+    }
+    renderStores();
     updateSmsPanel();
     loadAssignedRoutes();
     setTimeout(renderMapDispatchBoardLive, 500);

@@ -72,6 +72,35 @@
       </section>
 
       <section class="eoms-card">
+        <h2>Inventory Categories</h2>
+        {% if workspace.categories %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for category in workspace.categories %}
+                <tr>
+                  <td>{{ category.category }}</td>
+                  <td>{{ category.quantity }}</td>
+                  <td>{{ category.weight }} lbs</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No inventory categories</strong>
+            <span>Warehouse verified inventory categories appear after dispatcher close-out.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
         <h2>Inventory History</h2>
         {% if workspace.history %}
           <table class="eoms-table">

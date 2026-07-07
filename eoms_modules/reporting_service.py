@@ -34,8 +34,8 @@ def status_class(status):
     return "neutral"
 
 
-COMPLETED_STORE_STATUSES = {"completed", "recovered", "exception"}
-COMPLETED_ROUTE_STATUSES = {"completed", "recovered", "exception", "closed"}
+COMPLETED_STORE_STATUSES = {"completed"}
+COMPLETED_ROUTE_STATUSES = {"completed", "closed"}
 
 
 def is_completed_store(store):
@@ -43,7 +43,7 @@ def is_completed_store(store):
         return False
     if clean(store.get("status")).lower() in COMPLETED_STORE_STATUSES:
         return True
-    if clean(store.get("receiving_status")).lower() == "received":
+    if clean(store.get("dispatcher_closeout_status")).lower() == "closed":
         return True
     return any(
         isinstance(order, dict) and clean(order.get("status")) == SHIPPED_STATUS
@@ -80,11 +80,11 @@ def recovery_metrics(stores=None, routes=None, recovery_workspace=None):
 
     recovered_stores = [
         store for store in stores
-        if clean(store.get("status")).lower() == "recovered"
+        if clean(store.get("recovery_result_status") or store.get("status")).lower() == "recovered"
     ]
     exception_stores = [
         store for store in stores
-        if clean(store.get("status")).lower() == "exception"
+        if clean(store.get("recovery_result_status") or store.get("status")).lower() == "exception"
     ]
     recovered_totals = empty_component_counts()
 
@@ -159,7 +159,7 @@ def build_recovery_timeline(stores=None):
         if not isinstance(store, dict):
             continue
 
-        status = clean(store.get("status"))
+        status = clean(store.get("recovery_result_status") or store.get("status"))
         if status.lower() not in {"recovered", "exception"}:
             continue
 
