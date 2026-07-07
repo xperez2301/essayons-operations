@@ -1,19 +1,34 @@
-{% extends "base.html" %}
-{% block body_class %}focus-dispatch-page{% endblock %}
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Dispatch Map" %}
+{% set module_title = "Map Workspace" %}
+
+{% block head %}
+  {% if azure_maps_key %}
+    <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
+  {% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a class="eoms-button" href="/dashboard">Command Center</a>
+  <a class="eoms-button eoms-button-secondary" href="/route-builder">Route Builder</a>
+{% endblock %}
+
 {% block content %}
 <div class="dispatch-map-page compact-map-view">
-<header class="hero topbar compact-hero">
+<header class="eoms-command-hero compact-hero">
     <div>
-        <span class="eyebrow">Construction Control Center</span>
+        <span class="eoms-module-title">Construction Control Center</span>
         <h2>Dispatch Map</h2>
         <p>Select stores in the exact delivery order, assign a driver, and dispatch without leaving the map.</p>
     </div>
-    <div class="hero-actions">
-        <a class="link-btn" href="/dashboard">Command Center</a>
+    <div class="eoms-dispatch-hero-status">
+        <span class="eoms-status eoms-status-success">Live Map</span>
+        <small>Selection order is preserved</small>
     </div>
 </header>
 
-<section class="build-strip">
+<section class="eoms-dispatch-flow build-strip">
     <div><b>1</b><span>Import BOL</span></div>
     <div><b>2</b><span>Pin Store</span></div>
     <div><b>3</b><span>Select Load</span></div>
@@ -21,7 +36,7 @@
     <div><b>5</b><span>Complete Route</span></div>
 </section>
 
-<section class="metrics blueprint">
+<section class="eoms-summary-grid eoms-dispatch-metrics metrics blueprint">
     <div class="metric"><span>Selected Stores</span><strong id="store-count">0</strong></div>
     <div class="metric"><span>Racks</span><strong id="rack-count">0</strong></div>
     <div class="metric payload-metric"><span>Freightliner M2 Payload</span><strong><span id="weight-count">0</span> lbs</strong><div class="payload-gauge"><i id="payload-gauge-fill"></i></div></div>
@@ -31,7 +46,7 @@
 
 <div class="dispatch-grid three-zone">
     <section class="panel load-panel">
-        <span class="eyebrow">Material Yard</span>
+        <span class="eoms-module-title">Material Yard</span>
         <h3>Available Stores</h3>
         <p class="muted">Click store cards or a map cluster. Your selection order is the route order and is never optimized automatically.</p>
         <div class="quick-select-row">
@@ -56,14 +71,14 @@
 
     <section class="map-panel crane-panel">
         <div class="map-panel-head">
-            <div><span class="eyebrow">BOL Stop Numbers</span><h3>Operations Map</h3></div>
+            <div><span class="eoms-module-title">BOL Stop Numbers</span><h3>Operations Map</h3></div>
             <button class="secondary-btn small-btn" onclick="geocodeStores()">Fix / Reload Pins</button>
         </div>
         <div id="map"></div>
     </section>
 
     <section class="panel preview-panel">
-        <span class="eyebrow">Route Blueprint</span>
+        <span class="eoms-module-title">Route Blueprint</span>
         <h3>Route Preview</h3>
         <div id="route-preview" class="muted">Select stores to build the route. The first store selected becomes stop 1.</div>
         <hr>
@@ -75,7 +90,7 @@
 <section class="map-board-panel" id="map-dispatch-board">
     <div class="map-board-header">
         <div>
-            <span class="eyebrow">Live Job Board</span>
+            <span class="eoms-module-title">Live Job Board</span>
             <h3>Dispatch Board</h3>
             <p class="muted">Collapsed by default so the map stays on one screen.</p>
         </div>
@@ -110,7 +125,6 @@ async function geocodeStores(){
 }
 </script>
 {% if azure_maps_key %}
-<link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css">
 <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
 {% endif %}
 <script src="{{ url_for('static', filename='js/dispatch_map.js') }}"></script>
