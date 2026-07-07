@@ -8,6 +8,8 @@
 {% endblock %}
 
 {% block content %}
+  <div id="driverSaveNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
+
   <section class="eoms-summary-grid" aria-label="Driver summary">
     <div class="eoms-summary-card">
       <span>Assigned Routes</span>
@@ -127,19 +129,20 @@
           </tbody>
         </table>
 
-        <div style="display:grid;gap:10px;margin-top:14px;">
+        <div style="display:grid;gap:10px;margin-top:14px;" data-driver-stop-form>
+          <input type="hidden" id="driverStopStoreId" value="{{ workspace.selected_stop_detail.store_id }}">
           {% for entry in workspace.selected_stop_detail.component_entries %}
             <label>
               <span>{{ entry.label }}</span>
-              <input type="number" min="0" step="1" value="{{ entry.value }}" readonly>
+              <input class="driver-count-input" data-count-field="{{ entry.field_name }}" type="number" min="0" step="1" value="{{ entry.value }}">
             </label>
           {% endfor %}
           <label>
             <span>Notes</span>
-            <textarea rows="4" readonly>{{ workspace.selected_stop_detail.notes }}</textarea>
+            <textarea id="driverStopNotes" rows="4">{{ workspace.selected_stop_detail.notes }}</textarea>
           </label>
           <div class="eoms-toolbar">
-            <button class="eoms-button eoms-button-secondary" type="button" disabled>Save</button>
+            <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save</button>
             <button class="eoms-button eoms-button-primary" type="button" disabled>Complete Stop</button>
           </div>
         </div>
@@ -151,4 +154,57 @@
       {% endif %}
     </aside>
   </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var saveButton = document.getElementById("driverSaveCountsBtn");
+  if (!saveButton) {
+    return;
+  }
+
+  var notice = document.getElementById("driverSaveNotice");
+
+  function setNotice(message, className) {
+    if (!notice) {
+      return;
+    }
+    notice.hidden = false;
+    notice.className = "eoms-status " + className;
+    notice.textContent = message;
+  }
+
+  saveButton.addEventListener("click", async function(){
+    var payload = {
+      store_id: document.getElementById("driverStopStoreId").value,
+      notes: document.getElementById("driverStopNotes").value
+    };
+
+    document.querySelectorAll(".driver-count-input").forEach(function(input){
+      payload[input.dataset.countField] = input.value;
+    });
+
+    saveButton.disabled = true;
+    setNotice("Saving", "eoms-status-neutral");
+
+    try {
+      var response = await fetch("/api/driver/save-counts", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Save failed.");
+      }
+      setNotice("Saved", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Save failed.", "eoms-status-danger");
+      saveButton.disabled = false;
+    }
+  });
+})();
+</script>
 {% endblock %}

@@ -192,7 +192,7 @@ def refresh_route_totals(route):
 
     route["running_totals"] = running_totals
     route["estimated_component_totals"] = estimated_component_totals
-    route["estimated_weight"] = calculate_estimated_weight(running_totals)
+    route["estimated_weight"] = calculate_estimated_weight(estimated_component_totals)
     route["warehouse_expected_totals"] = deepcopy(running_totals)
     route["recovery_status"] = calculate_recovery_status(stops)
 
@@ -401,13 +401,13 @@ def summarize_recovery_workspace(routes=None, selected_index=0):
         "selected_summary": selected_summary,
         "running_totals": running_totals,
         "estimated_component_totals": estimated_component_totals,
-        "estimated_weight": calculate_estimated_weight(running_totals),
+        "estimated_weight": calculate_estimated_weight(estimated_component_totals),
         "summary": {
             "route_count": len(route_summaries),
             "active_routes": sum(1 for summary in route_summaries if summary["status"] != "Completed"),
             "total_stops": total_stops,
             "completed_stops": completed_stops,
-            "estimated_weight": calculate_estimated_weight(running_totals),
+            "estimated_weight": calculate_estimated_weight(estimated_component_totals),
         },
     }
 

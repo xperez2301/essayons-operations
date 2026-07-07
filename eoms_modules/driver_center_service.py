@@ -2,10 +2,12 @@ from copy import deepcopy
 
 from eoms_modules.recovery_center_service import (
     COMPONENT_NAMES,
+    STORE_COMPONENT_FIELDS,
     calculate_estimated_weight,
     clean,
     empty_component_counts,
     is_completed_stop,
+    normalize_quantity,
     status_class,
     summarize_recovery_workspace_from_records,
 )
@@ -172,6 +174,7 @@ def component_entries_for_stop(stop):
 
         entries.append({
             "component": component,
+            "field_name": STORE_COMPONENT_FIELDS[component],
             "label": COMPONENT_ENTRY_LABELS[component],
             "value": value,
         })
@@ -187,6 +190,7 @@ def build_stop_detail(stop=None, store_lookup=None):
     store_record = find_store_for_stop(stop, store_lookup)
 
     return {
+        "store_id": clean(store_record.get("id") or stop.get("id")),
         "store": display_or_default(stop.get("store") or store_record.get("store_name") or store_record.get("store"), "Unassigned"),
         "bol": display_or_default(stop.get("bol") or store_record.get("bol")),
         "origin": display_or_default(stop.get("origin") or store_record.get("origin"), "Unknown"),
@@ -201,6 +205,54 @@ def build_stop_detail(stop=None, store_lookup=None):
         "notes": clean(stop.get("notes") or store_record.get("notes") or store_record.get("variance_review") or ""),
         "component_entries": component_entries_for_stop(stop),
     }
+
+
+def normalize_driver_count_payload(data):
+    data = data if isinstance(data, dict) else {}
+    counts = {}
+
+    for component, field_name in STORE_COMPONENT_FIELDS.items():
+        counts[field_name] = normalize_quantity(data.get(field_name, 0), component)
+
+    return counts
+
+
+def store_matches_driver(store, driver_names):
+    if not driver_names:
+        return True
+
+    return clean(store.get("assigned_driver")) in driver_names
+
+
+def save_driver_stop_counts(stores, store_id, data, driver_names=None):
+    if not isinstance(stores, list):
+        raise ValueError("Stores must be provided as a list.")
+
+    store_id = clean(store_id or (data or {}).get("store_id"))
+    if not store_id:
+        raise ValueError("A store id is required.")
+
+    driver_names = normalize_driver_names(driver_names)
+    counts = normalize_driver_count_payload(data)
+    notes = clean((data or {}).get("notes"))
+
+    for store in stores:
+        if not isinstance(store, dict):
+            continue
+
+        if clean(store.get("id")) != store_id:
+            continue
+
+        if not store_matches_driver(store, driver_names):
+            raise PermissionError("This stop is not assigned to you.")
+
+        for field_name, value in counts.items():
+            store[field_name] = value
+
+        store["notes"] = notes
+        return store
+
+    raise LookupError("Driver stop was not found.")
 
 
 def summarize_driver_route(route_summary):

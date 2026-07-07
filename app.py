@@ -38,7 +38,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
-from eoms_modules.driver_center_service import build_driver_workspace
+from eoms_modules.driver_center_service import build_driver_workspace, save_driver_stop_counts
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -5246,6 +5246,46 @@ def driver_portal():
     )
     return render_template("driver_center.html", workspace=workspace)
 
+@app.route("/api/driver/save-counts", methods=["POST"])
+def api_driver_save_counts():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        updated = save_driver_stop_counts(
+            stores,
+            data.get("store_id"),
+            data,
+            driver_names=driver_names,
+        )
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    routes = read_json(ROUTES_FILE)
+    workspace = build_driver_workspace(
+        routes=routes,
+        stores=stores,
+        driver_names=driver_names,
+    )
+    audit("Driver Count Save", {"store_id": updated.get("id"), "bol": updated.get("bol")})
+
+    return jsonify({
+        "ok": True,
+        "store": updated,
+        "summary": workspace.get("summary", {}),
+        "component_totals": workspace.get("component_totals", {}),
+    })
+
 @app.route("/api/driver/complete", methods=["POST"])
 def api_driver_complete():
     data = request.get_json(force=True)
@@ -5418,5 +5458,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
