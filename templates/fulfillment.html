@@ -1,0 +1,255 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Fulfillment" %}
+{% set module_title = "Outbound Fulfillment" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-warning">Outbound Control</span>
+{% endblock %}
+
+{% block content %}
+  <div id="fulfillmentNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
+
+  <section aria-label="Fulfillment dashboard">
+    <h2>Dashboard</h2>
+    <div class="eoms-summary-grid">
+      <div class="eoms-summary-card">
+        <span>Open Orders</span>
+        <strong>{{ workspace.summary.open_orders }}</strong>
+        <small>reserved or ready</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Orders Ready</span>
+        <strong>{{ workspace.summary.orders_ready }}</strong>
+        <small>ready to ship</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Orders Shipped</span>
+        <strong>{{ workspace.summary.orders_shipped }}</strong>
+        <small>completed shipments</small>
+      </div>
+      <div class="eoms-summary-card">
+        <span>Components Reserved</span>
+        <strong>{{ workspace.summary.components_reserved }}</strong>
+        <small>{{ workspace.summary.outbound_weight }} lbs outbound</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Orders</h2>
+        {% if workspace.orders %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Order Number</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Reserved Components</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in workspace.orders %}
+                <tr>
+                  <td><a href="/fulfillment?order={{ order.order_number|urlencode }}">{{ order.order_number }}</a></td>
+                  <td>{{ order.customer }}</td>
+                  <td><span class="eoms-status eoms-status-{{ order.status_class }}">{{ order.status }}</span></td>
+                  <td>{{ order.reserved_quantity }}</td>
+                  <td>{{ order.weight }} lbs</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No fulfillment orders</strong>
+            <span>Reservations will create outbound fulfillment orders from available inventory.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Fulfillment History</h2>
+        {% if workspace.history %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Running Totals</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in workspace.history %}
+                <tr>
+                  <td>{{ event.type }}</td>
+                  <td>{{ event.order_number }}</td>
+                  <td>{{ event.customer }}</td>
+                  <td>{{ event.amount }}</td>
+                  <td>{{ event.date }}</td>
+                  <td>{{ event.running_reserved }} reserved / {{ event.running_shipped }} shipped</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No fulfillment history</strong>
+            <span>Reservation and shipment activity will appear here.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="eoms-card">
+      <h2>Order Detail</h2>
+      {% if workspace.detail %}
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Customer</th><td>{{ workspace.detail.customer }}</td></tr>
+            <tr><th>Order</th><td>{{ workspace.detail.order_number }}</td></tr>
+            <tr><th>Weight</th><td>{{ workspace.detail.weight }} lbs</td></tr>
+            <tr><th>Inventory Source</th><td>{{ workspace.detail.inventory_source }}</td></tr>
+            <tr><th>Shipment Status</th><td><span class="eoms-status eoms-status-{{ workspace.detail.status_class }}">{{ workspace.detail.status }}</span></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Reserved Components</h3>
+        <table class="eoms-table">
+          <tbody>
+            {% for component in workspace.component_names %}
+              <tr><th>{{ component }}</th><td>{{ workspace.detail.reserved_components[component] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Ship Order</h3>
+        <div style="display:grid;gap:10px;margin-top:10px;">
+          <input type="hidden" id="shipOrderNumber" value="{{ workspace.detail.order_number }}">
+          <label>
+            <span>Shipment Notes</span>
+            <textarea id="shipmentNotes" rows="4">{{ workspace.detail.shipment_notes }}</textarea>
+          </label>
+          <button id="shipOrderBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.detail.status == "Shipped" %}disabled{% endif %}>
+            {% if workspace.detail.status == "Shipped" %}Shipped{% else %}Ship Order{% endif %}
+          </button>
+        </div>
+      {% else %}
+        <div class="eoms-empty-state">
+          <strong>No order selected</strong>
+          <span>Reserve inventory to create an outbound fulfillment order.</span>
+        </div>
+      {% endif %}
+
+      <h3>Reserve Inventory</h3>
+      <div style="display:grid;gap:10px;margin-top:10px;">
+        <label>
+          <span>Order Number</span>
+          <input id="reserveOrderNumber" type="text" placeholder="Auto if blank">
+        </label>
+        <label>
+          <span>Customer</span>
+          <input id="reserveCustomer" type="text">
+        </label>
+        <label>
+          <span>Component</span>
+          <select id="reserveComponent">
+            {% for component in workspace.component_names %}
+              <option value="{{ component }}">{{ component }} - {{ workspace.available_inventory[component] }} available</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Reserved Quantity</span>
+          <input id="reserveQuantity" type="number" min="1" step="1" value="1">
+        </label>
+        <button id="reserveInventoryBtn" class="eoms-button eoms-button-secondary" type="button">Reserve Inventory</button>
+      </div>
+    </aside>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var notice = document.getElementById("fulfillmentNotice");
+  var reserveButton = document.getElementById("reserveInventoryBtn");
+  var shipButton = document.getElementById("shipOrderBtn");
+
+  function setNotice(message, className) {
+    if (!notice) {
+      return;
+    }
+    notice.hidden = false;
+    notice.className = "eoms-status " + className;
+    notice.textContent = message;
+  }
+
+  if (reserveButton) {
+    reserveButton.addEventListener("click", async function(){
+      var payload = {
+        order_number: document.getElementById("reserveOrderNumber").value,
+        customer: document.getElementById("reserveCustomer").value,
+        component: document.getElementById("reserveComponent").value,
+        quantity: document.getElementById("reserveQuantity").value
+      };
+
+      reserveButton.disabled = true;
+      setNotice("Reserving inventory", "eoms-status-neutral");
+
+      try {
+        var response = await fetch("/api/fulfillment/reserve", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        var data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || "Reservation failed.");
+        }
+        setNotice("Inventory reserved", "eoms-status-success");
+        window.setTimeout(function(){ window.location.href = "/fulfillment?order=" + encodeURIComponent(data.order.order_number); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Reservation failed.", "eoms-status-danger");
+        reserveButton.disabled = false;
+      }
+    });
+  }
+
+  if (shipButton) {
+    shipButton.addEventListener("click", async function(){
+      var payload = {
+        order_number: document.getElementById("shipOrderNumber").value,
+        shipment_notes: document.getElementById("shipmentNotes").value
+      };
+
+      shipButton.disabled = true;
+      setNotice("Shipping order", "eoms-status-neutral");
+
+      try {
+        var response = await fetch("/api/fulfillment/ship", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        var data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || "Shipment failed.");
+        }
+        setNotice("Order shipped", "eoms-status-success");
+        window.setTimeout(function(){ window.location.reload(); }, 350);
+      } catch (error) {
+        setNotice(error.message || "Shipment failed.", "eoms-status-danger");
+        shipButton.disabled = false;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

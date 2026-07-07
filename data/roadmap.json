@@ -1,7 +1,7 @@
 {
-  "current_version": "4.4",
+  "current_version": "4.5",
   "current_branch": "ft3-automation-worker",
-  "current_build": "FT4.4",
+  "current_build": "FT4.5",
   "eras": [
     {
       "id": "era-i",
@@ -324,25 +324,25 @@
       "id": "FT4.4",
       "title": "Inventory Workspace Foundation",
       "era": "era-ii",
-      "status": "Current",
+      "status": "Completed",
       "description": "Inventory visibility after receiving is defined, with component-level stock surfaces.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.3"],
-      "notes": "Current build."
+      "notes": "Inventory stock is calculated from received loads with warehouse adjustment support."
     },
     {
       "id": "FT4.5",
       "title": "Fulfillment Workspace Foundation",
       "era": "era-ii",
-      "status": "Planned",
+      "status": "Current",
       "description": "Outbound fulfillment planning after receiving and inventory foundations are stable.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.4"],
-      "notes": ""
+      "notes": "Current build."
     },
     {
       "id": "FT4.7",

@@ -48,6 +48,7 @@ from eoms_modules.driver_center_service import (
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
+from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -1761,6 +1762,65 @@ def api_inventory_adjust():
     return jsonify({
         "ok": True,
         "adjustment": adjustment,
+        "summary": workspace.get("summary", {}),
+    })
+
+@app.route("/fulfillment")
+def fulfillment_workspace():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    workspace = build_fulfillment_workspace(stores, request.args.get("order"))
+    return render_template("fulfillment.html", workspace=workspace)
+
+@app.route("/api/fulfillment/reserve", methods=["POST"])
+def api_fulfillment_reserve():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+
+    try:
+        order = reserve_inventory(
+            stores,
+            data,
+            reserved_by=session.get("username", "system"),
+        )
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    workspace = build_fulfillment_workspace(stores, order.get("order_number"))
+    audit("Reserve Fulfillment Inventory", {"order_number": order.get("order_number"), "customer": order.get("customer")})
+
+    return jsonify({
+        "ok": True,
+        "order": order,
+        "summary": workspace.get("summary", {}),
+    })
+
+@app.route("/api/fulfillment/ship", methods=["POST"])
+def api_fulfillment_ship():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+
+    try:
+        order = ship_order(
+            stores,
+            data.get("order_number"),
+            shipped_by=session.get("username", "system"),
+            shipment_notes=data.get("shipment_notes"),
+        )
+        already_shipped = bool(order.pop("already_shipped", False))
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    workspace = build_fulfillment_workspace(stores, order.get("order_number"))
+    audit("Ship Fulfillment Order", {"order_number": order.get("order_number"), "already_shipped": already_shipped})
+
+    return jsonify({
+        "ok": True,
+        "already_shipped": already_shipped,
+        "order": order,
         "summary": workspace.get("summary", {}),
     })
 
