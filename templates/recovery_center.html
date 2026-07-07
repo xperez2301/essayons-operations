@@ -4,7 +4,7 @@
 {% set module_title = "Recovery Workspace" %}
 
 {% block topbar_actions %}
-  <span class="eoms-status eoms-status-neutral">Foundation</span>
+  <span class="eoms-status eoms-status-success">Live Data</span>
 {% endblock %}
 
 {% block content %}
@@ -102,6 +102,8 @@
                 <th>Store</th>
                 <th>Origin</th>
                 <th>BOL</th>
+                <th>City / State</th>
+                <th>Due</th>
                 <th>Status</th>
                 <th>Notes</th>
               </tr>
@@ -112,6 +114,8 @@
                   <td>{{ stop.store or "Unassigned" }}</td>
                   <td>{{ stop.origin or "Unknown" }}</td>
                   <td>{{ stop.bol or "Not set" }}</td>
+                  <td>{{ stop.city or "Unknown" }}{% if stop.state %}, {{ stop.state }}{% endif %}</td>
+                  <td>{{ stop.due_date or "Not set" }}</td>
                   <td>{{ stop.status }}</td>
                   <td>{{ stop.notes or "None" }}</td>
                 </tr>
@@ -136,6 +140,8 @@
             <tr><th>Store</th><td>{{ stop.store or "Unassigned" }}</td></tr>
             <tr><th>Origin</th><td>{{ stop.origin or "Unknown" }}</td></tr>
             <tr><th>BOL</th><td>{{ stop.bol or "Not set" }}</td></tr>
+            <tr><th>City / State</th><td>{{ stop.city or "Unknown" }}{% if stop.state %}, {{ stop.state }}{% endif %}</td></tr>
+            <tr><th>Due Date</th><td>{{ stop.due_date or "Not set" }}</td></tr>
             <tr><th>Status</th><td>{{ stop.status }}</td></tr>
             {% for component in workspace.component_names %}
               <tr><th>{{ component }}</th><td>{{ stop.driver_counts[component] }}</td></tr>
