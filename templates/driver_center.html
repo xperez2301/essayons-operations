@@ -113,18 +113,36 @@
 
     <aside class="eoms-card">
       <h2>Stop Detail</h2>
-      {% if workspace.selected_stop %}
+      {% if workspace.selected_stop_detail %}
         <table class="eoms-table">
           <tbody>
-            <tr><th>Store</th><td>{{ workspace.selected_stop.store or "Unassigned" }}</td></tr>
-            <tr><th>BOL</th><td>{{ workspace.selected_stop.bol or "Not set" }}</td></tr>
-            <tr><th>Origin</th><td>{{ workspace.selected_stop.origin or "Unknown" }}</td></tr>
-            <tr><th>Status</th><td>{{ workspace.selected_stop.status }}</td></tr>
-            {% for component in workspace.component_names %}
-              <tr><th>{{ component }}</th><td>{{ workspace.selected_stop.driver_counts[component] }}</td></tr>
-            {% endfor %}
+            <tr><th>Store</th><td>{{ workspace.selected_stop_detail.store }}</td></tr>
+            <tr><th>BOL</th><td>{{ workspace.selected_stop_detail.bol }}</td></tr>
+            <tr><th>Origin</th><td>{{ workspace.selected_stop_detail.origin }}</td></tr>
+            <tr><th>Address</th><td>{{ workspace.selected_stop_detail.address }}</td></tr>
+            <tr><th>Contact</th><td>{{ workspace.selected_stop_detail.contact }}</td></tr>
+            <tr><th>Location</th><td>{{ workspace.selected_stop_detail.city_state }}</td></tr>
+            <tr><th>Due</th><td>{{ workspace.selected_stop_detail.due_date }}</td></tr>
+            <tr><th>Status</th><td>{{ workspace.selected_stop_detail.status }}</td></tr>
           </tbody>
         </table>
+
+        <div style="display:grid;gap:10px;margin-top:14px;">
+          {% for entry in workspace.selected_stop_detail.component_entries %}
+            <label>
+              <span>{{ entry.label }}</span>
+              <input type="number" min="0" step="1" value="{{ entry.value }}" readonly>
+            </label>
+          {% endfor %}
+          <label>
+            <span>Notes</span>
+            <textarea rows="4" readonly>{{ workspace.selected_stop_detail.notes }}</textarea>
+          </label>
+          <div class="eoms-toolbar">
+            <button class="eoms-button eoms-button-secondary" type="button" disabled>Save</button>
+            <button class="eoms-button eoms-button-primary" type="button" disabled>Complete Stop</button>
+          </div>
+        </div>
       {% else %}
         <div class="eoms-empty-state">
           <strong>No stop selected</strong>
