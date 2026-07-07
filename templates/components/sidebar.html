@@ -1,13 +1,14 @@
 {% set nav_items = [
-  ("Dashboard", "/dashboard"),
-  ("Recovery", "/recovery"),
-  ("Receiving", "/receiving"),
-  ("Inventory", "/inventory"),
-  ("Fulfillment", "/fulfillment"),
-  ("Reports", "/route-builder"),
-  ("Automation", "/automation-center"),
-  ("Database", "/database-center"),
-  ("Settings", "/settings")
+  ("Dashboard", "/dashboard", ""),
+  ("Recovery", "/recovery", ""),
+  ("Roadmap", "/roadmap", "&#127984;"),
+  ("Receiving", "/receiving", ""),
+  ("Inventory", "/inventory", ""),
+  ("Fulfillment", "/fulfillment", ""),
+  ("Reports", "/route-builder", ""),
+  ("Automation", "/automation-center", ""),
+  ("Database", "/database-center", ""),
+  ("Settings", "/settings", "")
 ] %}
 
 <aside class="eoms-sidebar" data-eoms-sidebar>
@@ -25,11 +26,11 @@
   </div>
 
   <nav class="eoms-nav" aria-label="Primary navigation">
-    {% for label, href in nav_items %}
+    {% for label, href, icon in nav_items %}
       {% set is_active = request.path == href or (href != "/dashboard" and request.path.startswith(href)) %}
       <a class="{% if is_active %}active{% endif %}" href="{{ href }}">
         <span class="eoms-nav-dot" aria-hidden="true"></span>
-        <span class="eoms-nav-label">{{ label }}</span>
+        <span class="eoms-nav-label">{% if icon %}<span aria-hidden="true">{{ icon|safe }}</span> {% endif %}{{ label }}</span>
       </a>
     {% endfor %}
   </nav>

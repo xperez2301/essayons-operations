@@ -46,6 +46,7 @@ from eoms_modules.driver_center_service import (
     update_route_recovery_progress,
 )
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
+from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
 # always available on a fresh App Service worker, so we import it lazily and let
@@ -126,6 +127,7 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
 RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
 USERS_FILE = DATA_DIR / "users.json"
+ROADMAP_FILE = DATA_DIR / "roadmap.json"
 
 app.config["STORES_FILE"] = STORES_FILE
 app.config["BOL_DIR"] = BOL_DIR
@@ -1675,6 +1677,11 @@ def dashboard():
 @app.route("/design-system-demo")
 def design_system_demo():
     return render_template("design_system_demo.html")
+
+@app.route("/roadmap")
+def roadmap_workspace():
+    workspace = build_roadmap_workspace(ROADMAP_FILE)
+    return render_template("roadmap.html", workspace=workspace)
 
 @app.route("/recovery")
 def recovery_center():

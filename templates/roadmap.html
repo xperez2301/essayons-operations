@@ -1,0 +1,120 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Roadmap" %}
+{% set module_title = "EOMS Development" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-warning">Current Build</span>
+{% endblock %}
+
+{% block content %}
+  <section class="eoms-summary-grid" aria-label="Roadmap overview">
+    <div class="eoms-summary-card">
+      <span>Current Version</span>
+      <strong>{{ workspace.current_version }}</strong>
+      <small>active roadmap version</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Current Branch</span>
+      <strong>{{ workspace.current_branch }}</strong>
+      <small>development branch</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Current Build</span>
+      <strong>{{ workspace.current_build.id }}</strong>
+      <small>{{ workspace.current_build.title }}</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Next Build</span>
+      <strong>{{ workspace.next_build.id or "None" }}</strong>
+      <small>{{ workspace.next_build.title or "No next build" }}</small>
+    </div>
+  </section>
+
+  <div class="eoms-roadmap-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Progress</h2>
+        <div class="eoms-progress-row">
+          <div>
+            <strong>{{ workspace.overall_completion }}%</strong>
+            <span>Overall Completion</span>
+          </div>
+          <div class="eoms-progress-track"><span style="width: {{ workspace.overall_completion }}%;"></span></div>
+        </div>
+        <div class="eoms-roadmap-metrics">
+          <div><span>Completed Builds</span><strong>{{ workspace.completed_builds }}</strong></div>
+          <div><span>Remaining Builds</span><strong>{{ workspace.remaining_builds }}</strong></div>
+          <div><span>Total Builds</span><strong>{{ workspace.total_builds }}</strong></div>
+        </div>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Era Progress</h2>
+        <div class="eoms-era-list">
+          {% for era in workspace.era_completion %}
+            <div class="eoms-era-item">
+              <div class="eoms-era-head">
+                <div>
+                  <strong>{{ era.title }}</strong>
+                  <span>{{ era.description }}</span>
+                </div>
+                <span class="eoms-status eoms-status-{{ era.status_class }}">{{ era.status }}</span>
+              </div>
+              <div class="eoms-progress-track"><span style="width: {{ era.percent }}%;"></span></div>
+              <small>{{ era.percent }}% · {{ era.completed }} of {{ era.total }} builds completed</small>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Build Timeline</h2>
+        <div class="eoms-status-row">
+          {% for item in workspace.status_legend %}
+            <span class="eoms-status eoms-status-{{ item.class }}"><i class="eoms-roadmap-dot eoms-dot-{{ item.marker }}"></i>{{ item.status }}</span>
+          {% endfor %}
+        </div>
+        <div class="eoms-timeline">
+          {% for build in workspace.builds %}
+            <article class="eoms-timeline-item">
+              <i class="eoms-roadmap-dot eoms-dot-{{ build.status_marker }}"></i>
+              <div>
+                <div class="eoms-timeline-head">
+                  <strong>{{ build.id }} · {{ build.title }}</strong>
+                  <span class="eoms-status eoms-status-{{ build.status_class }}">{{ build.status }}</span>
+                </div>
+                <p>{{ build.description }}</p>
+                <small>Era: {{ build.era }}{% if build.release_version %} · Release: {{ build.release_version }}{% endif %}{% if build.dependencies %} · Dependencies: {{ build.dependencies|join(", ") }}{% endif %}</small>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Development Standard</h2>
+        <div class="eoms-standard-chain">
+          {% for step in workspace.development_standard %}
+            <div>{{ step }}</div>
+            {% if not loop.last %}<span>&#8595;</span>{% endif %}
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Future Cards</h2>
+        <div class="eoms-future-cards">
+          {% for card in workspace.future_cards %}
+            <div class="eoms-empty-state">
+              <strong>{{ card }}</strong>
+              <span>Placeholder for a future Roadmap Workspace expansion.</span>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    </aside>
+  </div>
+{% endblock %}
