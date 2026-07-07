@@ -186,6 +186,75 @@ CITY_COORDS = {
 
 DIRS_READY = False
 
+def ensure_runtime_data_files():
+    """FT5.1: Production Data Initialization.
+
+    Ensures every runtime JSON file EOMS needs to boot exists in DATA_DIR
+    (e.g. Azure's persistent /home/eoms_data, or the local ./data folder in
+    dev). This is what was missing for roadmap.json in production: DATA_DIR
+    is correctly persistent there, but nothing had ever seeded it, so the
+    dashboard 500'd with FileNotFoundError.
+
+    Safety rules, in order:
+    - If the target file already exists, it is left completely alone. This
+      function never overwrites or mutates existing runtime data, in dev or
+      production, so re-running it (it runs once per process, but is also
+      safe to call any number of times) is always a no-op for files that are
+      already there.
+    - Everything else gets a safe, empty default identical to what EOMS has
+      always seeded a fresh local checkout with.
+    - roadmap.json is the one exception: it's shared reference/versioning
+      content, not per-environment operational data, so a fresh environment
+      should get the real packaged copy from the repo's data/ folder rather
+      than an empty stub, if that packaged copy is available.
+
+    Returns the list of files that were actually created, for startup logs.
+    """
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    initialized = []
+
+    for path, default in [
+        (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
+        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "azure_maps_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
+        (SYNC_HISTORY_FILE, []),
+        (RMS_QUEUE_FILE, []),
+        (DATA_DIR / "automation_jobs.json", []),
+        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}),
+    ]:
+        if not path.exists():
+            path.write_text(json.dumps(default, indent=2), encoding="utf-8")
+            initialized.append(path.name)
+
+    if not ROADMAP_FILE.exists():
+        packaged_roadmap = BASE_DIR / "data" / "roadmap.json"
+        copied = False
+        try:
+            if packaged_roadmap.exists() and packaged_roadmap.resolve() != ROADMAP_FILE.resolve():
+                shutil.copy2(packaged_roadmap, ROADMAP_FILE)
+                copied = True
+        except OSError:
+            copied = False
+
+        if copied:
+            initialized.append("roadmap.json (packaged copy)")
+        else:
+            default_roadmap = {
+                "current_version": "1.0",
+                "current_branch": "production",
+                "current_build": "",
+                "eras": [],
+                "builds": [],
+            }
+            ROADMAP_FILE.write_text(json.dumps(default_roadmap, indent=2), encoding="utf-8")
+            initialized.append("roadmap.json (safe empty default)")
+
+    if initialized:
+        print(f"[EOMS Startup] Initialized runtime data file(s) in {DATA_DIR}: {', '.join(initialized)}")
+
+    return initialized
+
+
 def ensure_dirs():
     global DIRS_READY
     if DIRS_READY:
@@ -199,15 +268,7 @@ def ensure_dirs():
             "ADMIN_PASSWORD is required on first startup so EOMS can create "
             "the initial administrator account."
         )
-    for path, default in [
-        (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "azure_maps_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
-        (SYNC_HISTORY_FILE, []),
-        (RMS_QUEUE_FILE, []),
-        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]})
-    ]:
-        if not path.exists():
-            path.write_text(json.dumps(default, indent=2), encoding="utf-8")
+    ensure_runtime_data_files()
     DIRS_READY = True
 
 def read_json(path):
