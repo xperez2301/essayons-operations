@@ -249,6 +249,107 @@ def write_json(path, data):
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     os.replace(tmp, path)
 
+# --- FT4.8: Runtime data write safety (PRC-0008 blocker R-1) ---------------
+# write_json() above is atomic (temp file + os.replace), so a single write can
+# never leave a half-written/corrupt file behind. But most routes in this file
+# still do read_json(...) -> mutate in memory -> write_json(...), and nothing
+# protects that whole sequence: two requests can each read a stale copy and
+# the second write silently discards the first request's change (a lost
+# update), especially once running under multiple gunicorn workers. The lock
+# below wraps a route's entire read-modify-write critical section so
+# concurrent operational requests (two drivers, two receiving clerks,
+# duplicate clicks, simultaneous dispatcher/inventory actions, etc.) can no
+# longer clobber each other. It intentionally only guards the mutating
+# operational endpoints below (see synchronized_data_write usages) — read-only
+# page/API routes are untouched and stay fully concurrent.
+
+RUNTIME_LOCK_TIMEOUT = 15  # seconds to wait for a lock before giving up
+RUNTIME_LOCK_POLL_INTERVAL = 0.05
+RUNTIME_LOCK_STALE_AFTER = 30  # seconds; guards against a crashed lock holder
+
+class _RuntimeFileLock:
+    """Dependency-free mutual-exclusion lock backed by atomic lockfile
+    creation (O_CREAT | O_EXCL). This works across gunicorn worker processes
+    as well as threads within one process, on both Windows and POSIX, so it
+    does not need fcntl/msvcrt or a third-party locking package."""
+
+    def __init__(self, target_path):
+        self._lock_path = Path(str(target_path) + ".lock")
+
+    def acquire(self, timeout=RUNTIME_LOCK_TIMEOUT):
+        deadline = time.time() + timeout
+        while True:
+            try:
+                fd = os.open(str(self._lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode("utf-8"))
+                os.close(fd)
+                return
+            except FileExistsError:
+                try:
+                    age = time.time() - self._lock_path.stat().st_mtime
+                except OSError:
+                    # Lock file vanished between the failed create and stat; retry.
+                    continue
+                if age > RUNTIME_LOCK_STALE_AFTER:
+                    # Previous holder crashed/died without releasing. Break the
+                    # stale lock rather than deadlocking every future request.
+                    try:
+                        self._lock_path.unlink()
+                    except OSError:
+                        pass
+                    continue
+                if time.time() >= deadline:
+                    raise TimeoutError(f"Timed out waiting for runtime data lock: {self._lock_path.name}")
+                time.sleep(RUNTIME_LOCK_POLL_INTERVAL)
+
+    def release(self):
+        try:
+            self._lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.release()
+
+
+_RUNTIME_LOCKS = {}
+
+def _runtime_lock_for(path):
+    key = str(path)
+    lock = _RUNTIME_LOCKS.get(key)
+    if lock is None:
+        lock = _RuntimeFileLock(path)
+        _RUNTIME_LOCKS[key] = lock
+    return lock
+
+
+def synchronized_data_write(*paths):
+    """Decorator: serializes a route's full read-modify-write critical
+    section against every other request touching the same runtime data
+    file(s). Locks are acquired in a fixed, sorted order so an endpoint that
+    touches both stores.json and routes.json can never deadlock against one
+    that acquires them in the opposite order."""
+    locks = [_runtime_lock_for(p) for p in sorted(set(paths), key=str)]
+
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            acquired = []
+            try:
+                for lock in locks:
+                    lock.acquire()
+                    acquired.append(lock)
+                return f(*args, **kwargs)
+            finally:
+                for lock in reversed(acquired):
+                    lock.release()
+        return wrapped
+    return decorator
+
 def backup_stores_json(reason="manual"):
     ensure_dirs()
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1814,6 +1915,7 @@ def dispatcher_closeout_workspace():
     return render_template("dispatcher_closeout.html", workspace=workspace)
 
 @app.route("/api/receiving/receive", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_receiving_receive():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -1853,6 +1955,7 @@ def api_receiving_receive():
 
 @app.route("/api/dispatcher/closeout", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_dispatcher_closeout():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -1899,6 +2002,7 @@ def inventory_workspace():
     return render_template("inventory.html", workspace=workspace)
 
 @app.route("/api/inventory/adjust", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_inventory_adjust():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -1931,6 +2035,7 @@ def fulfillment_workspace():
     return render_template("fulfillment.html", workspace=workspace)
 
 @app.route("/api/fulfillment/reserve", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_fulfillment_reserve():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -1955,6 +2060,7 @@ def api_fulfillment_reserve():
     })
 
 @app.route("/api/fulfillment/ship", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_fulfillment_ship():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -2303,6 +2409,7 @@ def all_bols():
     )
 
 @app.route("/api/approve-review", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_approve_review():
     data = request.get_json(force=True)
     store_id = data.get("store_id")
@@ -2324,6 +2431,7 @@ def api_approve_review():
 
 @app.route("/api/delete-bol", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_delete_bol():
     data = request.get_json(force=True)
     store_id = clean(data.get("store_id"))
@@ -4114,6 +4222,7 @@ def bol_view(store_id):
     return render_saved_bol(found, path, auto_print=False)
 
 @app.route("/api/approve-review-force", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_approve_review_force():
     data = request.get_json(force=True)
     store_id = data.get("store_id")
@@ -4575,6 +4684,7 @@ def archive():
 
 @app.route("/api/store-closeout/<store_id>", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_store_closeout_update(store_id):
     data = request.get_json(force=True)
     stores = read_json(STORES_FILE)
@@ -4734,6 +4844,7 @@ def api_system_health():
 
 @app.route("/api/reset-bols", methods=["POST"])
 @admin_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_reset_bols():
     data = request.get_json(silent=True) or {}
     if clean(data.get("confirm")) != "ERASE ALL BOLS":
@@ -4954,6 +5065,7 @@ def api_dispatch_board_live():
 
 @app.route("/api/send-route-sms", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(ROUTES_FILE)
 def api_send_route_sms():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
@@ -5063,6 +5175,7 @@ def api_preview_route():
 
 @app.route("/api/assign-route", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_assign_route():
     data = request.get_json(force=True)
     driver = clean(data.get("driver"))
@@ -5138,6 +5251,7 @@ def api_assign_route():
 
 @app.route("/api/dispatch-route", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_dispatch_route():
     data = request.get_json(force=True)
     route_id = clean(data.get("route_id"))
@@ -5180,6 +5294,7 @@ def api_dispatch_route():
 
 
 @app.route("/api/update-route-driver", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_update_route_driver():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
@@ -5226,6 +5341,7 @@ def api_update_route_driver():
     return jsonify({"ok": True, "route": updated})
 
 @app.route("/api/complete-route", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_complete_route():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
@@ -5322,6 +5438,7 @@ def route_print(route_id):
 
 @app.route("/api/unassign-route", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_unassign_route():
     data = request.get_json(force=True)
     route_id = data.get("route_id")
@@ -5370,6 +5487,7 @@ def api_unassign_route():
 
 @app.route("/api/delete-route", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_delete_route():
     data = request.get_json(force=True) or {}
     route_id = clean(data.get("route_id"))
@@ -5403,6 +5521,7 @@ def api_delete_route():
 
 @app.route("/api/bol/<store_id>", methods=["POST"])
 @dispatch_required
+@synchronized_data_write(STORES_FILE)
 def api_update_bol(store_id):
     data = request.get_json(force=True)
     allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Exception", "Completed"}
@@ -5498,6 +5617,7 @@ def api_update_bol(store_id):
 
 
 @app.route("/api/store-status", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_store_status():
     data = request.get_json(force=True)
     store_id = data.get("store_id")
@@ -5542,6 +5662,7 @@ def api_store_status():
     return jsonify({"ok": True, "store": updated})
 
 @app.route("/api/unassign-store", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_unassign_store():
     data = request.get_json(force=True)
     store_id = data.get("store_id")
@@ -5598,6 +5719,7 @@ def driver_portal():
 
 
 @app.route("/api/driver/accept-route", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_driver_accept_route():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -5632,6 +5754,7 @@ def api_driver_accept_route():
 
 
 @app.route("/api/driver/decline-route", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_driver_decline_route():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -5667,6 +5790,7 @@ def api_driver_decline_route():
     return jsonify({"ok": True, "route": route, "restored_stores": len(restored_stores)})
 
 @app.route("/api/driver/save-counts", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_driver_save_counts():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -5708,6 +5832,7 @@ def api_driver_save_counts():
     })
 
 @app.route("/api/driver/save-exception", methods=["POST"])
+@synchronized_data_write(STORES_FILE)
 def api_driver_save_exception():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -5749,6 +5874,7 @@ def api_driver_save_exception():
     })
 
 @app.route("/api/driver/complete-stop", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_driver_complete_stop():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
@@ -5796,6 +5922,7 @@ def api_driver_complete_stop():
     })
 
 @app.route("/api/driver/complete", methods=["POST"])
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
 def api_driver_complete():
     data = request.get_json(force=True) or {}
     stores = read_json(STORES_FILE)
