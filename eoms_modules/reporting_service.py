@@ -6,12 +6,16 @@ from eoms_modules.fulfillment_service import (
 from eoms_modules.inventory_service import (
     adjustment_entries,
     build_inventory_workspace,
+    inventory_receipt_transactions,
 )
-from eoms_modules.receiving_service import build_receiving_workspace
+from eoms_modules.receiving_service import (
+    DISPATCHER_CLOSED_STATUS,
+    build_receiving_workspace,
+    warehouse_verified_counts_from_store,
+)
 from eoms_modules.recovery_center_service import (
     calculate_estimated_weight,
     clean,
-    driver_counts_from_store,
     empty_component_counts,
     summarize_recovery_workspace_from_records,
 )
@@ -88,8 +92,10 @@ def recovery_metrics(stores=None, routes=None, recovery_workspace=None):
     ]
     recovered_totals = empty_component_counts()
 
+    # Law #2/#3: Reporting must never use driver-submitted counts directly.
+    # Use warehouse verified quantities (finalized at Dispatcher Close-Out) instead.
     for store in recovered_stores + exception_stores:
-        counts = driver_counts_from_store(store)
+        counts = warehouse_verified_counts_from_store(store)
         for component in recovered_totals:
             recovered_totals[component] += counts[component]
 
@@ -207,6 +213,43 @@ def build_adjustment_timeline(stores=None):
     return events
 
 
+def build_dispatcher_approval_timeline(stores=None):
+    events = []
+
+    for store in stores or []:
+        if not isinstance(store, dict):
+            continue
+        if clean(store.get("dispatcher_closeout_status")) != DISPATCHER_CLOSED_STATUS:
+            continue
+
+        events.append({
+            "type": "Dispatcher Approval",
+            "status": "Closed",
+            "label": clean(store.get("store_name") or store.get("store")) or "Dispatcher Close-Out",
+            "detail": clean(store.get("bol")) or "No BOL",
+            "timestamp": clean(store.get("dispatcher_closed_at")) or "Not set",
+            "status_class": "success",
+        })
+
+    return events
+
+
+def build_inventory_transaction_timeline(stores=None):
+    events = []
+
+    for transaction in inventory_receipt_transactions(stores):
+        events.append({
+            "type": "Inventory Transaction",
+            "status": transaction.get("category", "Inventory"),
+            "label": transaction.get("component", "Inventory"),
+            "detail": f"{transaction.get('store')} / {transaction.get('bol')}",
+            "timestamp": transaction.get("inventory_updated_at") or "Not set",
+            "status_class": "success",
+        })
+
+    return events
+
+
 def build_shipment_timeline(stores=None):
     events = []
 
@@ -230,6 +273,8 @@ def build_operational_timeline(stores=None, receiving_workspace=None):
     events = []
     events.extend(build_recovery_timeline(stores))
     events.extend(build_receipt_timeline(receiving_workspace))
+    events.extend(build_dispatcher_approval_timeline(stores))
+    events.extend(build_inventory_transaction_timeline(stores))
     events.extend(build_adjustment_timeline(stores))
     events.extend(build_shipment_timeline(stores))
     return sorted(events, key=lambda event: event["timestamp"], reverse=True)
