@@ -38,6 +38,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
+from eoms_modules.recovery_center_service import summarize_recovery_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
 # always available on a fresh App Service worker, so we import it lazily and let
@@ -1667,6 +1668,14 @@ def dashboard():
 @app.route("/design-system-demo")
 def design_system_demo():
     return render_template("design_system_demo.html")
+
+@app.route("/recovery")
+def recovery_center():
+    workspace = summarize_recovery_workspace()
+    return render_template(
+        "recovery_center.html",
+        workspace=workspace,
+    )
 
 @app.route("/api/dashboard-live")
 def api_dashboard_live():
@@ -5398,7 +5407,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
 
 

@@ -1,0 +1,177 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Recovery Center" %}
+{% set module_title = "Recovery Workspace" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-neutral">Foundation</span>
+{% endblock %}
+
+{% block content %}
+  <section class="eoms-summary-grid" aria-label="Recovery summary">
+    <div class="eoms-summary-card">
+      <span>Recovery Routes</span>
+      <strong>{{ workspace.summary.route_count }}</strong>
+      <small>active workspace routes</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Recovery Stops</span>
+      <strong>{{ workspace.summary.completed_stops }} / {{ workspace.summary.total_stops }}</strong>
+      <small>completed stops</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Estimated Weight</span>
+      <strong>{{ workspace.summary.estimated_weight }}</strong>
+      <small>lbs recovered</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Warehouse Expected</span>
+      <strong>{{ workspace.summary.completed_stops }}</strong>
+      <small>completed stop totals</small>
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <div class="eoms-toolbar">
+          <span class="eoms-status eoms-status-neutral">Routes</span>
+        </div>
+
+        {% if workspace.routes %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Truck</th>
+                <th>Driver</th>
+                <th>Status</th>
+                <th>Stops</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in workspace.routes %}
+                <tr>
+                  <td>{{ item.label }}</td>
+                  <td>{{ item.truck }}</td>
+                  <td>{{ item.driver }}</td>
+                  <td><span class="eoms-status eoms-status-{{ item.status_class }}">{{ item.status }}</span></td>
+                  <td>{{ item.completed_stops }} / {{ item.stop_count }}</td>
+                  <td>{{ item.estimated_weight }} lbs</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No recovery routes yet</strong>
+            <span>Recovery routes will appear here when the Recovery Center is connected to operational route data.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Running Component Totals</h2>
+        <table class="eoms-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Running Total</th>
+              <th>Estimated Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for component in workspace.component_names %}
+              <tr>
+                <td>{{ component }}</td>
+                <td>{{ workspace.running_totals[component] }}</td>
+                <td>{{ workspace.estimated_component_totals[component] }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Recovery Stops</h2>
+        {% if workspace.selected_route and workspace.selected_route.recovery_stops %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Store</th>
+                <th>Origin</th>
+                <th>BOL</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for stop in workspace.selected_route.recovery_stops %}
+                <tr>
+                  <td>{{ stop.store or "Unassigned" }}</td>
+                  <td>{{ stop.origin or "Unknown" }}</td>
+                  <td>{{ stop.bol or "Not set" }}</td>
+                  <td>{{ stop.status }}</td>
+                  <td>{{ stop.notes or "None" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No stop details selected</strong>
+            <span>Stop details will appear when a recovery route has assigned stops.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="eoms-card">
+      <h2>Stop Details</h2>
+      {% if workspace.selected_route and workspace.selected_route.recovery_stops %}
+        {% set stop = workspace.selected_route.recovery_stops[0] %}
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Store</th><td>{{ stop.store or "Unassigned" }}</td></tr>
+            <tr><th>Origin</th><td>{{ stop.origin or "Unknown" }}</td></tr>
+            <tr><th>BOL</th><td>{{ stop.bol or "Not set" }}</td></tr>
+            <tr><th>Status</th><td>{{ stop.status }}</td></tr>
+            {% for component in workspace.component_names %}
+              <tr><th>{{ component }}</th><td>{{ stop.driver_counts[component] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="eoms-empty-state">
+          <strong>No stop selected</strong>
+          <span>Driver component counts will appear here for the selected stop.</span>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}
+
+{% block detail_panel %}
+  <aside class="eoms-detail-panel">
+    <h2>Route Details</h2>
+    {% if workspace.selected_summary %}
+      <table class="eoms-table">
+        <tbody>
+          <tr><th>Route</th><td>{{ workspace.selected_summary.label }}</td></tr>
+          <tr><th>Truck</th><td>{{ workspace.selected_summary.truck }}</td></tr>
+          <tr><th>Driver</th><td>{{ workspace.selected_summary.driver }}</td></tr>
+          <tr><th>Dispatcher</th><td>{{ workspace.selected_summary.dispatcher }}</td></tr>
+          <tr><th>Status</th><td><span class="eoms-status eoms-status-{{ workspace.selected_summary.status_class }}">{{ workspace.selected_summary.status }}</span></td></tr>
+          <tr><th>Warehouse ETA</th><td>{{ workspace.selected_summary.warehouse_eta }}</td></tr>
+          <tr><th>Estimated Weight</th><td>{{ workspace.selected_summary.estimated_weight }} lbs</td></tr>
+        </tbody>
+      </table>
+    {% else %}
+      <div class="eoms-empty-state">
+        <strong>No route selected</strong>
+        <span>Route details will appear here after recovery routes are available.</span>
+      </div>
+    {% endif %}
+  </aside>
+{% endblock %}

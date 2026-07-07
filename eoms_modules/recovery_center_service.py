@@ -275,3 +275,121 @@ def complete_recovery_stop(route, bol, driver_counts=None, notes=None):
         return refresh_route_totals(route)
 
     raise ValueError("Recovery stop was not found for the provided BOL.")
+
+
+def normalize_recovery_route(route):
+    if not isinstance(route, dict):
+        raise ValueError("Recovery route must be a dictionary.")
+
+    normalized = create_recovery_route(
+        truck=route.get("truck"),
+        driver=route.get("driver"),
+        dispatcher=route.get("dispatcher"),
+        status=route.get("status") or DEFAULT_ROUTE_STATUS,
+        recovery_stops=route.get("recovery_stops") or [],
+        warehouse_eta=route.get("warehouse_eta"),
+    )
+
+    for key in ("route_id", "route_number", "created_at", "updated_at"):
+        if clean(route.get(key)):
+            normalized[key] = clean(route.get(key))
+
+    return refresh_route_totals(normalized)
+
+
+def status_class(status):
+    status = clean(status).lower()
+
+    if status in {"completed", "complete", "recovered"}:
+        return "success"
+
+    if status in {"in progress", "running", "active"}:
+        return "warning"
+
+    if status in {"blocked", "failed", "cancelled"}:
+        return "danger"
+
+    return "neutral"
+
+
+def recovery_route_label(route, index=0):
+    label = clean(route.get("route_number") or route.get("route_id"))
+    if label:
+        return label
+
+    truck = clean(route.get("truck"))
+    if truck:
+        return f"Recovery {truck}"
+
+    return f"Recovery Route {index + 1}"
+
+
+def summarize_recovery_route(route, index=0):
+    route = refresh_route_totals(deepcopy(route))
+    stops = route.get("recovery_stops") or []
+    completed_stops = sum(1 for stop in stops if is_completed_stop(stop))
+
+    return {
+        "label": recovery_route_label(route, index),
+        "truck": clean(route.get("truck")) or "Unassigned",
+        "driver": clean(route.get("driver")) or "Unassigned",
+        "dispatcher": clean(route.get("dispatcher")) or "Unassigned",
+        "status": route.get("recovery_status") or route.get("status") or DEFAULT_ROUTE_STATUS,
+        "status_class": status_class(route.get("recovery_status") or route.get("status")),
+        "stop_count": len(stops),
+        "completed_stops": completed_stops,
+        "estimated_weight": route.get("estimated_weight", 0),
+        "warehouse_eta": clean(route.get("warehouse_eta")) or "Not set",
+        "route": route,
+    }
+
+
+def summarize_recovery_workspace(routes=None, selected_index=0):
+    if routes is None:
+        routes = []
+
+    if not isinstance(routes, list):
+        raise ValueError("Recovery workspace routes must be provided as a list.")
+
+    normalized_routes = [
+        normalize_recovery_route(route)
+        for route in routes
+    ]
+    route_summaries = [
+        summarize_recovery_route(route, index)
+        for index, route in enumerate(normalized_routes)
+    ]
+
+    selected_route = None
+    selected_summary = None
+    if route_summaries:
+        selected_index = max(0, min(int(selected_index or 0), len(route_summaries) - 1))
+        selected_summary = route_summaries[selected_index]
+        selected_route = selected_summary["route"]
+
+    total_stops = sum(summary["stop_count"] for summary in route_summaries)
+    completed_stops = sum(summary["completed_stops"] for summary in route_summaries)
+    running_totals = empty_component_counts()
+    estimated_component_totals = empty_component_counts()
+
+    for route in normalized_routes:
+        for component in COMPONENT_NAMES:
+            running_totals[component] += route["running_totals"][component]
+            estimated_component_totals[component] += route["estimated_component_totals"][component]
+
+    return {
+        "component_names": COMPONENT_NAMES,
+        "routes": route_summaries,
+        "selected_route": selected_route,
+        "selected_summary": selected_summary,
+        "running_totals": running_totals,
+        "estimated_component_totals": estimated_component_totals,
+        "estimated_weight": calculate_estimated_weight(running_totals),
+        "summary": {
+            "route_count": len(route_summaries),
+            "active_routes": sum(1 for summary in route_summaries if summary["status"] != "Completed"),
+            "total_stops": total_stops,
+            "completed_stops": completed_stops,
+            "estimated_weight": calculate_estimated_weight(running_totals),
+        },
+    }
