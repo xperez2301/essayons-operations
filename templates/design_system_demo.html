@@ -1,0 +1,104 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Design System Demo" %}
+{% set module_title = "Shared Platform" %}
+
+{% block topbar_actions %}
+  <a class="eoms-button eoms-button-secondary" href="/dashboard">Dashboard</a>
+  <button class="eoms-button eoms-button-primary" type="button">Run Review</button>
+{% endblock %}
+
+{% block content %}
+  <section class="eoms-summary-grid" aria-label="Summary">
+    <div class="eoms-summary-card">
+      <span>Recovery Routes</span>
+      <strong>12</strong>
+      <small>active today</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Warehouse ETA</span>
+      <strong>14:30</strong>
+      <small>next inbound truck</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Automation</span>
+      <strong>Ready</strong>
+      <small>kernel available</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Exceptions</span>
+      <strong>3</strong>
+      <small>need operator review</small>
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <div class="eoms-toolbar">
+          <button class="eoms-button eoms-button-primary" type="button">New Route</button>
+          <button class="eoms-button eoms-button-secondary" type="button">Export</button>
+          <button class="eoms-button" type="button">Refresh</button>
+        </div>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Status Badges</h2>
+        <div class="eoms-status-row">
+          <span class="eoms-status eoms-status-success">Healthy</span>
+          <span class="eoms-status eoms-status-warning">Warning</span>
+          <span class="eoms-status eoms-status-danger">Blocked</span>
+          <span class="eoms-status eoms-status-neutral">Queued</span>
+        </div>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Sample Table</h2>
+        <table class="eoms-table">
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>Truck</th>
+              <th>Status</th>
+              <th>Weight</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>REC-1042</td>
+              <td>Truck 7</td>
+              <td><span class="eoms-status eoms-status-success">Running</span></td>
+              <td>12,400 lbs</td>
+            </tr>
+            <tr>
+              <td>REC-1043</td>
+              <td>Truck 11</td>
+              <td><span class="eoms-status eoms-status-warning">Pending</span></td>
+              <td>8,900 lbs</td>
+            </tr>
+            <tr>
+              <td>REC-1044</td>
+              <td>Truck 18</td>
+              <td><span class="eoms-status eoms-status-neutral">Planned</span></td>
+              <td>0 lbs</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="eoms-empty-state">
+        <strong>No selected exceptions</strong>
+        <span>Operational exceptions will appear here after a filter is applied.</span>
+      </section>
+    </div>
+
+    <aside class="eoms-detail-panel">
+      <h2>Detail Panel</h2>
+      <p>Use this area for selected route, worker, exception, or record details while the operator stays in the main workflow.</p>
+      <div class="eoms-status-row">
+        <span class="eoms-status eoms-status-success">Visible</span>
+        <span class="eoms-status eoms-status-neutral">Optional</span>
+      </div>
+    </aside>
+  </div>
+{% endblock %}

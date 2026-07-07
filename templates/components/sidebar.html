@@ -1,0 +1,41 @@
+{% set nav_items = [
+  ("Dashboard", "/dashboard"),
+  ("Recovery", "/recovery"),
+  ("Receiving", "/receiving"),
+  ("Inventory", "/inventory"),
+  ("Fulfillment", "/fulfillment"),
+  ("Reports", "/route-builder"),
+  ("Automation", "/automation-center"),
+  ("Database", "/database-center"),
+  ("Settings", "/settings")
+] %}
+
+<aside class="eoms-sidebar" data-eoms-sidebar>
+  <div class="eoms-sidebar-header">
+    <a class="eoms-brand" href="/dashboard" aria-label="EOMS Dashboard">
+      <img src="{{ url_for('static', filename='img/essayons-bax-mark.png') }}" alt="">
+      <span>
+        <strong>EOMS</strong>
+        <small>Operations</small>
+      </span>
+    </a>
+    <button class="eoms-icon-button eoms-sidebar-collapse" type="button" data-eoms-collapse-sidebar aria-label="Collapse navigation" title="Collapse navigation">
+      <span aria-hidden="true">&#9776;</span>
+    </button>
+  </div>
+
+  <nav class="eoms-nav" aria-label="Primary navigation">
+    {% for label, href in nav_items %}
+      {% set is_active = request.path == href or (href != "/dashboard" and request.path.startswith(href)) %}
+      <a class="{% if is_active %}active{% endif %}" href="{{ href }}">
+        <span class="eoms-nav-dot" aria-hidden="true"></span>
+        <span class="eoms-nav-label">{{ label }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="eoms-sidebar-footer">
+    <span class="eoms-status eoms-status-success">Online</span>
+    <small>{{ session.get("username", "Operator") }}{% if session.get("role") %} · {{ session.get("role") }}{% endif %}</small>
+  </div>
+</aside>

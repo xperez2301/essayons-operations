@@ -1,0 +1,17 @@
+{% macro eoms_topbar(page_title, module_title) %}
+  <header class="eoms-topbar">
+    <div class="eoms-topbar-title">
+      <button class="eoms-icon-button eoms-mobile-menu" type="button" data-eoms-mobile-sidebar aria-label="Open navigation" title="Open navigation">
+        <span aria-hidden="true">&#9776;</span>
+      </button>
+      <div>
+        <span class="eoms-module-title">{{ module_title }}</span>
+        <h1>{{ page_title }}</h1>
+      </div>
+    </div>
+
+    <div class="eoms-command-bar">
+      {{ caller() }}
+    </div>
+  </header>
+{% endmacro %}

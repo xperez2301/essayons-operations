@@ -1664,6 +1664,10 @@ def dashboard():
         can_view_financials=permissions.can_view_financials(current_user())
     )
 
+@app.route("/design-system-demo")
+def design_system_demo():
+    return render_template("design_system_demo.html")
+
 @app.route("/api/dashboard-live")
 def api_dashboard_live():
     stores = filter_stores_for_user(read_json(STORES_FILE))
@@ -5394,7 +5398,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
 
 

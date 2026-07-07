@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ page_title or module_title or "EOMS" }} | EOMS{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms-design-system.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/essayons-bax-mark.png') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% from "components/topbar.html" import eoms_topbar %}
+  <div class="eoms-shell" data-eoms-shell>
+    {% include "components/sidebar.html" %}
+
+    <div class="eoms-workspace">
+      {% call eoms_topbar(page_title or "Operations", module_title or "EOMS") %}
+        {% block topbar_actions %}
+          <span class="eoms-status eoms-status-neutral">Ready</span>
+        {% endblock %}
+      {% endcall %}
+
+      <main class="eoms-content" id="main-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    {% block detail_panel %}{% endblock %}
+  </div>
+
+  <script src="{{ url_for('static', filename='js/eoms-ui.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
