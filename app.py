@@ -38,6 +38,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from eoms_modules.permission_service import permissions
 from eoms_modules.financial_service import financials
 from eoms_modules.operational_engine import ensure_operational_exception, resolve_operational_exception
+from eoms_modules.driver_center_service import build_driver_workspace
 from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -5230,12 +5231,20 @@ def api_unassign_store():
 
 @app.route("/driver")
 def driver_portal():
-    stores = [s for s in read_json(STORES_FILE) if s.get("status") in {"Assigned", "Dispatched"}]
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+    driver_names = []
+
     if current_role() == "Driver":
         user = current_user() or {}
-        driver_names = {clean(user.get("username")), clean(user.get("display_name"))}
-        stores = [s for s in stores if clean(s.get("assigned_driver")) in driver_names]
-    return render_template("driver.html", stores=stores)
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    workspace = build_driver_workspace(
+        routes=routes,
+        stores=stores,
+        driver_names=driver_names,
+    )
+    return render_template("driver_center.html", workspace=workspace)
 
 @app.route("/api/driver/complete", methods=["POST"])
 def api_driver_complete():
@@ -5409,6 +5418,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)
-
 
 
