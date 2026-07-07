@@ -94,6 +94,41 @@
       </section>
 
       <section class="eoms-card">
+        <h2>Driver Exceptions</h2>
+        {% if workspace.exceptions %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Store</th>
+                <th>BOL</th>
+                <th>Type</th>
+                <th>Notes</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for exception in workspace.exceptions %}
+                <tr>
+                  <td>{{ exception.route }}</td>
+                  <td>{{ exception.store }}</td>
+                  <td>{{ exception.bol }}</td>
+                  <td>{{ exception.type }}</td>
+                  <td>{{ exception.notes }}</td>
+                  <td>{{ exception.status }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No driver exceptions</strong>
+            <span>Driver-reported recovery exceptions will appear here as soon as they are saved.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
         <h2>Recovery Stops</h2>
         {% if workspace.selected_route and workspace.selected_route.recovery_stops %}
           <table class="eoms-table">

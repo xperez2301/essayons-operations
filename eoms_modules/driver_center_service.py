@@ -19,7 +19,19 @@ ACTIVE_DRIVER_STATUSES = {
     "dispatched",
     "in progress",
     "recovered",
+    "exception",
 }
+
+DRIVER_EXCEPTION_TYPES = (
+    "No Recovery",
+    "Partial Recovery",
+    "Store Closed",
+    "Rack Missing",
+    "Damaged Components",
+    "Access Issue",
+    "Safety Issue",
+    "Other",
+)
 
 COMPONENT_ENTRY_LABELS = {
     '84" Corner Post': '84" Corner Posts',
@@ -209,6 +221,12 @@ def build_stop_detail(stop=None, store_lookup=None):
         "completed_by": clean(store_record.get("completed_by")),
         "completed_at": clean(store_record.get("completed_at")),
         "is_recovered": clean(stop.get("status") or store_record.get("status")).lower() == "recovered",
+        "is_exception": clean(stop.get("status") or store_record.get("status")).lower() == "exception",
+        "driver_exception_type": clean(store_record.get("driver_exception_type") or stop.get("driver_exception_type")),
+        "driver_exception_notes": clean(store_record.get("driver_exception_notes") or stop.get("driver_exception_notes")),
+        "driver_exception_reported_at": clean(store_record.get("driver_exception_reported_at") or stop.get("driver_exception_reported_at")),
+        "driver_exception_reported_by": clean(store_record.get("driver_exception_reported_by") or stop.get("driver_exception_reported_by")),
+        "exception_types": DRIVER_EXCEPTION_TYPES,
         "component_entries": component_entries_for_stop(stop),
     }
 
@@ -267,6 +285,48 @@ def save_driver_stop_counts(stores, store_id, data, driver_names=None, saved_by=
     raise LookupError("Driver stop was not found.")
 
 
+def save_driver_exception(stores, store_id, data, driver_names=None, reported_by=""):
+    if not isinstance(stores, list):
+        raise ValueError("Stores must be provided as a list.")
+
+    store_id = clean(store_id or (data or {}).get("store_id"))
+    if not store_id:
+        raise ValueError("A store id is required.")
+
+    exception_type = clean((data or {}).get("driver_exception_type"))
+    exception_notes = clean((data or {}).get("driver_exception_notes") or (data or {}).get("notes"))
+
+    if not exception_type:
+        raise ValueError("Select a driver exception type.")
+
+    if exception_type not in DRIVER_EXCEPTION_TYPES:
+        raise ValueError("Select a valid driver exception type.")
+
+    if not exception_notes:
+        raise ValueError("Notes are required when reporting a driver exception.")
+
+    driver_names = normalize_driver_names(driver_names)
+
+    for store in stores:
+        if not isinstance(store, dict):
+            continue
+
+        if clean(store.get("id")) != store_id:
+            continue
+
+        if not store_matches_driver(store, driver_names):
+            raise PermissionError("This stop is not assigned to you.")
+
+        store["driver_exception_type"] = exception_type
+        store["driver_exception_notes"] = exception_notes
+        store["driver_exception_reported_at"] = utc_now_iso()
+        store["driver_exception_reported_by"] = clean(reported_by) or "system"
+        store["notes"] = exception_notes
+        return store
+
+    raise LookupError("Driver stop was not found.")
+
+
 def is_driver_stop_saved(store):
     if not isinstance(store, dict):
         return False
@@ -297,11 +357,14 @@ def complete_driver_stop(stores, store_id, driver_names=None, completed_by=""):
         if not is_driver_stop_saved(store):
             raise ValueError("Save recovery counts and notes before completing this stop.")
 
-        if clean(store.get("status")).lower() == "recovered":
+        if clean(store.get("status")).lower() in {"recovered", "exception"}:
             store["already_completed"] = True
             return store
 
-        store["status"] = "Recovered"
+        if clean(store.get("driver_exception_type")):
+            store["status"] = "Exception"
+        else:
+            store["status"] = "Recovered"
         store["completed_by"] = clean(completed_by) or "system"
         store["completed_at"] = utc_now_iso()
         store["already_completed"] = False
@@ -311,7 +374,7 @@ def complete_driver_stop(stores, store_id, driver_names=None, completed_by=""):
 
 
 def is_recovered_store(store):
-    return clean(store.get("status")).lower() in {"recovered", "completed"}
+    return clean(store.get("status")).lower() in {"recovered", "completed", "exception"}
 
 
 def update_route_recovery_progress(routes, stores, store_id):
@@ -347,10 +410,12 @@ def update_route_recovery_progress(routes, stores, store_id):
         ]
         total_stops = len(route_stores)
         recovered_stops = sum(1 for store in route_stores if is_recovered_store(store))
+        exception_stops = sum(1 for store in route_stores if clean(store.get("status")).lower() == "exception")
 
         route["recovery_progress"] = {
             "total_stops": total_stops,
             "recovered_stops": recovered_stops,
+            "exception_stops": exception_stops,
             "remaining_stops": max(total_stops - recovered_stops, 0),
             "updated_at": utc_now_iso(),
         }
@@ -417,6 +482,7 @@ def build_driver_workspace(routes=None, stores=None, driver_names=None, selected
 
     return {
         "component_names": COMPONENT_NAMES,
+        "exception_types": DRIVER_EXCEPTION_TYPES,
         "driver_names": sorted(driver_names),
         "routes": assigned_routes,
         "selected_route": selected_route,

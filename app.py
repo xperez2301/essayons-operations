@@ -41,6 +41,7 @@ from eoms_modules.operational_engine import ensure_operational_exception, resolv
 from eoms_modules.driver_center_service import (
     build_driver_workspace,
     complete_driver_stop,
+    save_driver_exception,
     save_driver_stop_counts,
     update_route_recovery_progress,
 )
@@ -1437,7 +1438,7 @@ def map_settings_payload():
     }
 
 def active_map_stores(stores):
-    hidden_statuses = {"Completed", "Recovered", "RMS Closed"}
+    hidden_statuses = {"Completed", "Recovered", "Exception", "RMS Closed"}
     hidden_rms = {"Closed in RMS", "Missing from RMS"}
     return [
         s for s in stores
@@ -1622,7 +1623,7 @@ def home():
 def dashboard_metrics(stores=None, routes=None):
     stores = stores if stores is not None else filter_stores_for_user(read_json(STORES_FILE))
     routes = routes if routes is not None else filter_routes_for_user(read_json(ROUTES_FILE))
-    statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"]
+    statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Exception", "Completed"]
     by_status = {status: 0 for status in statuses}
     for store in stores:
         status = store.get("status") or "Unassigned"
@@ -1630,7 +1631,7 @@ def dashboard_metrics(stores=None, routes=None):
     active = active_map_stores(stores)
     completed_today = [
         s for s in stores
-        if (s.get("status") or "") in {"Completed", "Recovered"} and date_value(s.get("completed_at")) == today_iso()
+        if (s.get("status") or "") in {"Completed", "Recovered", "Exception"} and date_value(s.get("completed_at")) == today_iso()
     ]
     racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
     weight = round(sum(num(s.get("weight")) for s in active), 1)
@@ -5069,7 +5070,7 @@ def api_unassign_route():
 @dispatch_required
 def api_update_bol(store_id):
     data = request.get_json(force=True)
-    allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"}
+    allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Exception", "Completed"}
     editable = [
         "bol", "origin", "store_name", "address", "city", "state", "zip",
         "contact", "hub", "due_date", "assigned_date", "expected_racks",
@@ -5109,7 +5110,7 @@ def api_update_bol(store_id):
                     store["hub"] = hub
                     store["hub_reason"] = hub_reason
 
-            if clean(store.get("status")) not in {"Completed", "Recovered"}:
+            if clean(store.get("status")) not in {"Completed", "Recovered", "Exception"}:
                 store["review_reasons"] = essential_review_reasons(store)
                 if store["review_reasons"] and clean(store.get("status")) == "Unassigned":
                     store["status"] = "Need Review"
@@ -5167,7 +5168,7 @@ def api_store_status():
     store_id = data.get("store_id")
     new_status = clean(data.get("status"))
 
-    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"}
+    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Exception", "Completed"}
     if new_status not in allowed:
         return jsonify({"ok": False, "message": "Invalid status."})
 
@@ -5284,6 +5285,47 @@ def api_driver_save_counts():
         driver_names=driver_names,
     )
     audit("Driver Count Save", {"store_id": updated.get("id"), "bol": updated.get("bol")})
+
+    return jsonify({
+        "ok": True,
+        "store": updated,
+        "summary": workspace.get("summary", {}),
+        "component_totals": workspace.get("component_totals", {}),
+    })
+
+@app.route("/api/driver/save-exception", methods=["POST"])
+def api_driver_save_exception():
+    data = request.get_json(force=True) or {}
+    stores = read_json(STORES_FILE)
+    driver_names = []
+
+    if current_role() == "Driver":
+        user = current_user() or {}
+        driver_names = [user.get("username"), user.get("display_name")]
+
+    try:
+        updated = save_driver_exception(
+            stores,
+            data.get("store_id"),
+            data,
+            driver_names=driver_names,
+            reported_by=session.get("username", "system"),
+        )
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    routes = read_json(ROUTES_FILE)
+    workspace = build_driver_workspace(
+        routes=routes,
+        stores=stores,
+        driver_names=driver_names,
+    )
+    audit("Driver Exception Save", {"store_id": updated.get("id"), "bol": updated.get("bol"), "exception": updated.get("driver_exception_type")})
 
     return jsonify({
         "ok": True,

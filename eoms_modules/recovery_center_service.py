@@ -30,6 +30,7 @@ COMPLETED_STOP_STATUSES = {
     "completed",
     "complete",
     "recovered",
+    "exception",
 }
 
 DEFAULT_ROUTE_STATUS = "Planned"
@@ -102,6 +103,10 @@ def create_recovery_stop(
     city="",
     state="",
     due_date="",
+    driver_exception_type="",
+    driver_exception_notes="",
+    driver_exception_reported_at="",
+    driver_exception_reported_by="",
 ):
     return {
         "store": clean(store),
@@ -113,6 +118,10 @@ def create_recovery_stop(
         "driver_counts": normalize_driver_counts(driver_counts),
         "notes": clean(notes),
         "status": normalize_stop_status(status),
+        "driver_exception_type": clean(driver_exception_type),
+        "driver_exception_notes": clean(driver_exception_notes),
+        "driver_exception_reported_at": clean(driver_exception_reported_at),
+        "driver_exception_reported_by": clean(driver_exception_reported_by),
         "created_at": utc_now_iso(),
     }
 
@@ -252,6 +261,10 @@ def normalize_recovery_stop(stop):
         city=stop.get("city"),
         state=stop.get("state"),
         due_date=stop.get("due_date"),
+        driver_exception_type=stop.get("driver_exception_type"),
+        driver_exception_notes=stop.get("driver_exception_notes"),
+        driver_exception_reported_at=stop.get("driver_exception_reported_at"),
+        driver_exception_reported_by=stop.get("driver_exception_reported_by"),
     )
 
 
@@ -319,6 +332,9 @@ def status_class(status):
 
     if status in {"completed", "complete", "recovered"}:
         return "success"
+
+    if status == "exception":
+        return "danger"
 
     if status in {"in progress", "running", "active"}:
         return "warning"
@@ -402,6 +418,7 @@ def summarize_recovery_workspace(routes=None, selected_index=0):
         "running_totals": running_totals,
         "estimated_component_totals": estimated_component_totals,
         "estimated_weight": calculate_estimated_weight(estimated_component_totals),
+        "exceptions": summarize_driver_exceptions(normalized_routes),
         "summary": {
             "route_count": len(route_summaries),
             "active_routes": sum(1 for summary in route_summaries if summary["status"] != "Completed"),
@@ -436,6 +453,10 @@ def recovery_stop_from_store(store):
         city=store.get("city"),
         state=store.get("state"),
         due_date=store.get("due_date"),
+        driver_exception_type=store.get("driver_exception_type"),
+        driver_exception_notes=store.get("driver_exception_notes"),
+        driver_exception_reported_at=store.get("driver_exception_reported_at"),
+        driver_exception_reported_by=store.get("driver_exception_reported_by"),
     )
 
 
@@ -492,7 +513,7 @@ def should_include_store_in_recovery(store):
         return False
 
     status = clean(store.get("status")).lower()
-    if status in {"assigned", "dispatched", "completed"}:
+    if status in {"assigned", "dispatched", "completed", "recovered", "exception"}:
         return True
 
     return bool(clean(store.get("assigned_driver")) or clean(store.get("truck")))
@@ -552,3 +573,29 @@ def summarize_recovery_workspace_from_records(routes=None, stores=None, selected
     workspace["source"] = source if route_records_available or recovery_routes else "stores"
     workspace["has_live_data"] = bool(recovery_routes)
     return workspace
+
+
+def summarize_driver_exceptions(routes):
+    exceptions = []
+
+    for route in routes or []:
+        route_label = recovery_route_label(route)
+        for stop in route.get("recovery_stops") or []:
+            exception_type = clean(stop.get("driver_exception_type"))
+            if not exception_type:
+                continue
+
+            exceptions.append({
+                "route": route_label,
+                "store": clean(stop.get("store")) or "Unassigned",
+                "bol": clean(stop.get("bol")) or "Not set",
+                "city": clean(stop.get("city")) or "Unknown",
+                "state": clean(stop.get("state")),
+                "type": exception_type,
+                "notes": clean(stop.get("driver_exception_notes")) or clean(stop.get("notes")) or "No notes",
+                "reported_at": clean(stop.get("driver_exception_reported_at")) or "Not set",
+                "reported_by": clean(stop.get("driver_exception_reported_by")) or "Unknown",
+                "status": clean(stop.get("status")) or DEFAULT_STOP_STATUS,
+            })
+
+    return exceptions

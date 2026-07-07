@@ -126,6 +126,10 @@
             <tr><th>Location</th><td>{{ workspace.selected_stop_detail.city_state }}</td></tr>
             <tr><th>Due</th><td>{{ workspace.selected_stop_detail.due_date }}</td></tr>
             <tr><th>Status</th><td>{{ workspace.selected_stop_detail.status }}</td></tr>
+            {% if workspace.selected_stop_detail.driver_exception_type %}
+              <tr><th>Exception</th><td>{{ workspace.selected_stop_detail.driver_exception_type }}</td></tr>
+              <tr><th>Exception Notes</th><td>{{ workspace.selected_stop_detail.driver_exception_notes }}</td></tr>
+            {% endif %}
           </tbody>
         </table>
 
@@ -141,10 +145,24 @@
             <span>Notes</span>
             <textarea id="driverStopNotes" rows="4">{{ workspace.selected_stop_detail.notes }}</textarea>
           </label>
+          <label>
+            <span>Driver Exception</span>
+            <select id="driverExceptionType">
+              <option value="">No Exception</option>
+              {% for exception_type in workspace.selected_stop_detail.exception_types %}
+                <option value="{{ exception_type }}" {% if workspace.selected_stop_detail.driver_exception_type == exception_type %}selected{% endif %}>{{ exception_type }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>Exception Notes</span>
+            <textarea id="driverExceptionNotes" rows="4">{{ workspace.selected_stop_detail.driver_exception_notes }}</textarea>
+          </label>
           <div class="eoms-toolbar">
             <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save</button>
-            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_stop_detail.is_recovered %}disabled{% endif %}>
-              {% if workspace.selected_stop_detail.is_recovered %}Recovered{% else %}Complete Stop{% endif %}
+            <button id="driverSaveExceptionBtn" class="eoms-button eoms-button-secondary" type="button">Save Exception</button>
+            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_stop_detail.is_recovered or workspace.selected_stop_detail.is_exception %}disabled{% endif %}>
+              {% if workspace.selected_stop_detail.is_exception %}Exception{% elif workspace.selected_stop_detail.is_recovered %}Recovered{% else %}Complete Stop{% endif %}
             </button>
           </div>
         </div>
@@ -162,8 +180,9 @@
 <script>
 (function(){
   var saveButton = document.getElementById("driverSaveCountsBtn");
+  var saveExceptionButton = document.getElementById("driverSaveExceptionBtn");
   var completeButton = document.getElementById("driverCompleteStopBtn");
-  if (!saveButton && !completeButton) {
+  if (!saveButton && !saveExceptionButton && !completeButton) {
     return;
   }
 
@@ -181,7 +200,9 @@
   function stopPayload() {
     var payload = {
       store_id: document.getElementById("driverStopStoreId").value,
-      notes: document.getElementById("driverStopNotes").value
+      notes: document.getElementById("driverStopNotes").value,
+      driver_exception_type: document.getElementById("driverExceptionType").value,
+      driver_exception_notes: document.getElementById("driverExceptionNotes").value
     };
 
     document.querySelectorAll(".driver-count-input").forEach(function(input){
@@ -213,6 +234,32 @@
     } catch (error) {
       setNotice(error.message || "Save failed.", "eoms-status-danger");
       saveButton.disabled = false;
+    }
+  });
+  }
+
+  if (saveExceptionButton) {
+  saveExceptionButton.addEventListener("click", async function(){
+    var payload = stopPayload();
+
+    saveExceptionButton.disabled = true;
+    setNotice("Saving exception", "eoms-status-neutral");
+
+    try {
+      var response = await fetch("/api/driver/save-exception", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Save exception failed.");
+      }
+      setNotice("Exception saved", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Save exception failed.", "eoms-status-danger");
+      saveExceptionButton.disabled = false;
     }
   });
   }
