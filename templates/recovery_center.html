@@ -99,6 +99,10 @@
                               onclick="unassignRecoveryRoute('{{ item.route_id }}')">
                         Unassign
                       </button>
+                      <button class="danger-btn tiny-btn" type="button"
+                              onclick="deleteRecoveryRoute('{{ item.route_id }}')">
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -323,6 +327,22 @@
         return;
       }
       recoveryRouteMessage(data.message || "Route unassigned.");
+      setTimeout(() => window.location.reload(), 500);
+    }
+
+    async function deleteRecoveryRoute(routeId){
+      if(!confirm("Delete this route? This cannot be undone.")) return;
+      const response = await fetch("/api/delete-route", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({route_id: routeId})
+      });
+      const data = await response.json();
+      if(!data.ok){
+        recoveryRouteMessage(data.message || "Unable to delete route.", true);
+        return;
+      }
+      recoveryRouteMessage(data.message || "Route deleted.");
       setTimeout(() => window.location.reload(), 500);
     }
 

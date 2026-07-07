@@ -45,7 +45,10 @@ from eoms_modules.driver_center_service import (
     save_driver_stop_counts,
     update_route_recovery_progress,
 )
-from eoms_modules.recovery_center_service import summarize_recovery_workspace_from_records
+from eoms_modules.recovery_center_service import (
+    delete_route_if_allowed,
+    summarize_recovery_workspace_from_records,
+)
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
 from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
@@ -5277,6 +5280,40 @@ def api_unassign_route():
     audit("Unassign Entire Route", {"route_id": route_id, "restored": restored})
 
     return jsonify({"ok": True, "message": f"Route unassigned. {restored} stores returned to Dispatch Map."})
+
+
+@app.route("/api/delete-route", methods=["POST"])
+@dispatch_required
+def api_delete_route():
+    data = request.get_json(force=True) or {}
+    route_id = clean(data.get("route_id"))
+
+    routes = read_json(ROUTES_FILE)
+    stores = read_json(STORES_FILE)
+
+    try:
+        result = delete_route_if_allowed(routes, stores, route_id)
+    except LookupError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 404
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 409
+    except ValueError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 400
+
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    audit("Delete Recovery Route", {
+        "route_id": result.get("route_id"),
+        "route_number": result.get("route_number"),
+        "cleared_stores": len(result.get("cleared_stores") or []),
+    })
+
+    return jsonify({
+        "ok": True,
+        "message": "Route deleted.",
+        "route_id": result.get("route_id"),
+        "cleared_stores": result.get("cleared_stores") or [],
+    })
 
 @app.route("/api/bol/<store_id>", methods=["POST"])
 @dispatch_required

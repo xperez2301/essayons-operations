@@ -45,6 +45,19 @@ def clean(value):
     return "" if value is None else str(value).strip()
 
 
+SAFE_DELETE_ROUTE_STATUSES = {"unassigned", "draft", "test", "preview"}
+PROTECTED_ROUTE_STATUSES = {"assigned", "dispatched", "completed", "recovered", "exception", "closed"}
+PROTECTED_STORE_STATUSES = {"completed", "recovered", "exception"}
+ASSIGNMENT_METADATA_FIELDS = (
+    "assigned_driver",
+    "driver_phone",
+    "truck",
+    "helper",
+    "truck_status",
+    "route_id",
+)
+
+
 def normalize_quantity(value, field_name="quantity"):
     if value in (None, ""):
         return 0
@@ -598,6 +611,157 @@ def summarize_recovery_workspace_from_records(routes=None, stores=None, selected
     workspace["source"] = source if route_records_available or recovery_routes else "stores"
     workspace["has_live_data"] = bool(recovery_routes)
     return workspace
+
+
+def route_matches(route, route_id):
+    route_id = clean(route_id)
+    if not route_id or not isinstance(route, dict):
+        return False
+
+    return route_id in {
+        clean(route.get("id")),
+        clean(route.get("route_number")),
+        clean(route.get("route_id")),
+    }
+
+
+def route_store_ids(route):
+    if not isinstance(route, dict):
+        return set()
+
+    store_ids = {
+        clean(store_id)
+        for store_id in route.get("store_ids") or []
+        if clean(store_id)
+    }
+
+    for stop in route.get("stops") or []:
+        if isinstance(stop, dict) and clean(stop.get("id")):
+            store_ids.add(clean(stop.get("id")))
+
+    return store_ids
+
+
+def route_is_draft_or_unassigned(route):
+    status = clean(route.get("status")).lower()
+    if status in SAFE_DELETE_ROUTE_STATUSES:
+        return True
+
+    route_number = clean(route.get("route_number")).lower()
+    mode = clean(route.get("mode")).lower()
+    source = clean(route.get("source")).lower()
+    if route_number.startswith(("draft", "test", "preview")):
+        return True
+    if mode in {"draft", "test", "preview"} or source in {"draft", "test", "preview"}:
+        return True
+    if route.get("draft") is True or route.get("test") is True or route.get("preview") is True:
+        return True
+
+    has_assignment = any(clean(route.get(field)) for field in ("driver", "assigned_driver", "truck", "helper"))
+    has_stops = bool(route.get("store_ids") or route.get("stops"))
+    return not status and not has_assignment and not has_stops
+
+
+def store_has_fulfillment_records(store):
+    orders = store.get("fulfillment_orders") if isinstance(store, dict) else []
+    return any(isinstance(order, dict) for order in orders or [])
+
+
+def store_has_inventory_history(store):
+    if not isinstance(store, dict):
+        return False
+
+    history_keys = (
+        "inventory_adjustments",
+        "inventory_history",
+        "adjustments",
+        "received_at",
+        "received_by",
+    )
+    return any(bool(store.get(key)) for key in history_keys)
+
+
+def protected_route_delete_reason(route, stores_by_id):
+    if not isinstance(route, dict):
+        return "Route not found."
+
+    route_status = clean(route.get("status")).lower()
+    if route_status in PROTECTED_ROUTE_STATUSES:
+        return f"Route status '{clean(route.get('status'))}' is protected. Unassign draft/test work before deleting."
+
+    if clean(route.get("completed_at") or route.get("closed_at")):
+        return "Completed or closed routes cannot be deleted."
+
+    if not route_is_draft_or_unassigned(route):
+        return "Only unassigned, draft, test, or preview routes can be deleted."
+
+    for store_id in route_store_ids(route):
+        store = stores_by_id.get(store_id)
+        if not isinstance(store, dict):
+            continue
+
+        store_status = clean(store.get("status")).lower()
+        if store_status in PROTECTED_STORE_STATUSES:
+            return f"Store {clean(store.get('bol')) or store_id} is {clean(store.get('status'))} and cannot be deleted from Recovery."
+        if clean(store.get("completed_at") or store.get("recovered_at") or store.get("closed_at")):
+            return f"Store {clean(store.get('bol')) or store_id} has completed recovery history."
+        if clean(store.get("receiving_status")).lower() == "received" or clean(store.get("received_at")):
+            return f"Store {clean(store.get('bol')) or store_id} has been received into warehouse."
+        if store_has_inventory_history(store):
+            return f"Store {clean(store.get('bol')) or store_id} has inventory or receiving history."
+        if store_has_fulfillment_records(store):
+            return f"Store {clean(store.get('bol')) or store_id} has fulfillment records."
+
+    return ""
+
+
+def delete_route_if_allowed(routes, stores, route_id):
+    if not isinstance(routes, list):
+        raise ValueError("Routes must be provided as a list.")
+    if not isinstance(stores, list):
+        raise ValueError("Stores must be provided as a list.")
+
+    target_route = None
+    remaining_routes = []
+
+    for route in routes:
+        if route_matches(route, route_id):
+            target_route = route
+        else:
+            remaining_routes.append(route)
+
+    if not target_route:
+        raise LookupError("Route not found.")
+
+    stores_by_id = {
+        clean(store.get("id")): store
+        for store in stores
+        if isinstance(store, dict) and clean(store.get("id"))
+    }
+    protected_reason = protected_route_delete_reason(target_route, stores_by_id)
+    if protected_reason:
+        raise PermissionError(protected_reason)
+
+    affected_store_ids = route_store_ids(target_route)
+    cleared_stores = []
+    for store in stores:
+        if clean(store.get("id")) not in affected_store_ids:
+            continue
+
+        store["status"] = "Unassigned"
+        for field in ASSIGNMENT_METADATA_FIELDS:
+            store[field] = ""
+        cleared_stores.append(clean(store.get("id")))
+
+    routes[:] = remaining_routes
+
+    return {
+        "route": target_route,
+        "route_id": clean(target_route.get("id") or target_route.get("route_number") or route_id),
+        "route_number": clean(target_route.get("route_number")),
+        "cleared_stores": cleared_stores,
+        "deleted_routes": 1,
+    }
 
 
 def summarize_driver_exceptions(routes):
