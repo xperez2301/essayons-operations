@@ -54,7 +54,7 @@ from eoms_modules.recovery_center_service import (
 )
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
-from eoms_modules.dispatcher_closeout_service import closeout_store, refresh_route_closeout
+from eoms_modules.dispatcher_closeout_service import build_closeout_workspace, closeout_store, refresh_route_closeout
 from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
 from eoms_modules.command_center_service import build_command_center_workspace
 from eoms_modules.reporting_service import build_reporting_workspace
@@ -1805,6 +1805,14 @@ def receiving_workspace():
     workspace = build_receiving_workspace(stores, routes)
     return render_template("receiving.html", workspace=workspace)
 
+@app.route("/dispatcher-closeout")
+@dispatch_required
+def dispatcher_closeout_workspace():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    workspace = build_closeout_workspace(stores, routes)
+    return render_template("dispatcher_closeout.html", workspace=workspace)
+
 @app.route("/api/receiving/receive", methods=["POST"])
 def api_receiving_receive():
     data = request.get_json(force=True) or {}
@@ -1857,7 +1865,8 @@ def api_dispatcher_closeout():
             closed_by=session.get("username", "system"),
             notes=data.get("dispatcher_closeout_notes"),
         )
-        updated_routes = refresh_route_closeout(routes, stores, closed.get("id"))
+        already_closed = bool(closed.get("already_closed"))
+        updated_routes = [] if already_closed else refresh_route_closeout(routes, stores, closed.get("id"))
     except LookupError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 404
     except ValueError as exc:
@@ -1866,15 +1875,19 @@ def api_dispatcher_closeout():
     write_json(STORES_FILE, stores)
     write_json(ROUTES_FILE, routes)
     workspace = build_inventory_workspace(stores)
+    closeout_workspace = build_closeout_workspace(stores, routes)
     audit("Dispatcher Close-Out", {
         "store_id": closed.get("id"),
         "bol": closed.get("bol"),
         "inventory_source": closed.get("inventory_source"),
+        "already_closed": already_closed,
     })
 
     return jsonify({
         "ok": True,
+        "already_closed": already_closed,
         "store": closed,
+        "next_load": closeout_workspace.get("selected_load"),
         "updated_routes": len(updated_routes),
         "inventory_summary": workspace.get("summary", {}),
     })

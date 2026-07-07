@@ -375,8 +375,9 @@ def receive_load(
     store = validate_receiving_action(stores, store_id)
 
     if is_received_store(store):
-        store["already_received"] = True
-        return store
+        result = deepcopy(store)
+        result["already_received"] = True
+        return result
 
     driver_counts = driver_counts_from_store(store)
     verified_counts = normalize_component_payload(verified_counts, driver_counts)

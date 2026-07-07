@@ -1,0 +1,349 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Dispatcher Close-Out" %}
+{% set module_title = "Final Approval Gate" %}
+
+{% block head %}
+<style>
+  .closeout-workspace {
+    display: grid;
+    gap: 16px;
+  }
+
+  .closeout-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .closeout-kpi {
+    min-height: 92px;
+    padding: 14px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .closeout-kpi span {
+    display: block;
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .closeout-kpi strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .closeout-grid {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .closeout-queue {
+    display: grid;
+    gap: 10px;
+  }
+
+  .closeout-queue-row {
+    padding: 12px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface);
+  }
+
+  .closeout-queue-row.active {
+    border-color: var(--eoms-blue);
+    box-shadow: inset 4px 0 0 var(--eoms-blue);
+  }
+
+  .closeout-queue-row b,
+  .closeout-queue-row span,
+  .closeout-queue-row small {
+    display: block;
+  }
+
+  .closeout-queue-row small {
+    color: var(--eoms-muted);
+    margin-top: 3px;
+  }
+
+  .closeout-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .closeout-head h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+
+  .closeout-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .closeout-meta div,
+  .closeout-note {
+    padding: 10px;
+    border: 1px solid var(--eoms-border);
+    border-radius: 8px;
+    background: var(--eoms-surface-muted);
+  }
+
+  .closeout-meta span,
+  .closeout-note span {
+    display: block;
+    color: var(--eoms-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .closeout-meta strong,
+  .closeout-note strong {
+    display: block;
+    margin-top: 5px;
+  }
+
+  .closeout-two-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .closeout-notes {
+    display: grid;
+    gap: 10px;
+  }
+
+  .closeout-primary {
+    width: 100%;
+    min-height: 54px;
+    font-size: 16px;
+    margin-top: 14px;
+  }
+
+  .difference-positive {
+    color: var(--eoms-green);
+    font-weight: 800;
+  }
+
+  .difference-negative {
+    color: var(--eoms-red);
+    font-weight: 800;
+  }
+
+  @media (max-width: 1100px) {
+    .closeout-grid,
+    .closeout-two-column {
+      grid-template-columns: 1fr;
+    }
+
+    .closeout-kpis,
+    .closeout-meta {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-warning">Approval Required</span>
+{% endblock %}
+
+{% block content %}
+  <div id="closeoutNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
+
+  <div class="closeout-workspace">
+    <section class="closeout-kpis" aria-label="Close-out dashboard">
+      <div class="closeout-kpi">
+        <span>Awaiting Approval</span>
+        <strong>{{ workspace.summary.awaiting_approval }}</strong>
+      </div>
+      <div class="closeout-kpi">
+        <span>Variance Items</span>
+        <strong>{{ workspace.summary.variance_items }}</strong>
+      </div>
+      <div class="closeout-kpi">
+        <span>Damage Items</span>
+        <strong>{{ workspace.summary.damage_items }}</strong>
+      </div>
+    </section>
+
+    <div class="closeout-grid">
+      <aside class="eoms-card">
+        <h2>Active Close-Out Queue</h2>
+        {% if workspace.queue %}
+          <div class="closeout-queue">
+            {% for load in workspace.queue %}
+              <div class="closeout-queue-row {% if workspace.selected_load and load.store_id == workspace.selected_load.store_id %}active{% endif %}">
+                <b>BOL {{ load.bol }}</b>
+                <span>{{ load.store }}</span>
+                <small>{{ load.driver }}{% if load.truck != "Not assigned" %} / {{ load.truck }}{% endif %}</small>
+                <small>Verified {{ load.received_at or "Not set" }}</small>
+                <span class="eoms-status eoms-status-warning">Awaiting Approval</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No BOLs awaiting approval</strong>
+            <span>Warehouse verified BOLs will appear here.</span>
+          </div>
+        {% endif %}
+      </aside>
+
+      <section class="eoms-card">
+        {% if workspace.selected_load %}
+          <div class="closeout-head">
+            <div>
+              <h2>{{ workspace.selected_load.store }}</h2>
+              <p><b>BOL {{ workspace.selected_load.bol }}</b></p>
+              <p class="muted">Review verified quantities and approve final close-out.</p>
+            </div>
+            <span class="eoms-status eoms-status-warning">Final Gate</span>
+          </div>
+
+          <div class="closeout-meta">
+            <div><span>Driver</span><strong>{{ workspace.selected_load.driver }}</strong></div>
+            <div><span>Truck</span><strong>{{ workspace.selected_load.truck }}</strong></div>
+            <div><span>Hub</span><strong>{{ workspace.selected_load.hub }}</strong></div>
+            <div><span>Received</span><strong>{{ workspace.selected_load.received_at or "Not set" }}</strong></div>
+          </div>
+
+          <div class="closeout-two-column">
+            <section>
+              <h3>Counts and Variance</h3>
+              <table class="eoms-table">
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Driver</th>
+                    <th>Warehouse</th>
+                    <th>Variance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for component in workspace.component_names %}
+                    {% set diff = workspace.selected_load.difference[component] %}
+                    <tr>
+                      <td>{{ component }}</td>
+                      <td>{{ workspace.selected_load.component_counts[component] }}</td>
+                      <td>{{ workspace.selected_load.warehouse_verified_counts[component] }}</td>
+                      <td class="{% if diff > 0 %}difference-positive{% elif diff < 0 %}difference-negative{% endif %}">{{ diff }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </section>
+
+            <section>
+              <h3>Damage Summary</h3>
+              <table class="eoms-table">
+                <thead>
+                  <tr><th>Category</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                  {% for category, counts in workspace.selected_load.damage_counts.items() %}
+                    <tr>
+                      <td>{{ category }}</td>
+                      <td>{{ counts.values() | sum }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </section>
+          </div>
+
+          <h3>Operational Notes</h3>
+          <div class="closeout-notes">
+            <div class="closeout-note"><span>Driver Notes</span><strong>{{ workspace.selected_load.notes or "None" }}</strong></div>
+            <div class="closeout-note"><span>Driver Damage</span><strong>{{ workspace.selected_load.driver_damage_notes or "None" }}</strong></div>
+            <div class="closeout-note"><span>Warehouse Notes</span><strong>{{ workspace.selected_load.warehouse_notes or "None" }}</strong></div>
+            <div class="closeout-note"><span>Warehouse Damage</span><strong>{{ workspace.selected_load.damage_notes or "None" }}</strong></div>
+            {% if workspace.selected_load.driver_exception_type %}
+              <div class="closeout-note"><span>Driver Exception</span><strong>{{ workspace.selected_load.driver_exception_type }}{% if workspace.selected_load.driver_exception_notes %}: {{ workspace.selected_load.driver_exception_notes }}{% endif %}</strong></div>
+            {% endif %}
+            {% if workspace.selected_load.no_pickup_manager_name %}
+              <div class="closeout-note"><span>No Pickup Manager</span><strong>{{ workspace.selected_load.no_pickup_manager_name }}</strong></div>
+            {% endif %}
+            {% if workspace.selected_load.no_pickup_photos or workspace.selected_load.warehouse_photos %}
+              <div class="closeout-note">
+                <span>Photos</span>
+                <strong>{{ (workspace.selected_load.no_pickup_photos + workspace.selected_load.warehouse_photos) | join(", ") }}</strong>
+              </div>
+            {% endif %}
+          </div>
+
+          <button id="approveCloseoutBtn" class="eoms-button eoms-button-primary closeout-primary" type="button" data-store-id="{{ workspace.selected_load.store_id }}">
+            Approve &amp; Close Out
+          </button>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No BOL selected</strong>
+            <span>The dispatcher close-out queue is clear.</span>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var approveButton = document.getElementById("approveCloseoutBtn");
+  if (!approveButton) {
+    return;
+  }
+
+  var notice = document.getElementById("closeoutNotice");
+
+  function setNotice(message, className) {
+    if (!notice) {
+      return;
+    }
+    notice.hidden = false;
+    notice.className = "eoms-status " + className;
+    notice.textContent = message;
+  }
+
+  approveButton.addEventListener("click", async function(){
+    var notes = window.prompt("Dispatcher approval notes", "") || "";
+    approveButton.disabled = true;
+    setNotice("Approving BOL", "eoms-status-neutral");
+    try {
+      var response = await fetch("/api/dispatcher/closeout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          store_id: approveButton.dataset.storeId,
+          dispatcher_closeout_notes: notes
+        })
+      });
+      var data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Close-out failed.");
+      }
+      setNotice(data.already_closed ? "Already closed" : "Approved. Loading next BOL.", "eoms-status-success");
+      window.setTimeout(function(){ window.location.reload(); }, 350);
+    } catch (error) {
+      setNotice(error.message || "Close-out failed.", "eoms-status-danger");
+      approveButton.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
