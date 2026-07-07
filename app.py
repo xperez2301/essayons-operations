@@ -49,6 +49,7 @@ from eoms_modules.recovery_center_service import summarize_recovery_workspace_fr
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
 from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
+from eoms_modules.reporting_service import build_reporting_workspace
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -1685,6 +1686,30 @@ def design_system_demo():
 def roadmap_workspace():
     workspace = build_roadmap_workspace(ROADMAP_FILE)
     return render_template("roadmap.html", workspace=workspace)
+
+@app.route("/reporting")
+def reporting_workspace():
+    stores = filter_stores_for_user(read_json(STORES_FILE))
+    routes = filter_routes_for_user(read_json(ROUTES_FILE))
+    roadmap = build_roadmap_workspace(ROADMAP_FILE)
+
+    try:
+        from eoms_modules.automation_center_manager import automation_center
+        automation_status = automation_center.center_health()
+    except Exception as exc:
+        automation_status = {
+            "status": "OFFLINE",
+            "worker_health": "OFFLINE",
+            "error": str(exc),
+        }
+
+    workspace = build_reporting_workspace(
+        stores=stores,
+        routes=routes,
+        roadmap_workspace=roadmap,
+        automation_status=automation_status,
+    )
+    return render_template("reporting.html", workspace=workspace)
 
 @app.route("/recovery")
 def recovery_center():

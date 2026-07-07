@@ -1,7 +1,7 @@
 {
-  "current_version": "4.5",
+  "current_version": "4.6",
   "current_branch": "ft3-automation-worker",
-  "current_build": "FT4.5",
+  "current_build": "FT4.6",
   "eras": [
     {
       "id": "era-i",
@@ -336,12 +336,24 @@
       "id": "FT4.5",
       "title": "Fulfillment Workspace Foundation",
       "era": "era-ii",
-      "status": "Current",
+      "status": "Completed",
       "description": "Outbound fulfillment planning after receiving and inventory foundations are stable.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.4"],
+      "notes": "Fulfillment reserves available inventory and records outbound shipments."
+    },
+    {
+      "id": "FT4.6",
+      "title": "Reporting Workspace Foundation",
+      "era": "era-ii",
+      "status": "Current",
+      "description": "Executive read-only reporting workspace across completed EOMS operational domains.",
+      "completion_date": "",
+      "release_version": "",
+      "commit": "",
+      "dependencies": ["FT4.5"],
       "notes": "Current build."
     },
     {
@@ -353,7 +365,7 @@
       "completion_date": "",
       "release_version": "",
       "commit": "",
-      "dependencies": ["FT4.6A"],
+      "dependencies": ["FT4.6"],
       "notes": ""
     },
     {

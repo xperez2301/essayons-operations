@@ -1,0 +1,128 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Reporting" %}
+{% set module_title = "Executive Workspace" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-neutral">Read Only</span>
+{% endblock %}
+
+{% block content %}
+  <section aria-label="Reporting dashboard">
+    <h2>Reporting Dashboard</h2>
+    <div class="eoms-summary-grid">
+      {% for kpi in workspace.kpis %}
+        <div class="eoms-summary-card">
+          <span>{{ kpi.label }}</span>
+          <strong>{{ kpi.value }}</strong>
+          <small>{{ kpi.detail }}</small>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="eoms-demo-grid">
+    <div class="eoms-stack">
+      <section class="eoms-card">
+        <h2>Recovery Summary</h2>
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Recovered</th><td>{{ workspace.recovery.recovered_stops }}</td></tr>
+            <tr><th>Exceptions</th><td>{{ workspace.recovery.exception_stops }}</td></tr>
+            <tr><th>Recovery Rate</th><td>{{ workspace.recovery.recovery_rate }}%</td></tr>
+            <tr><th>Recovery Weight</th><td>{{ workspace.recovery.estimated_recovery_weight }} lbs</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Receiving Summary</h2>
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Pending Receipts</th><td>{{ workspace.receiving.pending_receipts }}</td></tr>
+            <tr><th>Received Today</th><td>{{ workspace.receiving.received_today }}</td></tr>
+            <tr><th>Received Weight</th><td>{{ workspace.receiving.received_weight }} lbs</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Inventory Summary</h2>
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Available Inventory</th><td>{{ workspace.inventory.available_inventory }}</td></tr>
+            <tr><th>Reserved Inventory</th><td>{{ workspace.inventory.reserved_inventory }}</td></tr>
+            <tr><th>Inventory Adjustments</th><td>{{ workspace.inventory.inventory_adjustments }}</td></tr>
+            <tr><th>Inventory Weight</th><td>{{ workspace.inventory.inventory_weight }} lbs</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="eoms-card">
+        <h2>Fulfillment Summary</h2>
+        <table class="eoms-table">
+          <tbody>
+            <tr><th>Open Orders</th><td>{{ workspace.fulfillment.open_orders }}</td></tr>
+            <tr><th>Reserved Orders</th><td>{{ workspace.fulfillment.reserved_orders }}</td></tr>
+            <tr><th>Shipped Orders</th><td>{{ workspace.fulfillment.shipped_orders }}</td></tr>
+            <tr><th>Reservation Rate</th><td>{{ workspace.fulfillment.reservation_rate }}%</td></tr>
+            <tr><th>Outbound Weight</th><td>{{ workspace.fulfillment.outbound_weight }} lbs</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <aside class="eoms-card">
+      <h2>Domain Health</h2>
+      <table class="eoms-table">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Status</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for domain in workspace.domain_health %}
+            <tr>
+              <td>{{ domain.name }}</td>
+              <td><span class="eoms-status eoms-status-{{ domain.status_class }}">{{ domain.status }}</span></td>
+              <td>{{ domain.detail }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2>Operational Timeline</h2>
+      {% if workspace.timeline %}
+        <table class="eoms-table">
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Status</th>
+              <th>When</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in workspace.timeline %}
+              <tr>
+                <td>
+                  <strong>{{ event.type }}</strong><br>
+                  <span>{{ event.label }}</span><br>
+                  <small>{{ event.detail }}</small>
+                </td>
+                <td><span class="eoms-status eoms-status-{{ event.status_class }}">{{ event.status }}</span></td>
+                <td>{{ event.timestamp }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="eoms-empty-state">
+          <strong>No operational activity</strong>
+          <span>Recoveries, receipts, adjustments, and shipments will appear here as domains produce activity.</span>
+        </div>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}
