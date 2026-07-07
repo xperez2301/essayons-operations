@@ -85,8 +85,14 @@ class AutomationExecutorService:
         job["finished_at"] = now
         job["decision"] = decision
         job["policy"] = decision.get("policy", {})
-        job["error"] = decision.get("reason", "Blocked by execution controller.")
+        job["reason"] = decision.get("reason", "Blocked by execution controller.")
+        job["error"] = job["reason"]
         job["blocked_at"] = now
+        job["completion"] = {
+            "status": "BLOCKED",
+            "finished_at": now,
+            "reason": job["reason"],
+        }
         return self.save_job(job)
 
     def run_job(self, job):
@@ -145,17 +151,30 @@ class AutomationExecutorService:
                     or result.get("message")
                     or f"{worker_name} returned a failed result."
                 )
+                job["reason"] = job["error"]
             else:
                 job["status"] = "COMPLETED"
                 job["error"] = None
+                job["reason"] = "Worker completed successfully."
 
             job["finished_at"] = utc_now_iso()
             job["result"] = result
+            job["completion"] = {
+                "status": job["status"],
+                "finished_at": job["finished_at"],
+                "reason": job["reason"],
+            }
 
         except Exception as exc:
             job["status"] = "FAILED"
             job["finished_at"] = utc_now_iso()
             job["error"] = str(exc)
+            job["reason"] = job["error"]
+            job["completion"] = {
+                "status": "FAILED",
+                "finished_at": job["finished_at"],
+                "reason": job["reason"],
+            }
 
             set_error = getattr(worker, "set_error", None)
             if callable(set_error):

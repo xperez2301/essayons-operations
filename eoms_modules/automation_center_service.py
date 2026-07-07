@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from eoms_modules.automation_host_service import AutomationHostService
 from eoms_modules.automation_queue_service import AutomationQueueService
 from eoms_modules.automation_scheduler_service import (
     create_scheduled_job,
@@ -21,9 +22,10 @@ def utc_now_iso() -> str:
 class AutomationCenterService:
     """FT3 Automation Center."""
 
-    def __init__(self):
+    def __init__(self, automation_host=None):
         self.workers: Dict[str, object] = {}
         self.queue = AutomationQueueService()
+        self.automation_host = automation_host or AutomationHostService()
         self.jobs = self.queue.jobs
         self.activity: List[dict] = []
         self.started_at = utc_now_iso()
@@ -104,10 +106,12 @@ class AutomationCenterService:
 
         latest_job = self.latest_job()
         latest_failure = self.latest_failure()
+        host_status = self.automation_host.get_status()
 
         return {
             "ok": len(offline) == 0,
             "status": "HEALTHY" if not offline else "DEGRADED",
+            "automation_host": host_status,
             "started_at": self.started_at,
             "worker_count": len(workers),
             "worker_state": self.worker_state(workers),
