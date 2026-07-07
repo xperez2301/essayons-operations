@@ -143,7 +143,9 @@
           </label>
           <div class="eoms-toolbar">
             <button id="driverSaveCountsBtn" class="eoms-button eoms-button-secondary" type="button">Save</button>
-            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button">Complete Stop</button>
+            <button id="driverCompleteStopBtn" class="eoms-button eoms-button-primary" type="button" {% if workspace.selected_stop_detail.is_recovered %}disabled{% endif %}>
+              {% if workspace.selected_stop_detail.is_recovered %}Recovered{% else %}Complete Stop{% endif %}
+            </button>
           </div>
         </div>
       {% else %}

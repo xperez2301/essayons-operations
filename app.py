@@ -1437,7 +1437,7 @@ def map_settings_payload():
     }
 
 def active_map_stores(stores):
-    hidden_statuses = {"Completed", "RMS Closed"}
+    hidden_statuses = {"Completed", "Recovered", "RMS Closed"}
     hidden_rms = {"Closed in RMS", "Missing from RMS"}
     return [
         s for s in stores
@@ -1622,7 +1622,7 @@ def home():
 def dashboard_metrics(stores=None, routes=None):
     stores = stores if stores is not None else filter_stores_for_user(read_json(STORES_FILE))
     routes = routes if routes is not None else filter_routes_for_user(read_json(ROUTES_FILE))
-    statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"]
+    statuses = ["Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"]
     by_status = {status: 0 for status in statuses}
     for store in stores:
         status = store.get("status") or "Unassigned"
@@ -1630,7 +1630,7 @@ def dashboard_metrics(stores=None, routes=None):
     active = active_map_stores(stores)
     completed_today = [
         s for s in stores
-        if (s.get("status") or "") == "Completed" and date_value(s.get("completed_at")) == today_iso()
+        if (s.get("status") or "") in {"Completed", "Recovered"} and date_value(s.get("completed_at")) == today_iso()
     ]
     racks = round(sum(num(s.get("expected_racks")) for s in active), 1)
     weight = round(sum(num(s.get("weight")) for s in active), 1)
@@ -5069,7 +5069,7 @@ def api_unassign_route():
 @dispatch_required
 def api_update_bol(store_id):
     data = request.get_json(force=True)
-    allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"}
+    allowed_statuses = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"}
     editable = [
         "bol", "origin", "store_name", "address", "city", "state", "zip",
         "contact", "hub", "due_date", "assigned_date", "expected_racks",
@@ -5109,7 +5109,7 @@ def api_update_bol(store_id):
                     store["hub"] = hub
                     store["hub_reason"] = hub_reason
 
-            if clean(store.get("status")) != "Completed":
+            if clean(store.get("status")) not in {"Completed", "Recovered"}:
                 store["review_reasons"] = essential_review_reasons(store)
                 if store["review_reasons"] and clean(store.get("status")) == "Unassigned":
                     store["status"] = "Need Review"
@@ -5167,7 +5167,7 @@ def api_store_status():
     store_id = data.get("store_id")
     new_status = clean(data.get("status"))
 
-    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Completed"}
+    allowed = {"Need Review", "Unassigned", "Assigned", "Dispatched", "Recovered", "Completed"}
     if new_status not in allowed:
         return jsonify({"ok": False, "message": "Invalid status."})
 
@@ -5310,6 +5310,7 @@ def api_driver_complete_stop():
             driver_names=driver_names,
             completed_by=session.get("username", "system"),
         )
+        already_completed = bool(updated.pop("already_completed", False))
         updated_routes = update_route_recovery_progress(routes, stores, updated.get("id"))
     except PermissionError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 403
@@ -5329,6 +5330,7 @@ def api_driver_complete_stop():
 
     return jsonify({
         "ok": True,
+        "already_completed": already_completed,
         "store": updated,
         "updated_routes": len(updated_routes),
         "summary": workspace.get("summary", {}),

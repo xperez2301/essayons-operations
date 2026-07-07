@@ -208,6 +208,7 @@ def build_stop_detail(stop=None, store_lookup=None):
         "counts_saved_at": clean(store_record.get("driver_counts_saved_at")),
         "completed_by": clean(store_record.get("completed_by")),
         "completed_at": clean(store_record.get("completed_at")),
+        "is_recovered": clean(stop.get("status") or store_record.get("status")).lower() == "recovered",
         "component_entries": component_entries_for_stop(stop),
     }
 
@@ -296,9 +297,14 @@ def complete_driver_stop(stores, store_id, driver_names=None, completed_by=""):
         if not is_driver_stop_saved(store):
             raise ValueError("Save recovery counts and notes before completing this stop.")
 
+        if clean(store.get("status")).lower() == "recovered":
+            store["already_completed"] = True
+            return store
+
         store["status"] = "Recovered"
         store["completed_by"] = clean(completed_by) or "system"
         store["completed_at"] = utc_now_iso()
+        store["already_completed"] = False
         return store
 
     raise LookupError("Driver stop was not found.")
@@ -325,6 +331,12 @@ def update_route_recovery_progress(routes, stores, store_id):
             continue
 
         route_store_ids = [clean(route_store_id) for route_store_id in route.get("store_ids") or []]
+        if not route_store_ids:
+            route_store_ids = [
+                clean(stop.get("id"))
+                for stop in route.get("stops") or []
+                if isinstance(stop, dict) and clean(stop.get("id"))
+            ]
         if store_id not in route_store_ids:
             continue
 
