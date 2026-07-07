@@ -49,6 +49,7 @@ from eoms_modules.recovery_center_service import summarize_recovery_workspace_fr
 from eoms_modules.receiving_service import build_receiving_workspace, receive_load
 from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
 from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
+from eoms_modules.command_center_service import build_command_center_workspace
 from eoms_modules.reporting_service import build_reporting_workspace
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
@@ -1662,20 +1663,30 @@ def dashboard_metrics(stores=None, routes=None):
 def dashboard():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
-    sync_history = read_json(SYNC_HISTORY_FILE)
-    settings_data = read_json(SETTINGS_FILE)
-    maps_key = clean(settings_data.get("azure_maps_key"))
+
+    try:
+        from eoms_modules.automation_center_manager import automation_center
+        automation_status = automation_center.center_health()
+    except Exception as exc:
+        automation_status = {
+            "status": "OFFLINE",
+            "worker_health": "OFFLINE",
+            "error": str(exc),
+        }
+
+    roadmap = build_roadmap_workspace(ROADMAP_FILE)
+    automation_jobs = read_json(DATA_DIR / "automation_jobs.json")
+    workspace = build_command_center_workspace(
+        stores=stores,
+        routes=routes,
+        roadmap_workspace=roadmap,
+        automation_status=automation_status,
+        automation_jobs=automation_jobs,
+    )
+
     return render_template(
         "dashboard.html",
-        is_azure=IS_AZURE,
-        metrics={**dashboard_metrics(stores, routes), **financials.dashboard_financials(stores)},
-        stores=active_map_stores(stores),
-        routes=routes,
-        hubs=HUBS,
-        sync_history=sync_history[-5:] if isinstance(sync_history, list) else [],
-        azure_maps_key=maps_key,
-        map_settings=map_settings_payload(),
-        can_view_financials=permissions.can_view_financials(current_user())
+        workspace=workspace,
     )
 
 @app.route("/design-system-demo")

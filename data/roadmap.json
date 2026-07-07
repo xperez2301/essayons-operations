@@ -1,7 +1,7 @@
 {
-  "current_version": "4.6",
+  "current_version": "4.7",
   "current_branch": "ft3-automation-worker",
-  "current_build": "FT4.6",
+  "current_build": "FT4.7",
   "eras": [
     {
       "id": "era-i",
@@ -348,25 +348,25 @@
       "id": "FT4.6",
       "title": "Reporting Workspace Foundation",
       "era": "era-ii",
-      "status": "Current",
+      "status": "Completed",
       "description": "Executive read-only reporting workspace across completed EOMS operational domains.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.5"],
-      "notes": "Current build."
+      "notes": "Reporting workspace provides read-only executive visibility across completed operational domains."
     },
     {
       "id": "FT4.7",
-      "title": "Release Hardening and Smoke Tests",
+      "title": "Command Center Modernization",
       "era": "era-ii",
-      "status": "Planned",
-      "description": "Convert smoke checks into assertions and harden Era II workflows before enterprise expansion.",
+      "status": "Current",
+      "description": "Modernize the main Command Center into the executive control center for completed EOMS domains.",
       "completion_date": "",
       "release_version": "",
       "commit": "",
       "dependencies": ["FT4.6"],
-      "notes": ""
+      "notes": "Current build."
     },
     {
       "id": "FT5",

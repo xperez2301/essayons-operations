@@ -39,22 +39,25 @@ a {
 
 .eoms-shell {
   display: grid;
-  grid-template-columns: var(--eoms-sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--eoms-sidebar-width) minmax(0, 1fr) auto;
   min-height: 100vh;
   background: var(--eoms-bg);
+  overflow-x: clip;
 }
 
 .eoms-shell.sidebar-collapsed {
-  grid-template-columns: var(--eoms-sidebar-collapsed) minmax(0, 1fr);
+  grid-template-columns: var(--eoms-sidebar-collapsed) minmax(0, 1fr) auto;
 }
 
 .eoms-workspace {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  grid-column: 2;
 }
 
 .eoms-sidebar {
+  grid-column: 1;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -242,6 +245,7 @@ a {
   max-width: 1360px;
   margin: 0 auto;
   padding: 24px;
+  min-width: 0;
 }
 
 .eoms-card,
@@ -399,12 +403,172 @@ a {
 }
 
 .eoms-detail-panel {
+  grid-column: 3;
   width: 320px;
   margin: 86px 18px 18px 0;
   padding: 18px;
   align-self: start;
   position: sticky;
   top: 88px;
+}
+
+.eoms-command-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: stretch;
+  padding: 22px;
+  margin-bottom: 18px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface);
+  box-shadow: var(--eoms-shadow);
+}
+
+.eoms-command-hero h2 {
+  margin: 4px 0 8px;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.eoms-command-hero p,
+.eoms-section-head p {
+  margin: 0;
+  color: var(--eoms-muted);
+}
+
+.eoms-command-health {
+  min-width: 190px;
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: 8px;
+  text-align: right;
+}
+
+.eoms-command-health strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.eoms-command-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.eoms-command-kpi {
+  color: inherit;
+  text-decoration: none;
+}
+
+.eoms-command-kpi:hover,
+.eoms-pipeline-stage:hover,
+.eoms-domain-card:hover {
+  border-color: #b9c6d8;
+  background: var(--eoms-surface-muted);
+  text-decoration: none;
+}
+
+.eoms-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.eoms-section-head h2 {
+  margin-bottom: 4px;
+}
+
+.eoms-pipeline {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.eoms-pipeline-stage {
+  min-width: 120px;
+  min-height: 132px;
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface-muted);
+  color: inherit;
+  text-decoration: none;
+}
+
+.eoms-pipeline-stage::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -9px;
+  width: 8px;
+  height: 1px;
+  background: #b9c6d8;
+}
+
+.eoms-pipeline-stage:last-child::after {
+  display: none;
+}
+
+.eoms-pipeline-name {
+  color: var(--eoms-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.eoms-pipeline-stage strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.eoms-warning-indicator {
+  color: var(--eoms-amber);
+  font-weight: 800;
+}
+
+.eoms-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.eoms-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.eoms-domain-card {
+  min-height: 112px;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--eoms-border);
+  border-radius: var(--eoms-radius);
+  background: var(--eoms-surface-muted);
+  color: inherit;
+  text-decoration: none;
+}
+
+.eoms-domain-card span {
+  color: var(--eoms-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.eoms-domain-card strong {
+  justify-self: start;
 }
 
 .eoms-empty-state {
@@ -596,6 +760,12 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .eoms-command-kpis,
+  .eoms-command-grid,
+  .eoms-domain-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .eoms-demo-grid {
     grid-template-columns: 1fr;
   }
@@ -615,6 +785,11 @@ a {
   .eoms-shell,
   .eoms-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
+  }
+
+  .eoms-workspace,
+  .eoms-detail-panel {
+    grid-column: 1;
   }
 
   .eoms-sidebar {
@@ -657,6 +832,22 @@ a {
   }
 
   .eoms-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eoms-command-hero,
+  .eoms-section-head {
+    display: grid;
+  }
+
+  .eoms-command-health {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .eoms-command-kpis,
+  .eoms-command-grid,
+  .eoms-domain-grid {
     grid-template-columns: 1fr;
   }
 }
