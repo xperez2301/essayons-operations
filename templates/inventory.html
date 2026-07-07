@@ -108,6 +108,8 @@
               <tr>
                 <th>Type</th>
                 <th>Component</th>
+                <th>Category</th>
+                <th>BOL</th>
                 <th>Amount</th>
                 <th>Date</th>
                 <th>Operator</th>
@@ -119,6 +121,8 @@
                 <tr>
                   <td>{{ event.type }}</td>
                   <td>{{ event.component }}</td>
+                  <td>{{ event.category }}</td>
+                  <td>{{ event.bol or "Not set" }}</td>
                   <td>{{ event.amount }}</td>
                   <td>{{ event.date }}</td>
                   <td>{{ event.operator }}</td>
@@ -131,6 +135,41 @@
           <div class="eoms-empty-state">
             <strong>No inventory history</strong>
             <span>Receipts and warehouse adjustments will appear here as inventory changes.</span>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="eoms-card">
+        <h2>Inventory Transactions</h2>
+        {% if workspace.transactions %}
+          <table class="eoms-table">
+            <thead>
+              <tr>
+                <th>BOL</th>
+                <th>Category</th>
+                <th>Component</th>
+                <th>Qty</th>
+                <th>Warehouse Verified</th>
+                <th>Dispatcher Approved</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for transaction in workspace.transactions %}
+                <tr>
+                  <td>{{ transaction.bol }}</td>
+                  <td>{{ transaction.category }}</td>
+                  <td>{{ transaction.component }}</td>
+                  <td>{{ transaction.quantity }}</td>
+                  <td>{{ transaction.warehouse_verified_at or "Not set" }}</td>
+                  <td>{{ transaction.dispatcher_approved_at or "Not set" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="eoms-empty-state">
+            <strong>No inventory transactions</strong>
+            <span>Dispatcher-approved warehouse receipts will appear here.</span>
           </div>
         {% endif %}
       </section>
@@ -154,6 +193,7 @@
             <thead>
               <tr>
                 <th>Load</th>
+                <th>Category</th>
                 <th>Quantity</th>
                 <th>Date</th>
               </tr>
@@ -162,6 +202,7 @@
               {% for receipt in workspace.detail.receiving_history %}
                 <tr>
                   <td>{{ receipt.store }} / {{ receipt.bol }}</td>
+                  <td>{{ receipt.category }}</td>
                   <td>{{ receipt.quantity }}</td>
                   <td>{{ receipt.date }}</td>
                 </tr>

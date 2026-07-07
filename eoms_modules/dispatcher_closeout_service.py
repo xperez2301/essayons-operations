@@ -145,6 +145,7 @@ def closeout_store(stores, store_id, closed_by="", notes=""):
     store["inventory_updated_at"] = now
     store["inventory_updated_by"] = clean(closed_by) or "system"
     store["inventory_source"] = "Warehouse Verification"
+    store["inventory_transaction_id"] = store.get("inventory_transaction_id") or f"INV-{clean(store.get('id') or store.get('bol'))}"
     if previous_status.lower() in {"recovered", "exception"}:
         store["recovery_result_status"] = previous_status
     store["status"] = "Completed"

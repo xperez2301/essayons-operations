@@ -6,7 +6,6 @@ from eoms_modules.recovery_center_service import (
     STORE_COMPONENT_FIELDS,
     calculate_estimated_weight,
     clean,
-    driver_counts_from_store,
     empty_component_counts,
     normalize_quantity,
 )
@@ -55,10 +54,65 @@ def received_stores(stores=None):
 def receipt_counts_for_store(store):
     if store not in received_stores([store]):
         return empty_component_counts()
-    verified_counts = warehouse_verified_counts_from_store(store)
-    if any(verified_counts.values()):
-        return verified_counts
-    return driver_counts_from_store(store)
+    if not isinstance(store.get("warehouse_verified_counts"), dict):
+        return empty_component_counts()
+    return warehouse_verified_counts_from_store(store)
+
+
+def inventory_transaction_id(store):
+    return clean(store.get("inventory_transaction_id")) or f"INV-{clean(store.get('id') or store.get('bol'))}"
+
+
+def inventory_receipt_transactions(stores=None):
+    transactions = []
+
+    for store in received_stores(stores):
+        counts = receipt_counts_for_store(store)
+        damage_counts = damage_counts_from_store(store)
+        transaction_id = inventory_transaction_id(store)
+
+        for component in COMPONENT_NAMES:
+            verified_quantity = counts.get(component, 0)
+            assigned_damage = 0
+            for category in DAMAGE_CATEGORIES:
+                if category == "Good Inventory":
+                    continue
+                quantity = damage_counts[category].get(component, 0)
+                if quantity:
+                    transactions.append({
+                        "transaction_id": f"{transaction_id}:{category}:{component}",
+                        "bol": clean(store.get("bol")) or "Not set",
+                        "store": clean(store.get("store_name") or store.get("store")) or "Unknown Store",
+                        "component": component,
+                        "category": category,
+                        "quantity": quantity,
+                        "dispatcher_approval": clean(store.get("dispatcher_closed_by")) or "system",
+                        "dispatcher_approved_at": clean(store.get("dispatcher_closed_at")),
+                        "warehouse_verification": clean(store.get("received_by")) or "system",
+                        "warehouse_verified_at": clean(store.get("received_at")),
+                        "inventory_updated_at": clean(store.get("inventory_updated_at") or store.get("dispatcher_closed_at")),
+                        "inventory_updated_by": clean(store.get("inventory_updated_by") or store.get("dispatcher_closed_by")),
+                    })
+                assigned_damage += quantity
+
+            good_quantity = max(0, verified_quantity - assigned_damage)
+            if good_quantity:
+                transactions.append({
+                    "transaction_id": f"{transaction_id}:Good Inventory:{component}",
+                    "bol": clean(store.get("bol")) or "Not set",
+                    "store": clean(store.get("store_name") or store.get("store")) or "Unknown Store",
+                    "component": component,
+                    "category": "Good Inventory",
+                    "quantity": good_quantity,
+                    "dispatcher_approval": clean(store.get("dispatcher_closed_by")) or "system",
+                    "dispatcher_approved_at": clean(store.get("dispatcher_closed_at")),
+                    "warehouse_verification": clean(store.get("received_by")) or "system",
+                    "warehouse_verified_at": clean(store.get("received_at")),
+                    "inventory_updated_at": clean(store.get("inventory_updated_at") or store.get("dispatcher_closed_at")),
+                    "inventory_updated_by": clean(store.get("inventory_updated_by") or store.get("dispatcher_closed_by")),
+                })
+
+    return sorted(transactions, key=lambda item: item["inventory_updated_at"], reverse=True)
 
 
 def adjustment_entries(stores=None):
@@ -102,18 +156,20 @@ def component_receipt_history(stores=None, component=""):
         return history
 
     for store in received_stores(stores):
-        quantity = receipt_counts_for_store(store).get(component, 0)
-        if quantity <= 0:
-            continue
-
-        history.append({
-            "type": "Warehouse Verified Receipt",
-            "store": clean(store.get("store_name") or store.get("store")) or "Unknown Store",
-            "bol": clean(store.get("bol")) or "Not set",
-            "quantity": quantity,
-            "date": clean(store.get("dispatcher_closed_at")) or clean(store.get("received_at")) or "Not set",
-            "operator": clean(store.get("dispatcher_closed_by")) or clean(store.get("received_by")) or "Not recorded",
-        })
+        for transaction in inventory_receipt_transactions([store]):
+            if transaction["component"] != component:
+                continue
+            history.append({
+                "type": "Warehouse Verified Receipt",
+                "store": transaction["store"],
+                "bol": transaction["bol"],
+                "quantity": transaction["quantity"],
+                "category": transaction["category"],
+                "date": transaction["inventory_updated_at"] or transaction["dispatcher_approved_at"] or "Not set",
+                "operator": transaction["inventory_updated_by"] or transaction["dispatcher_approval"] or "Not recorded",
+                "warehouse_verified_at": transaction["warehouse_verified_at"],
+                "dispatcher_approved_at": transaction["dispatcher_approved_at"],
+            })
 
     return sorted(history, key=lambda entry: entry["date"], reverse=True)
 
@@ -236,7 +292,11 @@ def build_inventory_history(stores=None):
                 "amount": receipt["quantity"],
                 "date": receipt["date"],
                 "operator": receipt["operator"],
-                "reason": f"{receipt['store']} / {receipt['bol']}",
+                "reason": f"{receipt['store']} / {receipt['bol']} / {receipt.get('category', 'Inventory')}",
+                "category": receipt.get("category", "Inventory"),
+                "bol": receipt.get("bol"),
+                "warehouse_verified_at": receipt.get("warehouse_verified_at"),
+                "dispatcher_approved_at": receipt.get("dispatcher_approved_at"),
             })
 
         for adjustment in component_adjustment_history(stores, component):
@@ -247,6 +307,8 @@ def build_inventory_history(stores=None):
                 "date": adjustment["adjusted_at"] or "Not set",
                 "operator": adjustment["adjusted_by"],
                 "reason": adjustment["reason"],
+                "category": "Adjustment",
+                "bol": adjustment.get("bol"),
             })
 
         for event in sorted(component_events, key=lambda item: item["date"]):
@@ -323,6 +385,7 @@ def build_inventory_workspace(stores=None, selected_component=""):
         "inventory": rows,
         "detail": build_inventory_detail(stores, selected_component),
         "history": build_inventory_history(stores),
+        "transactions": inventory_receipt_transactions(stores),
     }
 
 
