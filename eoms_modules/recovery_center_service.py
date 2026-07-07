@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 PIECES_PER_RACK = 19
 DEFAULT_RACK_WEIGHT = 200
-DEFAULT_COMPONENT_WEIGHT = DEFAULT_RACK_WEIGHT / PIECES_PER_RACK
 
 COMPONENT_NAMES = (
     '84" Corner Post',
@@ -14,8 +13,17 @@ COMPONENT_NAMES = (
 )
 
 COMPONENT_WEIGHTS = {
-    component: DEFAULT_COMPONENT_WEIGHT
-    for component in COMPONENT_NAMES
+    '84" Corner Post': 5.20,
+    '40" DRB': 2.90,
+    '48" DRB': 3.40,
+    "Wood Shelf": 16.50,
+}
+
+STORE_COMPONENT_FIELDS = {
+    '84" Corner Post': "corner_posts",
+    '40" DRB': "drb40",
+    '48" DRB': "drb48",
+    "Wood Shelf": "wood_shelf",
 }
 
 COMPLETED_STOP_STATUSES = {
@@ -41,7 +49,7 @@ def normalize_quantity(value, field_name="quantity"):
         return 0
 
     try:
-        quantity = int(value)
+        quantity = int(float(value))
     except (TypeError, ValueError):
         raise ValueError(f"{field_name} must be a whole number.")
 
@@ -91,11 +99,17 @@ def create_recovery_stop(
     driver_counts=None,
     notes="",
     status=DEFAULT_STOP_STATUS,
+    city="",
+    state="",
+    due_date="",
 ):
     return {
         "store": clean(store),
         "origin": clean(origin),
         "bol": clean(bol),
+        "city": clean(city),
+        "state": clean(state),
+        "due_date": clean(due_date),
         "driver_counts": normalize_driver_counts(driver_counts),
         "notes": clean(notes),
         "status": normalize_stop_status(status),
@@ -229,12 +243,15 @@ def normalize_recovery_stop(stop):
         raise ValueError("Recovery stop must be a dictionary.")
 
     return create_recovery_stop(
-        store=stop.get("store"),
+        store=stop.get("store") or stop.get("store_name"),
         origin=stop.get("origin"),
         bol=stop.get("bol"),
         driver_counts=stop.get("driver_counts"),
         notes=stop.get("notes"),
         status=stop.get("status") or DEFAULT_STOP_STATUS,
+        city=stop.get("city"),
+        state=stop.get("state"),
+        due_date=stop.get("due_date"),
     )
 
 
@@ -393,3 +410,145 @@ def summarize_recovery_workspace(routes=None, selected_index=0):
             "estimated_weight": calculate_estimated_weight(running_totals),
         },
     }
+
+
+def driver_counts_from_store(store):
+    if not isinstance(store, dict):
+        return empty_component_counts()
+
+    return {
+        component: normalize_quantity(store.get(field_name, 0), component)
+        for component, field_name in STORE_COMPONENT_FIELDS.items()
+    }
+
+
+def recovery_stop_from_store(store):
+    if not isinstance(store, dict):
+        raise ValueError("Store record must be a dictionary.")
+
+    return create_recovery_stop(
+        store=store.get("store_name") or store.get("store"),
+        origin=store.get("origin"),
+        bol=store.get("bol"),
+        driver_counts=driver_counts_from_store(store),
+        notes=store.get("notes") or store.get("variance_review") or store.get("hub_reason"),
+        status=store.get("status") or DEFAULT_STOP_STATUS,
+        city=store.get("city"),
+        state=store.get("state"),
+        due_date=store.get("due_date"),
+    )
+
+
+def recovery_route_from_route_record(route, stores_by_id=None, index=0):
+    if not isinstance(route, dict):
+        raise ValueError("Route record must be a dictionary.")
+
+    stores_by_id = stores_by_id or {}
+    route_stops = []
+
+    for stop in route.get("stops") or []:
+        if not isinstance(stop, dict):
+            continue
+
+        store_record = stores_by_id.get(clean(stop.get("id"))) or {}
+        merged = deepcopy(stop)
+        merged.update({
+            key: value
+            for key, value in store_record.items()
+            if value not in (None, "")
+        })
+        route_stops.append(recovery_stop_from_store(merged))
+
+    if not route_stops:
+        for store_id in route.get("store_ids") or []:
+            store_record = stores_by_id.get(clean(store_id))
+            if store_record:
+                route_stops.append(recovery_stop_from_store(store_record))
+
+    recovery_route = create_recovery_route(
+        truck=route.get("truck"),
+        driver=route.get("driver"),
+        dispatcher=route.get("dispatcher") or route.get("created_by"),
+        status=route.get("status") or DEFAULT_ROUTE_STATUS,
+        recovery_stops=route_stops,
+        warehouse_eta=route.get("warehouse_eta") or route.get("completed_at"),
+    )
+
+    recovery_route["route_id"] = clean(route.get("id")) or f"route-{index + 1}"
+    recovery_route["route_number"] = clean(route.get("route_number")) or f"REC-{index + 1:04d}"
+    recovery_route["source"] = "routes"
+    return refresh_route_totals(recovery_route)
+
+
+def route_group_key(store):
+    driver = clean(store.get("assigned_driver")) or "Unassigned"
+    truck = clean(store.get("truck")) or "Unassigned"
+    area = clean(store.get("dispatch_group") or store.get("hub") or store.get("city")) or "Unassigned"
+    return driver, truck, area
+
+
+def should_include_store_in_recovery(store):
+    if not isinstance(store, dict):
+        return False
+
+    status = clean(store.get("status")).lower()
+    if status in {"assigned", "dispatched", "completed"}:
+        return True
+
+    return bool(clean(store.get("assigned_driver")) or clean(store.get("truck")))
+
+
+def recovery_routes_from_store_records(stores):
+    groups = {}
+
+    for store in stores or []:
+        if not should_include_store_in_recovery(store):
+            continue
+
+        groups.setdefault(route_group_key(store), []).append(deepcopy(store))
+
+    recovery_routes = []
+    for index, ((driver, truck, area), group_stores) in enumerate(sorted(groups.items())):
+        stops = [recovery_stop_from_store(store) for store in group_stores]
+        route = create_recovery_route(
+            truck=truck,
+            driver=driver,
+            dispatcher="Unassigned",
+            status=calculate_recovery_status(stops),
+            recovery_stops=stops,
+            warehouse_eta="",
+        )
+        route["route_id"] = f"store-group-{index + 1}"
+        route["route_number"] = f"REC-{index + 1:04d}"
+        route["source"] = "stores"
+        route["dispatch_group"] = area
+        recovery_routes.append(refresh_route_totals(route))
+
+    return recovery_routes
+
+
+def summarize_recovery_workspace_from_records(routes=None, stores=None, selected_index=0):
+    routes = routes if isinstance(routes, list) else []
+    stores = stores if isinstance(stores, list) else []
+    stores_by_id = {
+        clean(store.get("id")): deepcopy(store)
+        for store in stores
+        if isinstance(store, dict) and clean(store.get("id"))
+    }
+
+    route_records_available = bool(routes)
+    recovery_routes = [
+        recovery_route_from_route_record(route, stores_by_id, index)
+        for index, route in enumerate(routes)
+        if isinstance(route, dict)
+    ]
+
+    source = "routes"
+    if not recovery_routes:
+        recovery_routes = recovery_routes_from_store_records(stores)
+        source = "stores"
+
+    workspace = summarize_recovery_workspace(recovery_routes, selected_index)
+    workspace["source"] = source if route_records_available or recovery_routes else "stores"
+    workspace["has_live_data"] = bool(recovery_routes)
+    return workspace
