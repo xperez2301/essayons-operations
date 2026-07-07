@@ -9,6 +9,7 @@ import zipfile
 import subprocess
 import sys
 import time
+import traceback
 from eoms_modules.database_validator import DatabaseValidator, validate_records
 from eoms_modules.legacy_rms_repair import (
     LegacyRMSRepair,
@@ -209,50 +210,81 @@ def ensure_runtime_data_files():
       than an empty stub, if that packaged copy is available.
 
     Returns the list of files that were actually created, for startup logs.
+
+    Temporary FT5.1 follow-up diagnostics (2026-07-07): production reported
+    roadmap.json still missing after this function was deployed, despite it
+    running before any route can touch ROADMAP_FILE (it's invoked from
+    ensure_dirs(), which runs at true module level -- see the call at the
+    bottom of this file -- before Flask/gunicorn serve a single request).
+    The extra print()s and the try/except below exist to surface exactly
+    where/why that can happen instead of failing silently, and should be
+    trimmed back down once the root cause is confirmed from Azure logs.
     """
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"[EOMS Startup] ensure_runtime_data_files() entered. DATA_DIR={DATA_DIR} ROADMAP_FILE={ROADMAP_FILE}")
 
-    initialized = []
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    for path, default in [
-        (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
-        (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "azure_maps_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
-        (SYNC_HISTORY_FILE, []),
-        (RMS_QUEUE_FILE, []),
-        (DATA_DIR / "automation_jobs.json", []),
-        (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}),
-    ]:
-        if not path.exists():
-            path.write_text(json.dumps(default, indent=2), encoding="utf-8")
-            initialized.append(path.name)
+        initialized = []
 
-    if not ROADMAP_FILE.exists():
-        packaged_roadmap = BASE_DIR / "data" / "roadmap.json"
-        copied = False
-        try:
-            if packaged_roadmap.exists() and packaged_roadmap.resolve() != ROADMAP_FILE.resolve():
-                shutil.copy2(packaged_roadmap, ROADMAP_FILE)
-                copied = True
-        except OSError:
-            copied = False
+        for path, default in [
+            (STORES_FILE, []), (ROUTES_FILE, []), (AUDIT_FILE, []),
+            (SETTINGS_FILE, {"rms_username": "", "rms_password": "", "rms_password_saved": False, "remember_rms_credentials": True, "last_rms_login": "", "rms_connection_status": "Not Tested", "rms_login_url": "https://rms.reusability.com/login", "rms_bol_url": "https://rms.reusability.com/bills-of-lading", "azure_maps_key": "", "map_default_type": "satellite", "map_default_zoom": 7, "map_board_default_open": False, "map_live_refresh_seconds": 30, "due_red_days": 4, "due_amber_days": 7}),
+            (SYNC_HISTORY_FILE, []),
+            (RMS_QUEUE_FILE, []),
+            (DATA_DIR / "automation_jobs.json", []),
+            (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}),
+        ]:
+            if not path.exists():
+                path.write_text(json.dumps(default, indent=2), encoding="utf-8")
+                initialized.append(path.name)
 
-        if copied:
-            initialized.append("roadmap.json (packaged copy)")
+        if ROADMAP_FILE.exists():
+            print(f"[EOMS Startup] roadmap.json already present at {ROADMAP_FILE}; leaving it untouched.")
         else:
-            default_roadmap = {
-                "current_version": "1.0",
-                "current_branch": "production",
-                "current_build": "",
-                "eras": [],
-                "builds": [],
-            }
-            ROADMAP_FILE.write_text(json.dumps(default_roadmap, indent=2), encoding="utf-8")
-            initialized.append("roadmap.json (safe empty default)")
+            packaged_roadmap = BASE_DIR / "data" / "roadmap.json"
+            packaged_exists = packaged_roadmap.exists()
+            print(f"[EOMS Startup] roadmap.json missing at {ROADMAP_FILE}; packaged seed {packaged_roadmap} exists={packaged_exists}")
 
-    if initialized:
-        print(f"[EOMS Startup] Initialized runtime data file(s) in {DATA_DIR}: {', '.join(initialized)}")
+            copied = False
+            if packaged_exists:
+                try:
+                    if packaged_roadmap.resolve() != ROADMAP_FILE.resolve():
+                        shutil.copy2(packaged_roadmap, ROADMAP_FILE)
+                        copied = True
+                except OSError:
+                    print(f"[EOMS Startup] ERROR copying packaged roadmap seed {packaged_roadmap} -> {ROADMAP_FILE}:")
+                    traceback.print_exc()
+                    copied = False
 
-    return initialized
+            if copied:
+                initialized.append("roadmap.json (packaged copy)")
+                print(f"[EOMS Startup] roadmap.json created from packaged seed at {ROADMAP_FILE}.")
+            else:
+                default_roadmap = {
+                    "current_version": "1.0",
+                    "current_branch": "production",
+                    "current_build": "",
+                    "eras": [],
+                    "builds": [],
+                }
+                ROADMAP_FILE.write_text(json.dumps(default_roadmap, indent=2), encoding="utf-8")
+                initialized.append("roadmap.json (safe empty default)")
+                print(f"[EOMS Startup] roadmap.json created from safe empty default at {ROADMAP_FILE}.")
+
+            if ROADMAP_FILE.exists():
+                print(f"[EOMS Startup] Verified roadmap.json now exists at {ROADMAP_FILE}.")
+            else:
+                print(f"[EOMS Startup] ERROR: roadmap.json write reported success but {ROADMAP_FILE} still does not exist on disk.")
+
+        if initialized:
+            print(f"[EOMS Startup] Initialized runtime data file(s) in {DATA_DIR}: {', '.join(initialized)}")
+
+        return initialized
+    except Exception:
+        print(f"[EOMS Startup] ERROR: ensure_runtime_data_files() raised an exception. DATA_DIR={DATA_DIR} ROADMAP_FILE={ROADMAP_FILE}")
+        traceback.print_exc()
+        raise
 
 
 def ensure_dirs():
