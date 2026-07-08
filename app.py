@@ -857,12 +857,49 @@ RMS_LINUX_SAFE_CHROMIUM_ARGS = [
     "--disable-background-networking",
     "--disable-sync",
 ]
+RMS_REQUIRED_AZURE_CHROMIUM_ARGS = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+]
+
+def rms_final_chromium_args(args=None):
+    final_args = list(args or [])
+    for arg in RMS_REQUIRED_AZURE_CHROMIUM_ARGS:
+        if arg not in final_args:
+            final_args.append(arg)
+    return final_args
+
+def rms_final_launch_kwargs(kwargs=None, force_bundled_chromium=False):
+    final_kwargs = dict(kwargs or {})
+    final_kwargs["args"] = rms_final_chromium_args(final_kwargs.get("args"))
+    final_kwargs["chromium_sandbox"] = False
+    if force_bundled_chromium and not clean(final_kwargs.get("channel")):
+        final_kwargs["channel"] = "chromium"
+    return final_kwargs
+
+def print_rms_final_launch_options(label, kwargs):
+    loggable = {
+        "headless": kwargs.get("headless"),
+        "channel": kwargs.get("channel", ""),
+        "chromium_sandbox": kwargs.get("chromium_sandbox"),
+        "args": kwargs.get("args", []),
+        "user_data_dir": clean(kwargs.get("user_data_dir")),
+    }
+    print(f"[RMS Auto Grab] Final {label} options: " + json.dumps(loggable, sort_keys=True), file=sys.stderr)
 
 def launch_chromium_with_repair(playwright, headless=True):
     print_rms_runtime_diagnostics(playwright)
-    print(f"[RMS Auto Grab] launch_chromium_with_repair: headless={headless} args={RMS_LINUX_SAFE_CHROMIUM_ARGS}", file=sys.stderr)
+    launch_kwargs = rms_final_launch_kwargs(
+        {
+            "headless": headless,
+            "args": RMS_LINUX_SAFE_CHROMIUM_ARGS,
+        },
+        force_bundled_chromium=True,
+    )
+    print_rms_final_launch_options("chromium.launch", launch_kwargs)
     try:
-        return playwright.chromium.launch(headless=headless, args=RMS_LINUX_SAFE_CHROMIUM_ARGS)
+        return playwright.chromium.launch(**launch_kwargs)
     except Exception as exc:
         message = str(exc)
         print_rms_runtime_diagnostics(playwright, launch_error=message)
@@ -874,7 +911,8 @@ def launch_chromium_with_repair(playwright, headless=True):
             install_playwright_system_deps()
         install_playwright_chromium()
         print("[RMS Auto Grab] Self-repair install complete; retrying chromium.launch.", file=sys.stderr)
-        return playwright.chromium.launch(headless=headless, args=RMS_LINUX_SAFE_CHROMIUM_ARGS)
+        print_rms_final_launch_options("chromium.launch retry", launch_kwargs)
+        return playwright.chromium.launch(**launch_kwargs)
 
 def launch_persistent_context_with_repair(playwright, **kwargs):
     """Launch a channel-less (bundled) Chromium persistent context, self-healing
@@ -884,6 +922,8 @@ def launch_persistent_context_with_repair(playwright, **kwargs):
     chrome/msedge channel isn't installed on the host, which is the normal case
     on a fresh Azure App Service worker)."""
     print_rms_runtime_diagnostics(playwright)
+    kwargs = rms_final_launch_kwargs(kwargs, force_bundled_chromium=True)
+    print_rms_final_launch_options("launch_persistent_context", kwargs)
     try:
         return playwright.chromium.launch_persistent_context(**kwargs)
     except Exception as exc:
@@ -897,6 +937,7 @@ def launch_persistent_context_with_repair(playwright, **kwargs):
             install_playwright_system_deps()
         install_playwright_chromium()
         print("[RMS Auto Grab] Self-repair install complete; retrying launch_persistent_context.", file=sys.stderr)
+        print_rms_final_launch_options("launch_persistent_context retry", kwargs)
         return playwright.chromium.launch_persistent_context(**kwargs)
 
 def rms_browser_choice():
@@ -998,19 +1039,21 @@ def launch_rms_browser_context(playwright, headless=True):
     }
     if choice in {"chrome", "google-chrome", "normal", "local"}:
         try:
-            context = playwright.chromium.launch_persistent_context(
-                user_data_dir=str(rms_normal_profile_dir()),
-                channel="chrome",
-                headless=False,
-                accept_downloads=True,
-                args=[
+            chrome_kwargs = rms_final_launch_kwargs({
+                "user_data_dir": str(rms_normal_profile_dir()),
+                "channel": "chrome",
+                "headless": False,
+                "accept_downloads": True,
+                "args": [
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
                     *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                 ],
                 **common_kwargs,
-            )
+            })
+            print_rms_final_launch_options("chrome launch_persistent_context", chrome_kwargs)
+            context = playwright.chromium.launch_persistent_context(**chrome_kwargs)
             return None, context
         except Exception as exc:
             chrome_error = str(exc)[:500]
@@ -1040,19 +1083,21 @@ def launch_rms_browser_context(playwright, headless=True):
 
     if choice in {"edge", "msedge", "microsoft-edge"}:
         try:
-            context = playwright.chromium.launch_persistent_context(
-                user_data_dir=str(rms_edge_profile_dir()),
-                channel="msedge",
-                headless=False if rms_manual_login_enabled() else headless,
-                accept_downloads=True,
-                args=[
+            edge_kwargs = rms_final_launch_kwargs({
+                "user_data_dir": str(rms_edge_profile_dir()),
+                "channel": "msedge",
+                "headless": False if rms_manual_login_enabled() else headless,
+                "accept_downloads": True,
+                "args": [
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
                     *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                 ],
                 **common_kwargs,
-            )
+            })
+            print_rms_final_launch_options("msedge launch_persistent_context", edge_kwargs)
+            context = playwright.chromium.launch_persistent_context(**edge_kwargs)
             return None, context
         except Exception as exc:
             edge_error = str(exc)[:500]
