@@ -9,7 +9,10 @@ services:
     environment:
       RMS_BROWSER: chromium
       RMS_HEADLESS: "true"
-      RMS_WORKER_MODE: run
+      RMS_WORKER_MODE: loop
+      EOMS_API_URL: ${EOMS_API_URL:-http://host.docker.internal:5000}
+      EOMS_WORKER_TOKEN: ${EOMS_WORKER_TOKEN}
+      EOMS_ALLOW_HTTP: ${EOMS_ALLOW_HTTP:-true}
       DATA_DIR: /app/data
       UPLOAD_DIR: /app/uploads
       BOL_DIR: /app/bol_files

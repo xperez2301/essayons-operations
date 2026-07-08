@@ -142,6 +142,8 @@ SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
 RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
 USERS_FILE = DATA_DIR / "users.json"
 ROADMAP_FILE = DATA_DIR / "roadmap.json"
+WORKERS_FILE = DATA_DIR / "workers.json"
+WORKER_JOBS_FILE = DATA_DIR / "worker_jobs.json"
 
 app.config["STORES_FILE"] = STORES_FILE
 app.config["BOL_DIR"] = BOL_DIR
@@ -234,6 +236,8 @@ def ensure_runtime_data_files():
             (SYNC_HISTORY_FILE, []),
             (RMS_QUEUE_FILE, []),
             (DATA_DIR / "automation_jobs.json", []),
+            (WORKERS_FILE, []),
+            (WORKER_JOBS_FILE, []),
             (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}),
         ]:
             if not path.exists():
@@ -5055,10 +5059,11 @@ def api_automation_center_scheduler():
 @admin_required
 def api_automation_jobs():
     from eoms_modules.automation_center_manager import automation_center
+    from eoms_modules.worker_bridge_service import worker_bridge
 
     return jsonify({
         "ok": True,
-        "jobs": automation_center.list_jobs(),
+        "jobs": automation_center.list_jobs() + worker_bridge.list_jobs(),
     })
 
 
@@ -5067,6 +5072,7 @@ def api_automation_jobs():
 def api_automation_create_job():
     from eoms_modules.automation_center_manager import automation_center
     from eoms_modules.automation_executor_service import AutomationExecutorService
+    from eoms_modules.worker_bridge_service import worker_bridge
 
     data = request.get_json(silent=True) or {}
     worker = data.get("worker") or "RMS Worker"
@@ -5078,6 +5084,14 @@ def api_automation_create_job():
         return jsonify({"ok": False, "message": "Priority must be a whole number."}), 400
     run_now = bool(data.get("run_now", True))
 
+    if worker in {"RMS Worker", "Docker RMS Worker"} and action == "run":
+        job = worker_bridge.enqueue("rms_auto_grab", payload, priority)
+        return jsonify({
+            "ok": True,
+            "job": job,
+            "message": "RMS Auto Grab queued for the Docker worker.",
+        }), 202
+
     result = automation_center.enqueue_job(worker, action, payload, priority)
     job = result.get("job")
 
@@ -5087,6 +5101,65 @@ def api_automation_create_job():
         return jsonify({"ok": executed.get("status") == "COMPLETED", "job": executed})
 
     return jsonify({"ok": True, "job": job})
+
+
+def worker_token_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        expected = os.environ.get("EOMS_WORKER_TOKEN", "")
+        supplied = request.headers.get("Authorization", "")
+        if not expected or not supplied.startswith("Bearer "):
+            return jsonify({"ok": False, "message": "Worker authorization required."}), 401
+        if not secrets.compare_digest(supplied[7:].strip(), expected):
+            return jsonify({"ok": False, "message": "Invalid worker token."}), 401
+        return view(*args, **kwargs)
+    return wrapped
+
+
+@app.route("/api/worker/heartbeat", methods=["POST"])
+@worker_token_required
+def api_worker_heartbeat():
+    from eoms_modules.worker_bridge_service import worker_bridge
+
+    worker = worker_bridge.heartbeat(request.get_json(silent=True) or {})
+    return jsonify({"ok": True, "worker": worker})
+
+
+@app.route("/api/worker/jobs/next")
+@worker_token_required
+def api_worker_jobs_next():
+    from eoms_modules.worker_bridge_service import worker_bridge
+
+    worker_id = str(request.args.get("worker_id") or "").strip()
+    if not worker_id:
+        return jsonify({"ok": False, "message": "worker_id is required."}), 400
+    job = worker_bridge.claim_next(worker_id)
+    return jsonify({"ok": True, "job": job})
+
+
+@app.route("/api/worker/jobs/<job_id>/complete", methods=["POST"])
+@worker_token_required
+def api_worker_job_complete(job_id):
+    from eoms_modules.worker_bridge_service import worker_bridge
+
+    data = request.get_json(silent=True) or {}
+    worker_id = str(data.get("worker_id") or "").strip()
+    if not worker_id:
+        return jsonify({"ok": False, "message": "worker_id is required."}), 400
+    job, outcome = worker_bridge.complete(job_id, worker_id, data)
+    if outcome == "not_found":
+        return jsonify({"ok": False, "message": "Worker job not found."}), 404
+    if outcome == "wrong_worker":
+        return jsonify({"ok": False, "message": "Job is claimed by another worker."}), 409
+    return jsonify({"ok": True, "job": job, "idempotent": outcome == "already_complete"})
+
+
+@app.route("/api/automation-center/docker-worker")
+@admin_required
+def api_automation_center_docker_worker():
+    from eoms_modules.worker_bridge_service import worker_bridge
+
+    return jsonify(worker_bridge.status())
 
 
 @app.route("/api/system-health")

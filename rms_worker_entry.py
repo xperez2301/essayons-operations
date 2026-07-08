@@ -64,6 +64,36 @@ def configure_runtime():
     os.environ.setdefault("BOL_DIR", "/app/bol_files")
 
 
+def api_headers():
+    token = clean(os.environ.get("EOMS_WORKER_TOKEN"))
+    if not token:
+        raise RuntimeError("EOMS_WORKER_TOKEN is required for bridge mode.")
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+
+def api_url(path):
+    base = clean(os.environ.get("EOMS_API_URL")).rstrip("/")
+    if not base:
+        raise RuntimeError("EOMS_API_URL is required for bridge mode.")
+    if not base.lower().startswith("https://") and clean(os.environ.get("EOMS_ALLOW_HTTP")).lower() not in {"1", "true", "yes"}:
+        raise RuntimeError("EOMS_API_URL must use HTTPS.")
+    return f"{base}{path}"
+
+
+def bridge_request(method, path, **kwargs):
+    import requests
+
+    response = requests.request(
+        method,
+        api_url(path),
+        headers=api_headers(),
+        timeout=int(os.environ.get("EOMS_WORKER_HTTP_TIMEOUT", "30")),
+        **kwargs,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def chromium_smoke_test():
     configure_runtime()
     import app
@@ -116,16 +146,63 @@ def run_auto_grab_once():
 
 
 def loop_forever():
-    interval = int(os.environ.get("RMS_WORKER_INTERVAL_SECONDS", "300") or 300)
+    interval = int(os.environ.get("RMS_WORKER_INTERVAL_SECONDS", "10") or 10)
+    worker_id = clean(os.environ.get("EOMS_WORKER_ID")) or "rms-docker-worker"
+    version = clean(os.environ.get("EOMS_WORKER_VERSION")) or "FT5.2A"
+    current_job = None
+    last_job = None
     append_worker_log(
         "LOOP STARTED",
-        f"RMS Docker worker loop started. Interval {interval} seconds.",
+        f"RMS Docker worker API loop started. Poll interval {interval} seconds.",
         {"interval_seconds": interval},
     )
     while True:
-        code = run_auto_grab_once()
-        if code != 0 and clean(os.environ.get("RMS_WORKER_STOP_ON_ERROR")).lower() in {"1", "true", "yes", "on"}:
-            return code
+        bridge_request("POST", "/api/worker/heartbeat", json={
+            "worker_id": worker_id,
+            "name": "Docker RMS Worker",
+            "version": version,
+            "state": "BUSY" if current_job else "ONLINE",
+            "current_job": current_job,
+            "last_job": last_job,
+        })
+        claimed = bridge_request(
+            "GET",
+            f"/api/worker/jobs/next?worker_id={worker_id}",
+        ).get("job")
+        if claimed:
+            current_job = claimed.get("id")
+            bridge_request("POST", "/api/worker/heartbeat", json={
+                "worker_id": worker_id,
+                "name": "Docker RMS Worker",
+                "version": version,
+                "state": "BUSY",
+                "current_job": current_job,
+                "last_job": last_job,
+            })
+            try:
+                configure_runtime()
+                import app
+                max_bols = int((claimed.get("payload") or {}).get("max_bols") or os.environ.get("RMS_WORKER_MAX_BOLS", "0"))
+                result = app.rms_full_import_with_playwright(
+                    headless=app.rms_headless(True),
+                    max_bols=max_bols,
+                )
+                completion = {
+                    "worker_id": worker_id,
+                    "ok": bool(result.get("ok")),
+                    "result": result,
+                    "error": None if result.get("ok") else clean(result.get("message")),
+                }
+            except Exception as exc:
+                completion = {
+                    "worker_id": worker_id,
+                    "ok": False,
+                    "result": None,
+                    "error": str(exc)[:2000],
+                }
+            bridge_request("POST", f"/api/worker/jobs/{current_job}/complete", json=completion)
+            last_job = current_job
+            current_job = None
         time.sleep(interval)
 
 

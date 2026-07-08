@@ -37,6 +37,23 @@
         </div>
         <div id="automationNotice" class="automation-notice" hidden></div>
         <div id="dataWarning" class="automation-notice error" hidden></div>
+        <div class="worker-card docker-worker-card">
+          <div class="eoms-section-head">
+            <h4>Docker RMS Worker</h4>
+            <span id="dockerWorkerStatus" class="worker-status offline">Offline</span>
+          </div>
+          <div class="worker-meta docker-worker-meta">
+            <div><b>Version:</b> <span id="dockerWorkerVersion">--</span></div>
+            <div><b>Current Job:</b> <span id="dockerCurrentJob">None</span></div>
+            <div><b>Last Job:</b> <span id="dockerLastJob">None</span></div>
+            <div><b>Heartbeat:</b> <span id="dockerHeartbeat">Never Connected</span></div>
+            <div><b>Completed Today:</b> <span id="dockerCompletedToday">0</span></div>
+            <div><b>Average Runtime:</b> <span id="dockerAverageRuntime">--</span></div>
+          </div>
+          <div class="worker-actions">
+            <button id="runRmsAutoGrabBtn" class="run-now-btn" type="button">Run RMS Auto Grab</button>
+          </div>
+        </div>
         <div id="workersGrid" class="automation-worker-grid">
           <p>Loading workers...</p>
         </div>
@@ -48,7 +65,14 @@
           <button id="testQueueBtn" class="eoms-button queue-test-btn" type="button">Test RMS Status Job</button>
         </div>
 
-        <table class="eoms-table">
+        <div class="queue-summary-bar" aria-label="Automation queue summary">
+          <span><b id="queueQueuedCount">0</b> Queued</span>
+          <span><b id="queueRunningCount">0</b> Running</span>
+          <span><b id="queueCompletedTodayCount">0</b> Completed Today</span>
+          <span><b id="queueFailedCount">0</b> Failed</span>
+        </div>
+
+        <div class="automation-queue-panel"><table class="eoms-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -62,7 +86,7 @@
           <tbody id="queueRows">
             <tr><td colspan="6">Loading queue...</td></tr>
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <div class="eoms-card">
@@ -147,6 +171,51 @@
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
 }
+
+.docker-worker-card {
+  margin-bottom: 14px;
+  border-left: 3px solid var(--eoms-green);
+}
+
+.docker-worker-card h4 { margin: 0; }
+
+.docker-worker-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.automation-queue-panel {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.automation-queue-panel thead th {
+  position: sticky;
+  top: 0;
+  background: var(--eoms-surface);
+  z-index: 2;
+}
+
+.queue-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--eoms-border);
+  background: var(--eoms-surface-muted);
+  color: var(--eoms-muted);
+  font-size: 13px;
+}
+
+.queue-summary-bar b {
+  color: var(--eoms-text);
+  margin-right: 4px;
+}
+
+.automation-job-card { margin-bottom: 10px; }
 
 .worker-card {
   background: var(--eoms-surface-muted);
@@ -270,6 +339,10 @@
   background: #edf4ff;
   color: var(--eoms-blue-dark);
 }
+
+@media (max-width: 760px) {
+  .docker-worker-meta { grid-template-columns: 1fr; }
+}
 </style>
 
 <script>
@@ -341,6 +414,19 @@ function formatTime(value) {
   return parsed.toLocaleTimeString();
 }
 
+function formatAge(value) {
+  if (!value) return "Never Connected";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Unknown";
+
+  const seconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+}
+
 function jobLabel(job) {
   if (!job || !job.id) {
     return "--";
@@ -353,14 +439,19 @@ function renderWorkers(workers) {
   const grid = document.getElementById("workersGrid");
   if (!grid) return;
 
-  if (!workers.length) {
+  const futureWorkers = workers.filter(worker => {
+    const name = safeText(worker.name, "").trim().toLowerCase();
+    return name !== "rms worker" && name !== "docker rms worker";
+  });
+
+  if (!futureWorkers.length) {
     const empty = document.createElement("p");
-    empty.textContent = "No workers registered.";
+    empty.textContent = "No future workers registered.";
     grid.replaceChildren(empty);
     return;
   }
 
-  const cards = workers.map(worker => {
+  const cards = futureWorkers.map(worker => {
     const health = worker.health || {};
     const card = document.createElement("div");
     card.className = "worker-card";
@@ -414,6 +505,19 @@ function renderWorkers(workers) {
 function renderQueue(jobs) {
   const tbody = document.getElementById("queueRows");
   if (!tbody) return;
+
+  const today = new Date().toDateString();
+  const statusCount = status => jobs.filter(job => safeText(job.status, "").toUpperCase() === status).length;
+  const completedToday = jobs.filter(job => {
+    if (safeText(job.status, "").toUpperCase() !== "COMPLETED" || !job.finished_at) return false;
+    const finished = new Date(job.finished_at);
+    return !Number.isNaN(finished.getTime()) && finished.toDateString() === today;
+  }).length;
+
+  setText("queueQueuedCount", statusCount("QUEUED"), "0");
+  setText("queueRunningCount", statusCount("RUNNING"), "0");
+  setText("queueCompletedTodayCount", completedToday, "0");
+  setText("queueFailedCount", statusCount("FAILED"), "0");
 
   if (!jobs.length) {
     appendEmptyRow(tbody, 6, "No automation jobs yet.");
@@ -484,6 +588,23 @@ function renderDataWarning(operationalData) {
   warning.hidden = false;
 }
 
+function renderDockerWorker(data) {
+  const worker = data.worker || {};
+  const allowedStatuses = new Set(["Online", "Busy", "Offline"]);
+  const workerStatus = allowedStatuses.has(data.status) ? data.status : "Unknown";
+  const statusNode = document.getElementById("dockerWorkerStatus");
+  if (statusNode) {
+    statusNode.textContent = workerStatus;
+    statusNode.className = `worker-status ${statusClass(workerStatus)}`;
+  }
+  setText("dockerWorkerVersion", worker.version, "Not registered");
+  setText("dockerCurrentJob", worker.current_job ? `#${worker.current_job}` : "None");
+  setText("dockerLastJob", worker.last_job ? `#${worker.last_job}` : "None");
+  setText("dockerHeartbeat", formatAge(worker.last_heartbeat));
+  setText("dockerCompletedToday", data.jobs_completed_today ?? 0, "0");
+  setText("dockerAverageRuntime", data.average_runtime_seconds ? `${data.average_runtime_seconds}s` : "--");
+}
+
 async function loadAutomationCenter() {
   try {
     const health = await fetch("/api/automation-center/health").then(r => r.json());
@@ -491,6 +612,7 @@ async function loadAutomationCenter() {
     const activityData = await fetch("/api/automation-center/activity").then(r => r.json());
     const jobsData = await fetch("/api/automation/jobs").then(r => r.json());
     const operationalData = await fetch("/api/automation-center/operational-status").then(r => r.json());
+    const dockerWorkerData = await fetch("/api/automation-center/docker-worker").then(r => r.json());
 
     const workers = workersData.workers || [];
     const jobs = jobsData.jobs || [];
@@ -523,6 +645,7 @@ async function loadAutomationCenter() {
     setText("infrastructureStatus", operationalData.stores_status === "WARNING" ? "Warning" : "Online");
 
     renderDataWarning(operationalData);
+    renderDockerWorker(dockerWorkerData);
     renderWorkers(workers);
     renderQueue(jobs);
     renderActivity(activityData.activity || []);
@@ -620,12 +743,41 @@ async function createTestQueueJob() {
   }
 }
 
+async function runRmsAutoGrab() {
+  if (!window.confirm("Queue RMS Auto Grab for the Docker worker?")) return;
+  try {
+    const response = await fetch("/api/automation/jobs", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        worker: "Docker RMS Worker",
+        action: "run",
+        payload: {
+          job_type: "rms_auto_grab",
+          operator_approved: true,
+          approved_by: "automation_center"
+        },
+        run_now: false
+      })
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.message || "Unable to queue RMS Auto Grab.");
+    }
+    showAutomationNotice(result.message || "RMS Auto Grab queued.", "success");
+    await loadAutomationCenter();
+  } catch (error) {
+    showAutomationNotice(`Run RMS Auto Grab failed: ${error.message}`, "error");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   loadAutomationCenter();
   document.getElementById("testQueueBtn")?.addEventListener("click", createTestQueueJob);
   document.getElementById("pauseSchedulerBtn")?.addEventListener("click", () => controlScheduler("pause"));
   document.getElementById("resumeSchedulerBtn")?.addEventListener("click", () => controlScheduler("resume"));
   document.getElementById("runSchedulerNowBtn")?.addEventListener("click", () => controlScheduler("run_now"));
+  document.getElementById("runRmsAutoGrabBtn")?.addEventListener("click", runRmsAutoGrab);
   setInterval(loadAutomationCenter, 10000);
 });
 </script>
