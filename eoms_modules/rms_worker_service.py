@@ -218,6 +218,25 @@ except Exception as exc:
 
             if not parsed.get("ok"):
                 result = parsed.get("result") or {}
+                if result.get("status") == "BROWSER LAUNCH ERROR":
+                    self._status = "BROWSER LAUNCH ERROR"
+                    self.set_error(clean(result.get("message")) or "RMS Auto Grab browser launch failed.")
+
+                    failed_event = self.log_worker_exception(
+                        "rms_worker_browser_launch_error",
+                        "BROWSER LAUNCH ERROR",
+                        clean(result.get("message")) or "RMS Auto Grab browser launch failed.",
+                        {
+                            "error": clean(result.get("message"))[:1800],
+                            "diagnostic": result.get("diagnostic") or {},
+                            "errors": result.get("errors") or [],
+                            "stderr": stderr[-1800:],
+                            "stdout": stdout[-800:],
+                            "raw_result": result,
+                        },
+                    )
+                    failed_event["details"]["browser_close"] = self.close_edge_debug_browser()
+                    return failed_event
                 raise RuntimeError(parsed.get("error") or result.get("message") or "RMS Auto Grab returned ok=false.")
 
             result = parsed.get("result") or {}

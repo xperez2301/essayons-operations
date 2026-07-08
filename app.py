@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import traceback
+import getpass
 from eoms_modules.database_validator import DatabaseValidator, validate_records
 from eoms_modules.legacy_rms_repair import (
     LegacyRMSRepair,
@@ -796,6 +797,41 @@ def install_playwright_system_deps():
     """Install Linux shared libraries needed by Chromium on fresh App Service workers."""
     return run_playwright_install_command(["install-deps", "chromium"], timeout=600)
 
+def stderr_safe(value, limit=1200):
+    text = clean(value)
+    text = re.sub(r"[\r\n\t]+", " ", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text[:limit]
+
+def rms_playwright_executable_path(playwright=None):
+    try:
+        if playwright is not None:
+            return clean(playwright.chromium.executable_path)
+    except Exception as exc:
+        return f"unavailable: {stderr_safe(exc, 200)}"
+    return "unavailable"
+
+def rms_runtime_diagnostics(playwright=None, launch_error=None):
+    browser_path = clean(os.environ.get("PLAYWRIGHT_BROWSERS_PATH"))
+    diag = {
+        "IS_AZURE": bool(IS_AZURE),
+        "RMS_HEADLESS": str(rms_headless(True)).lower(),
+        "RMS_BROWSER": rms_browser_choice(),
+        "PLAYWRIGHT_BROWSERS_PATH": browser_path,
+        "executable_path": rms_playwright_executable_path(playwright),
+        "current_user": stderr_safe(getpass.getuser(), 200),
+        "/home/playwright_exists": Path("/home/playwright").exists(),
+        "/home/eoms_data_exists": Path("/home/eoms_data").exists(),
+    }
+    if launch_error:
+        diag["launch_error"] = stderr_safe(launch_error, 1800)
+    return diag
+
+def print_rms_runtime_diagnostics(playwright=None, launch_error=None):
+    diag = rms_runtime_diagnostics(playwright, launch_error)
+    print("[RMS Auto Grab Diagnostics] " + json.dumps(diag, sort_keys=True), file=sys.stderr)
+    return diag
+
 def is_missing_browser_binary(message):
     return "Executable doesn't exist" in message or "please run playwright install" in message
 
@@ -816,15 +852,20 @@ RMS_LINUX_SAFE_CHROMIUM_ARGS = [
     "--disable-dev-shm-usage",
     "--disable-gpu",
     "--disable-setuid-sandbox",
-    "--single-process",
+    "--disable-software-rasterizer",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-sync",
 ]
 
 def launch_chromium_with_repair(playwright, headless=True):
+    print_rms_runtime_diagnostics(playwright)
     print(f"[RMS Auto Grab] launch_chromium_with_repair: headless={headless} args={RMS_LINUX_SAFE_CHROMIUM_ARGS}", file=sys.stderr)
     try:
         return playwright.chromium.launch(headless=headless, args=RMS_LINUX_SAFE_CHROMIUM_ARGS)
     except Exception as exc:
         message = str(exc)
+        print_rms_runtime_diagnostics(playwright, launch_error=message)
         print(f"[RMS Auto Grab] chromium.launch failed: {message[:500]}", file=sys.stderr)
         if not is_missing_browser_binary(message) and not is_missing_browser_deps(message):
             raise
@@ -842,10 +883,12 @@ def launch_persistent_context_with_repair(playwright, **kwargs):
     fallback paths in launch_rms_browser_context (reached whenever the branded
     chrome/msedge channel isn't installed on the host, which is the normal case
     on a fresh Azure App Service worker)."""
+    print_rms_runtime_diagnostics(playwright)
     try:
         return playwright.chromium.launch_persistent_context(**kwargs)
     except Exception as exc:
         message = str(exc)
+        print_rms_runtime_diagnostics(playwright, launch_error=message)
         print(f"[RMS Auto Grab] launch_persistent_context failed: {message[:500]}", file=sys.stderr)
         if not is_missing_browser_binary(message) and not is_missing_browser_deps(message):
             raise
@@ -857,7 +900,9 @@ def launch_persistent_context_with_repair(playwright, **kwargs):
         return playwright.chromium.launch_persistent_context(**kwargs)
 
 def rms_browser_choice():
-    # Default RMS automation to Microsoft Edge using the persistent EOMS profile.
+    if IS_AZURE:
+        return "chromium"
+    # Default local RMS automation to Microsoft Edge using the persistent EOMS profile.
     # Override with RMS_BROWSER=chrome, chromium, or cdp if needed.
     return clean(os.environ.get("RMS_BROWSER") or "edge").lower()
 
@@ -936,7 +981,10 @@ def launch_rms_browser_context(playwright, headless=True):
     lock while it is open.
     """
     choice = rms_browser_choice()
+    if IS_AZURE:
+        headless = True
     print(f"[RMS Auto Grab] launch_rms_browser_context: choice={choice} headless={headless} IS_AZURE={IS_AZURE}", file=sys.stderr)
+    print_rms_runtime_diagnostics(playwright)
     common_kwargs = {
         "user_agent": RMS_BROWSER_USER_AGENT,
         "viewport": {"width": 1366, "height": 768},
@@ -1143,6 +1191,8 @@ def close_rms_browser(browser, context):
         pass
 
 def rms_headless(default=True):
+    if IS_AZURE:
+        return True
     value = clean(os.environ.get("RMS_HEADLESS"))
     if value == "":
         # Azure App Service (Linux) workers have no display server, so a headed
@@ -4055,12 +4105,14 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 reused_page = find_existing_rms_page(context)
             page = reused_page if reused_page is not None else context.new_page()
         except Exception as e:
+            diagnostic = print_rms_runtime_diagnostics(p, launch_error=e)
+            diagnostic_summary = "; ".join(f"{key}={value}" for key, value in diagnostic.items())
             print(f"[RMS Auto Grab] Browser launch failed: {str(e)[:500]}", file=sys.stderr)
             close_rms_browser(browser, context)
             return {
                 "ok": False,
                 "status": "BROWSER LAUNCH ERROR",
-                "message": f"RMS Auto Grab could not launch the browser: {str(e)[:300]}",
+                "message": "RMS Auto Grab could not launch Chromium. Diagnostic: " + stderr_safe(diagnostic_summary, 1800),
                 "imported": 0,
                 "updated": 0,
                 "skipped": 0,
@@ -4068,7 +4120,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 "bol_count": 0,
                 "found": 0,
                 "failed": 1,
-                "errors": [str(e)[:300]],
+                "diagnostic": diagnostic,
+                "errors": [stderr_safe(e, 800)],
             }
 
         try:
