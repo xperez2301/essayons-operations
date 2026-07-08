@@ -1,0 +1,406 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "User Administration" %}
+{% set module_title = "Admin Workspace" %}
+
+{% block topbar_actions %}
+  <span class="eoms-status eoms-status-success">Admin Only</span>
+{% endblock %}
+
+{% block head %}
+<style>
+  .user-admin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .user-admin-metric {
+    background: rgba(11, 18, 32, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .user-admin-metric span,
+  .user-admin-help,
+  .user-admin-meta {
+    color: #94a3b8;
+    font-size: 0.88rem;
+  }
+
+  .user-admin-metric strong {
+    display: block;
+    color: #f8fafc;
+    font-size: 1.8rem;
+    line-height: 1;
+    margin-top: 8px;
+  }
+
+  .user-admin-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .user-admin-form {
+    display: grid;
+    gap: 12px;
+  }
+
+  .user-admin-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .user-admin-form label,
+  .user-admin-checks legend {
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .user-admin-form input,
+  .user-admin-form select,
+  .user-admin-form textarea {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.82);
+    color: #f8fafc;
+    padding: 10px 12px;
+  }
+
+  .user-admin-form textarea {
+    min-height: 84px;
+    resize: vertical;
+  }
+
+  .user-admin-checks {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .user-admin-check-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .user-admin-check-grid label,
+  .user-admin-active {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+
+  .user-admin-check-grid input,
+  .user-admin-active input {
+    width: 18px;
+    min-height: 18px;
+  }
+
+  .user-admin-driver-fields {
+    display: none;
+    gap: 12px;
+  }
+
+  [data-role-form].is-driver .user-admin-driver-fields {
+    display: grid;
+  }
+
+  .user-admin-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .user-admin-row {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.62);
+    overflow: hidden;
+  }
+
+  .user-admin-row summary {
+    align-items: center;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) 130px 120px 110px;
+    gap: 12px;
+    list-style: none;
+    padding: 14px;
+  }
+
+  .user-admin-row summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .user-admin-row strong {
+    color: #f8fafc;
+  }
+
+  .user-admin-status {
+    border-radius: 999px;
+    display: inline-flex;
+    justify-content: center;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .user-admin-status.active {
+    background: rgba(34, 197, 94, 0.14);
+    color: #86efac;
+  }
+
+  .user-admin-status.disabled {
+    background: rgba(248, 113, 113, 0.14);
+    color: #fecaca;
+  }
+
+  .user-admin-editor {
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 14px;
+  }
+
+  .user-admin-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .user-admin-notice {
+    border: 1px solid rgba(59, 130, 246, 0.28);
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #bfdbfe;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 980px) {
+    .user-admin-grid,
+    .user-admin-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .user-admin-row summary {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .user-admin-field-grid,
+    .user-admin-check-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set status_messages = {
+  "created": "User created.",
+  "updated": "User updated.",
+  "disabled": "User disabled.",
+  "enabled": "User enabled.",
+  "duplicate": "That username already exists.",
+  "missing": "Username and temporary password are required.",
+  "notfound": "User was not found.",
+  "self": "Your own active admin session was protected.",
+  "lastadmin": "At least one active Admin must remain available."
+} %}
+
+{% if status and status_messages.get(status) %}
+  <div class="user-admin-notice">{{ status_messages.get(status) }}</div>
+{% endif %}
+
+<section class="user-admin-grid" aria-label="User administration summary">
+  <div class="user-admin-metric"><span>Total Users</span><strong>{{ summary.total }}</strong></div>
+  <div class="user-admin-metric"><span>Active Users</span><strong>{{ summary.active }}</strong></div>
+  <div class="user-admin-metric"><span>Drivers</span><strong>{{ summary.drivers }}</strong></div>
+  <div class="user-admin-metric"><span>Disabled</span><strong>{{ summary.disabled }}</strong></div>
+</section>
+
+<div class="user-admin-layout">
+  <section class="panel import-panel">
+    <h3>Add User</h3>
+    <p class="user-admin-help">Create operational users and link driver logins to a single driver profile.</p>
+
+    <form class="user-admin-form" method="post" action="/user-admin/create" data-role-form>
+      <div>
+        <label for="create-display-name">Display Name</label>
+        <input id="create-display-name" name="display_name" autocomplete="name" placeholder="Full name">
+      </div>
+      <div>
+        <label for="create-username">Username</label>
+        <input id="create-username" name="username" autocomplete="username" required>
+      </div>
+      <div>
+        <label for="create-password">Temporary Password</label>
+        <input id="create-password" name="password" type="password" autocomplete="new-password" required>
+      </div>
+      <div>
+        <label for="create-role">Role</label>
+        <select id="create-role" name="role" data-role-select>
+          {% for role in roles %}
+            <option value="{{ role }}" {% if role == "Dispatcher" %}selected{% endif %}>{{ role }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <fieldset class="user-admin-checks">
+        <legend>City Access</legend>
+        <div class="user-admin-check-grid">
+          {% for city in city_options %}
+            <label><input type="checkbox" name="assigned_cities" value="{{ city }}" {% if city == "San Antonio" %}checked{% endif %}> {{ city }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="user-admin-driver-fields">
+        <div>
+          <label for="create-phone">Driver Phone</label>
+          <input id="create-phone" name="phone" type="tel" autocomplete="tel">
+        </div>
+        <div>
+          <label for="create-license">Driver License</label>
+          <input id="create-license" name="driver_license">
+        </div>
+        <div>
+          <label for="create-emergency">Emergency Contact</label>
+          <input id="create-emergency" name="emergency_contact">
+        </div>
+        <div>
+          <label for="create-notes">Driver Notes</label>
+          <textarea id="create-notes" name="driver_notes"></textarea>
+        </div>
+      </div>
+
+      <button class="primary-btn" type="submit">Create User</button>
+    </form>
+  </section>
+
+  <section class="panel import-panel">
+    <h3>Users</h3>
+    <div class="user-admin-list">
+      {% for user in users %}
+        {% set key = user.id or user.username %}
+        {% set assigned = user.assigned_cities or [] %}
+        {% set row_index = loop.index %}
+        <details class="user-admin-row">
+          <summary>
+            <div>
+              <strong>{{ user.display_name or user.username }}</strong>
+              <div class="user-admin-meta">{{ user.username }}</div>
+            </div>
+            <div>{{ user.role or "Dispatcher" }}</div>
+            <div class="user-admin-meta">{{ assigned|join(", ") }}</div>
+            <span class="user-admin-status {{ 'active' if user.active is not sameas false else 'disabled' }}">
+              {{ "Active" if user.active is not sameas false else "Disabled" }}
+            </span>
+          </summary>
+
+          <div class="user-admin-editor">
+            <form class="user-admin-form {% if user.role == 'Driver' %}is-driver{% endif %}" method="post" action="/user-admin/update/{{ key }}" data-role-form>
+              <div class="user-admin-field-grid">
+                <div>
+                  <label for="display-{{ row_index }}">Display Name</label>
+                  <input id="display-{{ row_index }}" name="display_name" value="{{ user.display_name or '' }}">
+                </div>
+                <div>
+                  <label for="role-{{ row_index }}">Role</label>
+                  <select id="role-{{ row_index }}" name="role" data-role-select>
+                    {% for role in roles %}
+                      <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label for="password-{{ row_index }}">New Password</label>
+                  <input id="password-{{ row_index }}" name="password" type="password" autocomplete="new-password" placeholder="Leave blank to keep current">
+                </div>
+                <label class="user-admin-active">
+                  <input type="checkbox" name="active" value="1" {% if user.active is not sameas false %}checked{% endif %}>
+                  Active Login
+                </label>
+              </div>
+
+              <fieldset class="user-admin-checks">
+                <legend>City Access</legend>
+                <div class="user-admin-check-grid">
+                  {% for city in city_options %}
+                    <label><input type="checkbox" name="assigned_cities" value="{{ city }}" {% if city in assigned %}checked{% endif %}> {{ city }}</label>
+                  {% endfor %}
+                </div>
+              </fieldset>
+
+              <div class="user-admin-driver-fields">
+                <div class="user-admin-field-grid">
+                  <div>
+                    <label for="phone-{{ row_index }}">Driver Phone</label>
+                    <input id="phone-{{ row_index }}" name="phone" type="tel" value="{{ user.phone or '' }}">
+                  </div>
+                  <div>
+                    <label for="license-{{ row_index }}">Driver License</label>
+                    <input id="license-{{ row_index }}" name="driver_license" value="{{ user.driver_license or '' }}">
+                  </div>
+                  <div>
+                    <label for="emergency-{{ row_index }}">Emergency Contact</label>
+                    <input id="emergency-{{ row_index }}" name="emergency_contact" value="{{ user.emergency_contact or '' }}">
+                  </div>
+                  <div>
+                    <label for="notes-{{ row_index }}">Driver Notes</label>
+                    <textarea id="notes-{{ row_index }}" name="driver_notes">{{ user.driver_notes or '' }}</textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="user-admin-actions">
+                <button class="primary-btn" type="submit">Save User</button>
+                <button class="secondary-btn" type="submit" formaction="/user-admin/toggle/{{ key }}" formmethod="post" formnovalidate>
+                  {{ "Disable" if user.active is not sameas false else "Enable" }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </details>
+      {% else %}
+        <p class="user-admin-help">No users have been created yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function syncRoleForm(form) {
+  const select = form.querySelector("[data-role-select]");
+  if (!select) {
+    return;
+  }
+  form.classList.toggle("is-driver", select.value === "Driver");
+}
+
+document.querySelectorAll("[data-role-form]").forEach((form) => {
+  syncRoleForm(form);
+  const select = form.querySelector("[data-role-select]");
+  if (select) {
+    select.addEventListener("change", () => syncRoleForm(form));
+  }
+});
+</script>
+{% endblock %}

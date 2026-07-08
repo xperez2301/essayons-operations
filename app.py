@@ -5080,6 +5080,199 @@ def api_export_data():
     )
 
 
+USER_ADMIN_ROLES = ("Admin", "Operations Manager", "Dispatcher", "Driver")
+USER_ADMIN_CITY_OPTIONS = ("All", "San Antonio", "Houston", "Dallas", "Austin", "Killeen", "Waco", "Corpus Christi", "South Texas")
+DRIVER_PROFILE_FIELDS = ("phone", "driver_license", "emergency_contact", "driver_notes")
+
+
+def normalize_user_admin_role(role):
+    role = clean(role) or "Dispatcher"
+    return role if role in USER_ADMIN_ROLES else "Dispatcher"
+
+
+def normalize_user_admin_cities(role, selected):
+    cities = [clean(city) for city in selected if clean(city) in USER_ADMIN_CITY_OPTIONS]
+    if not cities:
+        cities = ["San Antonio"]
+    if role not in {"Admin", "Operations Manager"} and "All" in cities:
+        cities = [city for city in cities if city != "All"] or ["San Antonio"]
+    return cities
+
+
+def user_admin_record_key(user):
+    return clean(user.get("id")) or clean(user.get("username"))
+
+
+def find_user_admin_record(users, user_id):
+    lookup = clean(user_id)
+    return next(
+        (
+            user for user in users
+            if clean(user.get("id")) == lookup or clean(user.get("username")) == lookup
+        ),
+        None,
+    )
+
+
+def active_admins_except(users, target=None):
+    target_key = user_admin_record_key(target or {})
+    return [
+        user for user in users
+        if user.get("role") == "Admin"
+        and user.get("active", True)
+        and user_admin_record_key(user) != target_key
+    ]
+
+
+def user_admin_summary(users):
+    return {
+        "total": len(users),
+        "active": sum(1 for user in users if user.get("active", True)),
+        "drivers": sum(1 for user in users if user.get("role") == "Driver"),
+        "disabled": sum(1 for user in users if not user.get("active", True)),
+    }
+
+
+def apply_user_admin_profile(user, form):
+    role = normalize_user_admin_role(form.get("role"))
+    user["display_name"] = clean(form.get("display_name")) or clean(user.get("display_name")) or clean(user.get("username"))
+    user["role"] = role
+    user["assigned_cities"] = normalize_user_admin_cities(role, form.getlist("assigned_cities"))
+    if role == "Driver":
+        for field in DRIVER_PROFILE_FIELDS:
+            user[field] = clean(form.get(field))
+    else:
+        for field in DRIVER_PROFILE_FIELDS:
+            user.pop(field, None)
+    return user
+
+
+def user_admin_status_redirect(status):
+    return redirect(f"/user-admin?status={status}")
+
+
+@app.route("/user-admin")
+@admin_required
+def user_admin_workspace():
+    users = users_payload().get("users", [])
+    users = sorted(users, key=lambda user: clean(user.get("username")).lower())
+    return render_template(
+        "user_admin.html",
+        users=users,
+        roles=USER_ADMIN_ROLES,
+        city_options=USER_ADMIN_CITY_OPTIONS,
+        summary=user_admin_summary(users),
+        status=clean(request.args.get("status")),
+    )
+
+
+@app.route("/user-admin/create", methods=["POST"])
+@admin_required
+def user_admin_create():
+    data = users_payload()
+    users = data.get("users", [])
+    username = clean(request.form.get("username")).lower()
+    password = request.form.get("password") or ""
+
+    if not username or not password:
+        return user_admin_status_redirect("missing")
+    if any(clean(user.get("username")).lower() == username for user in users):
+        return user_admin_status_redirect("duplicate")
+
+    now = datetime.now().isoformat(timespec="seconds")
+    user = {
+        "id": str(uuid4()),
+        "username": username,
+        "password": hash_password(password),
+        "active": True,
+        "created_at": now,
+        "created_by": session.get("username"),
+    }
+    apply_user_admin_profile(user, request.form)
+    users.append(user)
+    data["users"] = users
+    save_users_payload(data)
+    audit("Create User", {"username": username, "role": user.get("role"), "assigned_cities": user.get("assigned_cities", [])})
+    return user_admin_status_redirect("created")
+
+
+@app.route("/user-admin/update/<user_id>", methods=["POST"])
+@admin_required
+def user_admin_update(user_id):
+    data = users_payload()
+    users = data.get("users", [])
+    user = find_user_admin_record(users, user_id)
+    if not user:
+        return user_admin_status_redirect("notfound")
+
+    current = current_user() or {}
+    wants_active = bool(request.form.get("active"))
+    new_role = normalize_user_admin_role(request.form.get("role"))
+    is_self = user_admin_record_key(user) == user_admin_record_key(current) or clean(user.get("username")) == clean(current.get("username"))
+    removing_last_admin = (
+        user.get("role") == "Admin"
+        and user.get("active", True)
+        and (new_role != "Admin" or not wants_active)
+        and not active_admins_except(users, user)
+    )
+    if is_self and not wants_active:
+        return user_admin_status_redirect("self")
+    if removing_last_admin:
+        return user_admin_status_redirect("lastadmin")
+
+    apply_user_admin_profile(user, request.form)
+    user["active"] = wants_active
+    new_password = request.form.get("password") or ""
+    if new_password:
+        user["password"] = hash_password(new_password)
+    now = datetime.now().isoformat(timespec="seconds")
+    user["updated_at"] = now
+    user["updated_by"] = session.get("username")
+    if not wants_active:
+        user["disabled_at"] = user.get("disabled_at") or now
+        user["disabled_by"] = user.get("disabled_by") or session.get("username")
+    else:
+        user.pop("disabled_at", None)
+        user.pop("disabled_by", None)
+
+    save_users_payload(data)
+    audit("Update User", {"username": user.get("username"), "role": user.get("role"), "active": user.get("active", True)})
+    return user_admin_status_redirect("updated")
+
+
+@app.route("/user-admin/toggle/<user_id>", methods=["POST"])
+@admin_required
+def user_admin_toggle(user_id):
+    data = users_payload()
+    users = data.get("users", [])
+    user = find_user_admin_record(users, user_id)
+    if not user:
+        return user_admin_status_redirect("notfound")
+
+    current = current_user() or {}
+    is_self = user_admin_record_key(user) == user_admin_record_key(current) or clean(user.get("username")) == clean(current.get("username"))
+    next_active = not user.get("active", True)
+    if is_self and not next_active:
+        return user_admin_status_redirect("self")
+    if user.get("role") == "Admin" and user.get("active", True) and not active_admins_except(users, user):
+        return user_admin_status_redirect("lastadmin")
+
+    now = datetime.now().isoformat(timespec="seconds")
+    user["active"] = next_active
+    user["updated_at"] = now
+    user["updated_by"] = session.get("username")
+    if next_active:
+        user.pop("disabled_at", None)
+        user.pop("disabled_by", None)
+    else:
+        user["disabled_at"] = now
+        user["disabled_by"] = session.get("username")
+
+    save_users_payload(data)
+    audit("Toggle User Active", {"username": user.get("username"), "active": next_active})
+    return user_admin_status_redirect("enabled" if next_active else "disabled")
+
+
 @app.route("/users")
 @admin_required
 def users_admin():

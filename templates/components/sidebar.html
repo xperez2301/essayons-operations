@@ -17,6 +17,9 @@
     ("Database", "/database-center", ""),
     ("Settings", "/settings", "")
   ] %}
+  {% if session.get("role") == "Admin" %}
+    {% set nav_items = nav_items + [("User Admin", "/user-admin", "")] %}
+  {% endif %}
 {% endif %}
 
 <aside class="eoms-sidebar" data-eoms-sidebar>
