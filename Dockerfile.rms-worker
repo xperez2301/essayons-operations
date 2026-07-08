@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/playwright/python:v1.59.0-jammy
+
+ENV PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    RMS_BROWSER=chromium \
+    RMS_HEADLESS=true \
+    RMS_WORKER_MODE=run \
+    DATA_DIR=/app/data \
+    UPLOAD_DIR=/app/uploads \
+    BOL_DIR=/app/bol_files
+
+WORKDIR /app
+
+COPY requirements-rms-worker.txt .
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements-rms-worker.txt \
+    && python -m playwright install chromium
+
+COPY . .
+
+RUN mkdir -p /app/data /app/uploads /app/bol_files /app/diagnostics
+
+ENTRYPOINT ["python", "rms_worker_entry.py"]

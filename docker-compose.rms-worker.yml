@@ -1,0 +1,20 @@
+services:
+  rms-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.rms-worker
+    image: eoms-rms-worker
+    env_file:
+      - .env
+    environment:
+      RMS_BROWSER: chromium
+      RMS_HEADLESS: "true"
+      RMS_WORKER_MODE: run
+      DATA_DIR: /app/data
+      UPLOAD_DIR: /app/uploads
+      BOL_DIR: /app/bol_files
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./bol_files:/app/bol_files
+      - ./diagnostics:/app/diagnostics
