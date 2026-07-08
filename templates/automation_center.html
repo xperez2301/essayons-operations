@@ -1,785 +1,126 @@
 {% extends "layouts/eoms_base.html" %}
 
 {% set page_title = "Automation Center" %}
-{% set module_title = "Worker Command" %}
+{% set module_title = "Local RMS Automation" %}
 
 {% block topbar_actions %}
   <a class="eoms-button eoms-button-secondary" href="/dashboard">Dashboard</a>
 {% endblock %}
 
 {% block content %}
-
 <div class="eoms-stack">
   <section class="eoms-command-hero">
     <div>
       <span class="eoms-module-title">Automation</span>
       <h2>Automation Center</h2>
-      <p>Worker command center for RMS, GPS7000, SMS, Email, Scheduler, and Health Monitor.</p>
+      <p>RMS Auto Grab runs locally in the operator's visible Edge window.</p>
     </div>
-    <span class="eoms-status eoms-status-warning">Live Controls</span>
+    <span id="syncStatus" class="eoms-status eoms-status-warning">Loading</span>
   </section>
 
   <section class="eoms-summary-grid">
-    <div class="eoms-summary-card"><span>Center Status</span><strong id="centerStatus">Loading</strong><small>automation health</small></div>
-    <div class="eoms-summary-card"><span>Workers</span><strong id="workerCount">0</strong><small>registered</small></div>
-    <div class="eoms-summary-card"><span>Queue Depth</span><strong id="queueDepth">0</strong><small>jobs waiting</small></div>
-    <div class="eoms-summary-card"><span>Latest Job</span><strong id="latestJob">--</strong><small>queue activity</small></div>
-    <div class="eoms-summary-card"><span>Open Exceptions</span><strong id="openExceptions">0</strong><small>operational</small></div>
+    <div class="eoms-summary-card">
+      <span>Last RMS Run</span>
+      <strong id="lastRmsRun">Never</strong>
+      <small>local visible worker</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Last Result</span>
+      <strong id="lastResult">No result</strong>
+      <small id="lastResultMessage">Waiting for first run</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Imported BOL Count</span>
+      <strong id="importedBolCount">0</strong>
+      <small>most recent run</small>
+    </div>
+    <div class="eoms-summary-card">
+      <span>Last Sync Time</span>
+      <strong id="lastSyncTime">Never</strong>
+      <small>result received by EOMS</small>
+    </div>
   </section>
 
-  <section class="eoms-command-grid">
-    <div class="eoms-stack">
-
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Automation Workers</h3>
-          <span id="lastChecked">Loading...</span>
-        </div>
-        <div id="automationNotice" class="automation-notice" hidden></div>
-        <div id="dataWarning" class="automation-notice error" hidden></div>
-        <div class="worker-card docker-worker-card">
-          <div class="eoms-section-head">
-            <h4>Docker RMS Worker</h4>
-            <span id="dockerWorkerStatus" class="worker-status offline">Offline</span>
-          </div>
-          <div class="worker-meta docker-worker-meta">
-            <div><b>Version:</b> <span id="dockerWorkerVersion">--</span></div>
-            <div><b>Current Job:</b> <span id="dockerCurrentJob">None</span></div>
-            <div><b>Last Job:</b> <span id="dockerLastJob">None</span></div>
-            <div><b>Heartbeat:</b> <span id="dockerHeartbeat">Never Connected</span></div>
-            <div><b>Completed Today:</b> <span id="dockerCompletedToday">0</span></div>
-            <div><b>Average Runtime:</b> <span id="dockerAverageRuntime">--</span></div>
-          </div>
-          <div class="worker-actions">
-            <button id="runRmsAutoGrabBtn" class="run-now-btn" type="button">Run RMS Auto Grab</button>
-          </div>
-        </div>
-        <div id="workersGrid" class="automation-worker-grid">
-          <p>Loading workers...</p>
-        </div>
-      </div>
-
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Automation Queue</h3>
-          <button id="testQueueBtn" class="eoms-button queue-test-btn" type="button">Test RMS Status Job</button>
-        </div>
-
-        <div class="queue-summary-bar" aria-label="Automation queue summary">
-          <span><b id="queueQueuedCount">0</b> Queued</span>
-          <span><b id="queueRunningCount">0</b> Running</span>
-          <span><b id="queueCompletedTodayCount">0</b> Completed Today</span>
-          <span><b id="queueFailedCount">0</b> Failed</span>
-        </div>
-
-        <div class="automation-queue-panel"><table class="eoms-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Worker</th>
-              <th>Action</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Error</th>
-            </tr>
-          </thead>
-          <tbody id="queueRows">
-            <tr><td colspan="6">Loading queue...</td></tr>
-          </tbody>
-        </table></div>
-      </div>
-
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Recent Automation Activity</h3>
-          <span>Live refresh</span>
-        </div>
-
-        <table class="eoms-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Worker</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody id="activityRows">
-            <tr><td colspan="4">Loading activity...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
+  <section class="eoms-card">
+    <div class="eoms-section-head">
+      <h3>Latest RMS Result</h3>
+      <span>Daily via Windows Task Scheduler</span>
     </div>
-
-    <aside class="eoms-stack">
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Automation Infrastructure</h3>
-          <span id="infrastructureStatus">Online</span>
-        </div>
-        <p class="alert-green">&#9679; Automation Center service active</p>
-        <p class="alert-green">&#9679; RMS Worker registered</p>
-        <p class="alert-green">&#9679; Queue API active</p>
-        <p class="alert-yellow">&#9679; Scheduler foundation locked</p>
-        <p class="alert-yellow">&#9679; GPS7000 integration locked</p>
-      </div>
-
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Operational Status</h3>
-        </div>
-        <p><b>Worker State:</b> <span id="workerState">--</span></p>
-        <p><b>Worker Health:</b> <span id="workerHealth">--</span></p>
-        <p><b>Queue Depth:</b> <span id="queueDepthDetail">0</span></p>
-        <p><b>Latest Job:</b> <span id="latestJobDetail">--</span></p>
-        <p><b>Latest Failure:</b> <span id="latestFailure">None</span></p>
-        <p><b>Exception Count:</b> <span id="exceptionCount">0</span></p>
-        <p><b>Scheduler Status:</b> <span id="schedulerHealth">--</span></p>
-        <p><b>Scheduler Mode:</b> <span id="schedulerMode">--</span></p>
-        <p><b>Scheduler Running:</b> <span id="schedulerRunning">--</span></p>
-        <p><b>Interval:</b> <span id="schedulerInterval">--</span></p>
-        <p><b>Last Run:</b> <span id="schedulerLastRun">--</span></p>
-        <p><b>Next Run:</b> <span id="schedulerNextRun">--</span></p>
-        <div class="worker-actions">
-          <button id="pauseSchedulerBtn" type="button">Pause</button>
-          <button id="resumeSchedulerBtn" type="button">Resume</button>
-          <button id="runSchedulerNowBtn" class="run-now-btn" type="button">Run Now</button>
-        </div>
-        <p><b>RMS Closeouts:</b> <span id="rmsCloseouts">0</span></p>
-        <p><b>Resolved Today:</b> <span id="resolvedToday">0</span></p>
-        <p><b>Last Worker Run:</b> <span id="lastWorkerRun">--</span></p>
-      </div>
-
-      <div class="eoms-card">
-        <div class="eoms-section-head">
-          <h3>Build 3 Mission</h3>
-        </div>
-        <p>&#128993; Run Now worker control</p>
-        <p>&#128308; Restart worker control</p>
-        <p>&#128308; View worker logs</p>
-        <p>&#128308; Permission validation</p>
-        <p>&#128308; Error handling</p>
-      </div>
-    </aside>
+    <div class="sync-details">
+      <p><b>BOLs Found:</b> <span id="bolsFound">0</span></p>
+      <p><b>Stores Checked:</b> <span id="storesChecked">0</span></p>
+      <p><b>Updated:</b> <span id="updatedCount">0</span></p>
+      <p><b>Error Message:</b> <span id="errorMessage">None</span></p>
+    </div>
+    <div id="syncNotice" class="automation-notice" hidden></div>
   </section>
 </div>
 
 <style>
-.automation-worker-grid {
+.sync-details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
-
-.docker-worker-card {
-  margin-bottom: 14px;
-  border-left: 3px solid var(--eoms-green);
+.sync-details p {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  background: rgba(19, 15, 12, .52);
 }
-
-.docker-worker-card h4 { margin: 0; }
-
-.docker-worker-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px 16px;
-}
-
-.automation-queue-panel {
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 6px;
-}
-
-.automation-queue-panel thead th {
-  position: sticky;
-  top: 0;
-  background: var(--eoms-surface);
-  z-index: 2;
-}
-
-.queue-summary-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  margin-bottom: 10px;
-  padding: 9px 12px;
-  border: 1px solid var(--eoms-border);
-  background: var(--eoms-surface-muted);
-  color: var(--eoms-muted);
-  font-size: 13px;
-}
-
-.queue-summary-bar b {
-  color: var(--eoms-text);
-  margin-right: 4px;
-}
-
-.automation-job-card { margin-bottom: 10px; }
-
-.worker-card {
-  background: var(--eoms-surface-muted);
-  border: 1px solid var(--eoms-border);
-  border-radius: var(--eoms-radius);
-  padding: 16px;
-}
-
-.worker-card h4 {
-  margin: 0 0 8px;
-  color: var(--eoms-text);
-  font-size: 18px;
-}
-
-.worker-status {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-weight: bold;
-  font-size: 12px;
-  background: var(--eoms-neutral-bg);
-}
-
-.worker-status.ready,
-.worker-status.online,
-.worker-status.healthy,
-.worker-status.completed {
-  color: #67e87a;
-}
-
-.worker-status.error,
-.worker-status.failed,
-.worker-status.offline,
-.worker-status.data-warning {
-  color: #ff6767;
-}
-
-.worker-status.queued,
-.worker-status.running,
-.worker-status.starting-edge,
-.worker-status.edge-debug-started,
-.worker-status.waiting-for-config {
-  color: #f4c542;
-}
-
-.worker-meta {
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--eoms-muted);
-}
-
-.worker-actions {
-  margin-top: 14px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.worker-actions button,
-.queue-test-btn {
-  border: 1px solid var(--eoms-border);
-  background: var(--eoms-surface);
-  color: var(--eoms-text);
-  border-radius: var(--eoms-radius);
-  padding: 7px 10px;
-}
-
-.worker-actions button:not(:disabled),
-.queue-test-btn {
-  cursor: pointer;
-}
-
-.worker-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.worker-actions button.run-now-btn {
-  border-color: #b8dec9;
-  background: var(--eoms-green-bg);
-  color: var(--eoms-green);
-}
-
 .automation-notice {
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--eoms-border);
-  background: var(--eoms-surface-muted);
-  color: var(--eoms-text);
-  font-size: 14px;
-}
-
-.automation-notice.success {
-  border-color: rgba(103,232,122,0.45);
-  color: #67e87a;
-}
-
-.automation-notice.error {
-  border-color: rgba(255,103,103,0.45);
-  color: #ff6767;
-}
-
-.alert-green {
-  color: var(--eoms-green);
-}
-
-.alert-yellow {
-  color: var(--eoms-amber);
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  background: #edf4ff;
-  color: var(--eoms-blue-dark);
-}
-
-@media (max-width: 760px) {
-  .docker-worker-meta { grid-template-columns: 1fr; }
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--brick2);
+  border-radius: 10px;
+  color: #ffd3ca;
+  background: rgba(159, 59, 45, .18);
 }
 </style>
 
 <script>
-function showAutomationNotice(message, type = "success") {
-  const notice = document.getElementById("automationNotice");
-  if (!notice) return;
-
-  notice.textContent = message;
-  notice.className = `automation-notice ${type}`;
-  notice.hidden = false;
-
-  window.setTimeout(() => {
-    notice.hidden = true;
-  }, 6000);
-}
-
-function safeText(value, fallback = "--") {
-  if (value === null || value === undefined || value === "") {
-    return fallback;
-  }
-
-  return String(value);
-}
-
-function statusClass(value) {
-  return safeText(value, "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "unknown";
-}
-
 function setText(id, value, fallback = "--") {
-  const node = document.getElementById(id);
-  if (node) {
-    node.textContent = safeText(value, fallback);
-  }
-}
-
-function appendText(parent, tag, text, className = "") {
-  const node = document.createElement(tag);
-  if (className) {
-    node.className = className;
-  }
-  node.textContent = safeText(text);
-  parent.appendChild(node);
-  return node;
-}
-
-function appendStatus(parent, status) {
-  return appendText(parent, "span", status, `worker-status ${statusClass(status)}`);
-}
-
-function appendEmptyRow(tbody, columns, message) {
-  const row = document.createElement("tr");
-  const cell = document.createElement("td");
-  cell.colSpan = columns;
-  cell.textContent = message;
-  row.appendChild(cell);
-  tbody.replaceChildren(row);
+  const element = document.getElementById(id);
+  if (element) element.textContent = value ?? fallback;
 }
 
 function formatTime(value) {
-  if (!value) {
-    return "--";
-  }
-
+  if (!value) return "Never";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return safeText(value);
-  }
-
-  return parsed.toLocaleTimeString();
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-function formatAge(value) {
-  if (!value) return "Never Connected";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Unknown";
-
-  const seconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
-  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-}
-
-function jobLabel(job) {
-  if (!job || !job.id) {
-    return "--";
-  }
-
-  return `#${job.id} ${safeText(job.status, "UNKNOWN")}`;
-}
-
-function renderWorkers(workers) {
-  const grid = document.getElementById("workersGrid");
-  if (!grid) return;
-
-  const futureWorkers = workers.filter(worker => {
-    const name = safeText(worker.name, "").trim().toLowerCase();
-    return name !== "rms worker" && name !== "docker rms worker";
-  });
-
-  if (!futureWorkers.length) {
-    const empty = document.createElement("p");
-    empty.textContent = "No future workers registered.";
-    grid.replaceChildren(empty);
-    return;
-  }
-
-  const cards = futureWorkers.map(worker => {
-    const health = worker.health || {};
-    const card = document.createElement("div");
-    card.className = "worker-card";
-
-    appendText(card, "h4", `Worker: ${safeText(worker.name, "Unnamed Worker")}`);
-    appendStatus(card, safeText(worker.status, "UNKNOWN"));
-
-    const meta = document.createElement("div");
-    meta.className = "worker-meta";
-
-    [
-      ["Started", safeText(health.started_at, "Not started")],
-      ["Last Run", safeText(health.last_run, "Never")],
-      ["Last Error", safeText(health.last_error, "None")],
-    ].forEach(([label, value]) => {
-      const line = document.createElement("div");
-      const strong = document.createElement("b");
-      strong.textContent = `${label}: `;
-      line.appendChild(strong);
-      line.appendChild(document.createTextNode(value));
-      meta.appendChild(line);
-    });
-
-    card.appendChild(meta);
-
-    const actions = document.createElement("div");
-    actions.className = "worker-actions";
-
-    const runButton = document.createElement("button");
-    runButton.className = "run-now-btn";
-    runButton.type = "button";
-    runButton.textContent = "Run Now";
-    runButton.addEventListener("click", () => runWorker(safeText(worker.name, "")));
-    actions.appendChild(runButton);
-
-    ["Restart", "View Log"].forEach(label => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.disabled = true;
-      button.textContent = label;
-      actions.appendChild(button);
-    });
-
-    card.appendChild(actions);
-    return card;
-  });
-
-  grid.replaceChildren(...cards);
-}
-
-function renderQueue(jobs) {
-  const tbody = document.getElementById("queueRows");
-  if (!tbody) return;
-
-  const today = new Date().toDateString();
-  const statusCount = status => jobs.filter(job => safeText(job.status, "").toUpperCase() === status).length;
-  const completedToday = jobs.filter(job => {
-    if (safeText(job.status, "").toUpperCase() !== "COMPLETED" || !job.finished_at) return false;
-    const finished = new Date(job.finished_at);
-    return !Number.isNaN(finished.getTime()) && finished.toDateString() === today;
-  }).length;
-
-  setText("queueQueuedCount", statusCount("QUEUED"), "0");
-  setText("queueRunningCount", statusCount("RUNNING"), "0");
-  setText("queueCompletedTodayCount", completedToday, "0");
-  setText("queueFailedCount", statusCount("FAILED"), "0");
-
-  if (!jobs.length) {
-    appendEmptyRow(tbody, 6, "No automation jobs yet.");
-    return;
-  }
-
-  const rows = jobs.slice().reverse().map(job => {
-    const row = document.createElement("tr");
-
-    [
-      `#${safeText(job.id)}`,
-      safeText(job.worker),
-      safeText(job.action),
-    ].forEach(value => appendText(row, "td", value));
-
-    const statusCell = document.createElement("td");
-    appendStatus(statusCell, safeText(job.status, "UNKNOWN"));
-    row.appendChild(statusCell);
-
-    appendText(row, "td", formatTime(job.created_at));
-    appendText(row, "td", safeText(job.error, "None"));
-
-    return row;
-  });
-
-  tbody.replaceChildren(...rows);
-}
-
-function renderActivity(activity) {
-  const tbody = document.getElementById("activityRows");
-  if (!tbody) return;
-
-  if (!activity.length) {
-    appendEmptyRow(tbody, 4, "No automation activity yet.");
-    return;
-  }
-
-  const rows = activity.slice().reverse().map(item => {
-    const row = document.createElement("tr");
-
-    appendText(row, "td", formatTime(item.timestamp));
-
-    const typeCell = document.createElement("td");
-    appendText(typeCell, "span", safeText(item.type, "Event"), "tag blue-tag");
-    row.appendChild(typeCell);
-
-    appendText(row, "td", safeText(item.worker, "System"));
-    appendText(row, "td", safeText(item.message, ""));
-
-    return row;
-  });
-
-  tbody.replaceChildren(...rows);
-}
-
-function renderDataWarning(operationalData) {
-  const warning = document.getElementById("dataWarning");
-  if (!warning) return;
-
-  const message = operationalData.stores_warning || operationalData.warning || "";
-  if (!message) {
-    warning.hidden = true;
-    warning.textContent = "";
-    return;
-  }
-
-  warning.textContent = message;
-  warning.hidden = false;
-}
-
-function renderDockerWorker(data) {
-  const worker = data.worker || {};
-  const allowedStatuses = new Set(["Online", "Busy", "Offline"]);
-  const workerStatus = allowedStatuses.has(data.status) ? data.status : "Unknown";
-  const statusNode = document.getElementById("dockerWorkerStatus");
-  if (statusNode) {
-    statusNode.textContent = workerStatus;
-    statusNode.className = `worker-status ${statusClass(workerStatus)}`;
-  }
-  setText("dockerWorkerVersion", worker.version, "Not registered");
-  setText("dockerCurrentJob", worker.current_job ? `#${worker.current_job}` : "None");
-  setText("dockerLastJob", worker.last_job ? `#${worker.last_job}` : "None");
-  setText("dockerHeartbeat", formatAge(worker.last_heartbeat));
-  setText("dockerCompletedToday", data.jobs_completed_today ?? 0, "0");
-  setText("dockerAverageRuntime", data.average_runtime_seconds ? `${data.average_runtime_seconds}s` : "--");
-}
-
-async function loadAutomationCenter() {
+async function loadSyncResult() {
+  const notice = document.getElementById("syncNotice");
   try {
-    const health = await fetch("/api/automation-center/health").then(r => r.json());
-    const workersData = await fetch("/api/automation-center/workers").then(r => r.json());
-    const activityData = await fetch("/api/automation-center/activity").then(r => r.json());
-    const jobsData = await fetch("/api/automation/jobs").then(r => r.json());
-    const operationalData = await fetch("/api/automation-center/operational-status").then(r => r.json());
-    const dockerWorkerData = await fetch("/api/automation-center/docker-worker").then(r => r.json());
+    const response = await fetch("/api/sync-result", {headers: {"Accept": "application/json"}});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const sync = payload.sync || {};
+    const result = sync.result || {};
+    const hasRun = Boolean(sync.timestamp);
+    const ok = hasRun && Boolean(result.ok);
 
-    const workers = workersData.workers || [];
-    const jobs = jobsData.jobs || [];
-    const latestJob = health.latest_job || jobs[jobs.length - 1] || null;
-    const latestFailure = health.latest_failure || jobs.slice().reverse().find(job => safeText(job.status).toUpperCase() === "FAILED") || null;
-    const schedulerState = operationalData.scheduler_state || {};
-
-    setText("centerStatus", health.status || "UNKNOWN");
-    setText("workerCount", health.worker_count ?? workers.length ?? 0, "0");
-    setText("queueDepth", health.queue_depth ?? 0, "0");
-    setText("queueDepthDetail", health.queue_depth ?? 0, "0");
-    setText("latestJob", jobLabel(latestJob));
-    setText("latestJobDetail", jobLabel(latestJob));
-    setText("activityCount", health.activity_count ?? 0, "0");
-    setText("lastChecked", health.checked_at ? formatTime(health.checked_at) : "Unknown");
-    setText("openExceptions", operationalData.open_exceptions ?? 0, "0");
-    setText("exceptionCount", operationalData.open_exceptions ?? 0, "0");
-    setText("workerState", health.worker_state || operationalData.worker_state || "UNKNOWN");
-    setText("workerHealth", operationalData.worker_health);
-    setText("rmsCloseouts", operationalData.rms_closeouts ?? 0, "0");
-    setText("resolvedToday", operationalData.resolved_today ?? 0, "0");
-    setText("lastWorkerRun", safeText(operationalData.last_worker_run, "Never"));
-    setText("latestFailure", latestFailure ? `#${latestFailure.id} ${safeText(latestFailure.error, safeText(latestFailure.status, "FAILED"))}` : "None");
-    setText("schedulerHealth", safeText(schedulerState.health, "UNKNOWN"));
-    setText("schedulerMode", schedulerState.enabled ? "ENABLED" : "PAUSED");
-    setText("schedulerRunning", schedulerState.running ? "RUNNING" : "STOPPED");
-    setText("schedulerInterval", schedulerState.interval_seconds ? `${schedulerState.interval_seconds} seconds` : "--");
-    setText("schedulerLastRun", safeText(schedulerState.last_run, "Never"));
-    setText("schedulerNextRun", safeText(schedulerState.next_run, "Not scheduled"));
-    setText("infrastructureStatus", operationalData.stores_status === "WARNING" ? "Warning" : "Online");
-
-    renderDataWarning(operationalData);
-    renderDockerWorker(dockerWorkerData);
-    renderWorkers(workers);
-    renderQueue(jobs);
-    renderActivity(activityData.activity || []);
+    setText("syncStatus", hasRun ? (ok ? "Complete" : "Needs Attention") : "Awaiting First Run");
+    setText("lastRmsRun", formatTime(sync.timestamp));
+    setText("lastResult", result.status || (hasRun ? (ok ? "Complete" : "Failed") : "No result"));
+    setText("lastResultMessage", result.message || "Waiting for first run");
+    setText("importedBolCount", result.imported ?? result.bols_new ?? 0);
+    setText("lastSyncTime", formatTime(sync.received_at));
+    setText("bolsFound", result.bols_found ?? 0);
+    setText("storesChecked", result.stores_checked ?? 0);
+    setText("updatedCount", result.updated ?? 0);
+    setText("errorMessage", result.error_message || "None");
+    notice.hidden = true;
   } catch (error) {
-    showAutomationNotice(`Automation Center refresh failed: ${error.message}`, "error");
+    setText("syncStatus", "Unavailable");
+    notice.textContent = `Unable to load the latest RMS result: ${error.message}`;
+    notice.hidden = false;
   }
 }
 
-async function controlScheduler(action) {
-  try {
-    const response = await fetch("/api/automation-center/scheduler", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({action})
-    });
-
-    const result = await response.json();
-    if (!response.ok || result.ok === false) {
-      throw new Error(result.message || "Scheduler control failed.");
-    }
-
-    showAutomationNotice(result.message || "Scheduler updated.", "success");
-    await loadAutomationCenter();
-  } catch (error) {
-    showAutomationNotice(`Scheduler control failed: ${error.message}`, "error");
-  }
-}
-
-async function runWorker(workerName) {
-  if (!workerName) {
-    showAutomationNotice("Worker name missing. Cannot run worker.", "error");
-    return;
-  }
-
-  const confirmed = window.confirm(`Run ${workerName} now?\n\nThis will queue and immediately execute the worker action.`);
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    showAutomationNotice(`Starting ${workerName}...`, "success");
-
-    const response = await fetch("/api/automation/jobs", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        worker: workerName,
-        action: "run",
-        payload: {
-          job_type: workerName === "RMS Worker" ? "rms_auto_grab" : "worker_run",
-          operator_approved: true,
-          approved_by: "automation_center_run_now"
-        },
-        run_now: true
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.ok === false) {
-      throw new Error(result.message || result.error || "Worker run request failed.");
-    }
-
-    const job = result.job || {};
-    showAutomationNotice(result.message || `${workerName} run job submitted. Job #${job.id || "created"}.`, "success");
-
-    await loadAutomationCenter();
-  } catch (error) {
-    showAutomationNotice(`Run Now failed: ${error.message}`, "error");
-  }
-}
-
-async function createTestQueueJob() {
-  try {
-    const response = await fetch("/api/automation/jobs", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        worker: "RMS Worker",
-        action: "worker_status",
-        run_now: true
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.ok === false) {
-      throw new Error(result.message || result.error || "Test job failed.");
-    }
-
-    showAutomationNotice(result.message || "RMS status test job submitted.", "success");
-    await loadAutomationCenter();
-  } catch (error) {
-    showAutomationNotice(`Test job failed: ${error.message}`, "error");
-  }
-}
-
-async function runRmsAutoGrab() {
-  if (!window.confirm("Queue RMS Auto Grab for the Docker worker?")) return;
-  try {
-    const response = await fetch("/api/automation/jobs", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        worker: "Docker RMS Worker",
-        action: "run",
-        payload: {
-          job_type: "rms_auto_grab",
-          operator_approved: true,
-          approved_by: "automation_center"
-        },
-        run_now: false
-      })
-    });
-    const result = await response.json();
-    if (!response.ok || result.ok === false) {
-      throw new Error(result.message || "Unable to queue RMS Auto Grab.");
-    }
-    showAutomationNotice(result.message || "RMS Auto Grab queued.", "success");
-    await loadAutomationCenter();
-  } catch (error) {
-    showAutomationNotice(`Run RMS Auto Grab failed: ${error.message}`, "error");
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  loadAutomationCenter();
-  document.getElementById("testQueueBtn")?.addEventListener("click", createTestQueueJob);
-  document.getElementById("pauseSchedulerBtn")?.addEventListener("click", () => controlScheduler("pause"));
-  document.getElementById("resumeSchedulerBtn")?.addEventListener("click", () => controlScheduler("resume"));
-  document.getElementById("runSchedulerNowBtn")?.addEventListener("click", () => controlScheduler("run_now"));
-  document.getElementById("runRmsAutoGrabBtn")?.addEventListener("click", runRmsAutoGrab);
-  setInterval(loadAutomationCenter, 10000);
-});
+loadSyncResult();
+setInterval(loadSyncResult, 60000);
 </script>
-
 {% endblock %}

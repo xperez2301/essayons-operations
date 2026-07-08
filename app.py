@@ -139,11 +139,10 @@ BACKUPS_DIR = BASE_DIR / "backups"
 AUDIT_FILE = DATA_DIR / "audit_log.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SYNC_HISTORY_FILE = DATA_DIR / "sync_history.json"
+SYNC_STATE_FILE = DATA_DIR / "sync_state.json"
 RMS_QUEUE_FILE = DATA_DIR / "rms_queue.json"
 USERS_FILE = DATA_DIR / "users.json"
 ROADMAP_FILE = DATA_DIR / "roadmap.json"
-WORKERS_FILE = DATA_DIR / "workers.json"
-WORKER_JOBS_FILE = DATA_DIR / "worker_jobs.json"
 
 app.config["STORES_FILE"] = STORES_FILE
 app.config["BOL_DIR"] = BOL_DIR
@@ -236,8 +235,6 @@ def ensure_runtime_data_files():
             (SYNC_HISTORY_FILE, []),
             (RMS_QUEUE_FILE, []),
             (DATA_DIR / "automation_jobs.json", []),
-            (WORKERS_FILE, []),
-            (WORKER_JOBS_FILE, []),
             (USERS_FILE, {"users":[{"id":"admin","username":ADMIN_USERNAME,"password":hash_password(ADMIN_PASSWORD),"role":"Admin","assigned_cities":["All"],"active":True,"created_at":"system"}]}),
         ]:
             if not path.exists():
@@ -982,7 +979,7 @@ def rms_chromium_profile_dir():
     return profile_dir
 
 def rms_cdp_endpoint():
-    return clean(os.environ.get("RMS_CDP_ENDPOINT") or "http://127.0.0.1:9222")
+    return clean(os.environ.get("RMS_CDP_ENDPOINT") or "http://127.0.0.1:9223")
 def rms_cdp_is_ready():
     try:
         endpoint = rms_cdp_endpoint().rstrip("/") + "/json/version"
@@ -1014,7 +1011,7 @@ def start_rms_edge_debug_browser():
         time.sleep(1)
 
     raise RuntimeError(
-        "EOMS started the RMS Edge debug browser, but port 9222 did not become ready."
+        "EOMS started the RMS Edge debug browser, but port 9223 did not become ready."
     )
 
 def launch_rms_browser_context(playwright, headless=True):
@@ -1951,6 +1948,10 @@ def enforce_login():
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
         return None
     if path == "/api/local-rms/import" and local_rms_import_authorized():
+        return None
+    if path == "/api/sync-result" and request.method == "POST":
+        # Local workers authenticate with EOMS_WORKER_TOKEN, not a browser
+        # session. The route performs the bearer check before accepting data.
         return None
     if session.get("logged_in") and current_user():
         role = current_role()
@@ -5006,160 +5007,41 @@ def api_store_closeout_update(store_id):
 def automation_center_page():
     return render_template("automation_center.html")
 
-
-@app.route("/api/automation-center/health")
-@admin_required
-def api_automation_center_health():
-    from eoms_modules.automation_center_manager import automation_center
-
-    return jsonify(automation_center.center_health())
-
-
-@app.route("/api/automation-center/workers")
-@admin_required
-def api_automation_center_workers():
-    from eoms_modules.automation_center_manager import automation_center
-
-    return jsonify({
-        "ok": True,
-        "workers": automation_center.list_workers(),
-    })
-
-
-@app.route("/api/automation-center/activity")
-@admin_required
-def api_automation_center_activity():
-    from eoms_modules.automation_center_manager import automation_center
-
-    return jsonify({
-        "ok": True,
-        "activity": automation_center.get_activity(50),
-    })
-
-
-@app.route("/api/automation-center/operational-status")
-@admin_required
-def api_automation_center_operational_status():
-    from eoms_modules.automation_center_manager import automation_center
-
-    return jsonify(automation_center.operational_status())
-
-
-@app.route("/api/automation-center/scheduler", methods=["POST"])
-@admin_required
-def api_automation_center_scheduler():
-    from eoms_modules.automation_center_manager import automation_center
-
-    data = request.get_json(silent=True) or {}
-    result = automation_center.control_scheduler(data.get("action"))
-    return jsonify(result), 200 if result.get("ok") else 400
-
-
-@app.route("/api/automation/jobs", methods=["GET"])
-@admin_required
-def api_automation_jobs():
-    from eoms_modules.automation_center_manager import automation_center
-    from eoms_modules.worker_bridge_service import worker_bridge
-
-    return jsonify({
-        "ok": True,
-        "jobs": automation_center.list_jobs() + worker_bridge.list_jobs(),
-    })
-
-
-@app.route("/api/automation/jobs", methods=["POST"])
-@admin_required
-def api_automation_create_job():
-    from eoms_modules.automation_center_manager import automation_center
-    from eoms_modules.automation_executor_service import AutomationExecutorService
-    from eoms_modules.worker_bridge_service import worker_bridge
-
-    data = request.get_json(silent=True) or {}
-    worker = data.get("worker") or "RMS Worker"
-    action = data.get("action") or "worker_status"
-    payload = data.get("payload") or {}
-    try:
-        priority = int(data.get("priority") or 5)
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "message": "Priority must be a whole number."}), 400
-    run_now = bool(data.get("run_now", True))
-
-    if worker in {"RMS Worker", "Docker RMS Worker"} and action == "run":
-        job = worker_bridge.enqueue("rms_auto_grab", payload, priority)
-        return jsonify({
-            "ok": True,
-            "job": job,
-            "message": "RMS Auto Grab queued for the Docker worker.",
-        }), 202
-
-    result = automation_center.enqueue_job(worker, action, payload, priority)
-    job = result.get("job")
-
-    if run_now:
-        executor = AutomationExecutorService(automation_center)
-        executed = executor.run_job(job)
-        return jsonify({"ok": executed.get("status") == "COMPLETED", "job": executed})
-
-    return jsonify({"ok": True, "job": job})
-
-
 def worker_token_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        expected = os.environ.get("EOMS_WORKER_TOKEN", "")
-        supplied = request.headers.get("Authorization", "")
-        if not expected or not supplied.startswith("Bearer "):
+        expected = str(os.environ.get("EOMS_WORKER_TOKEN") or "").strip()
+        supplied = str(request.headers.get("Authorization") or "").strip()
+        scheme, separator, token = supplied.partition(" ")
+        if not expected or separator != " " or scheme != "Bearer":
             return jsonify({"ok": False, "message": "Worker authorization required."}), 401
-        if not secrets.compare_digest(supplied[7:].strip(), expected):
+        if not secrets.compare_digest(token.strip(), expected):
             return jsonify({"ok": False, "message": "Invalid worker token."}), 401
         return view(*args, **kwargs)
     return wrapped
 
 
-@app.route("/api/worker/heartbeat", methods=["POST"])
+@app.route("/api/sync-result", methods=["POST"])
 @worker_token_required
-def api_worker_heartbeat():
-    from eoms_modules.worker_bridge_service import worker_bridge
-
-    worker = worker_bridge.heartbeat(request.get_json(silent=True) or {})
-    return jsonify({"ok": True, "worker": worker})
-
-
-@app.route("/api/worker/jobs/next")
-@worker_token_required
-def api_worker_jobs_next():
-    from eoms_modules.worker_bridge_service import worker_bridge
-
-    worker_id = str(request.args.get("worker_id") or "").strip()
-    if not worker_id:
-        return jsonify({"ok": False, "message": "worker_id is required."}), 400
-    job = worker_bridge.claim_next(worker_id)
-    return jsonify({"ok": True, "job": job})
-
-
-@app.route("/api/worker/jobs/<job_id>/complete", methods=["POST"])
-@worker_token_required
-def api_worker_job_complete(job_id):
-    from eoms_modules.worker_bridge_service import worker_bridge
-
+def api_sync_result_post():
     data = request.get_json(silent=True) or {}
-    worker_id = str(data.get("worker_id") or "").strip()
-    if not worker_id:
-        return jsonify({"ok": False, "message": "worker_id is required."}), 400
-    job, outcome = worker_bridge.complete(job_id, worker_id, data)
-    if outcome == "not_found":
-        return jsonify({"ok": False, "message": "Worker job not found."}), 404
-    if outcome == "wrong_worker":
-        return jsonify({"ok": False, "message": "Job is claimed by another worker."}), 409
-    return jsonify({"ok": True, "job": job, "idempotent": outcome == "already_complete"})
+    if not isinstance(data.get("result"), dict):
+        return jsonify({"ok": False, "message": "result must be a JSON object."}), 400
+    state = {
+        "timestamp": clean(data.get("timestamp")) or datetime.now().isoformat(timespec="seconds"),
+        "source": clean(data.get("source")) or "eoms-local-worker",
+        "result": data["result"],
+        "received_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    write_json(SYNC_STATE_FILE, state)
+    return jsonify({"ok": True, "sync": state})
 
 
-@app.route("/api/automation-center/docker-worker")
+@app.route("/api/sync-result", methods=["GET"])
 @admin_required
-def api_automation_center_docker_worker():
-    from eoms_modules.worker_bridge_service import worker_bridge
-
-    return jsonify(worker_bridge.status())
+def api_sync_result_get():
+    state = read_json(SYNC_STATE_FILE)
+    return jsonify({"ok": True, "sync": state if isinstance(state, dict) else {}})
 
 
 @app.route("/api/system-health")
