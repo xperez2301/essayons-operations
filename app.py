@@ -807,17 +807,54 @@ def is_missing_browser_deps(message):
         "libnss3" in message
     )
 
+# FT5.1A: Linux-safe Chromium launch args. Azure App Service (Linux) containers
+# run without a sandbox-capable kernel and without a GPU/display, so a launch
+# without these flags reliably crashes ("closes during launch") on the very
+# first Chromium spawn. Applied to every Chromium-based launch below.
+RMS_LINUX_SAFE_CHROMIUM_ARGS = [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-setuid-sandbox",
+    "--single-process",
+]
+
 def launch_chromium_with_repair(playwright, headless=True):
+    print(f"[RMS Auto Grab] launch_chromium_with_repair: headless={headless} args={RMS_LINUX_SAFE_CHROMIUM_ARGS}", file=sys.stderr)
     try:
-        return playwright.chromium.launch(headless=headless)
+        return playwright.chromium.launch(headless=headless, args=RMS_LINUX_SAFE_CHROMIUM_ARGS)
     except Exception as exc:
         message = str(exc)
+        print(f"[RMS Auto Grab] chromium.launch failed: {message[:500]}", file=sys.stderr)
         if not is_missing_browser_binary(message) and not is_missing_browser_deps(message):
             raise
+        print("[RMS Auto Grab] Missing Chromium binary/deps detected; attempting self-repair install.", file=sys.stderr)
         if is_missing_browser_deps(message):
             install_playwright_system_deps()
         install_playwright_chromium()
-        return playwright.chromium.launch(headless=headless)
+        print("[RMS Auto Grab] Self-repair install complete; retrying chromium.launch.", file=sys.stderr)
+        return playwright.chromium.launch(headless=headless, args=RMS_LINUX_SAFE_CHROMIUM_ARGS)
+
+def launch_persistent_context_with_repair(playwright, **kwargs):
+    """Launch a channel-less (bundled) Chromium persistent context, self-healing
+    the same way launch_chromium_with_repair does if the bundled Chromium binary
+    or its Linux shared-library deps are missing. Used by the plain-Chromium
+    fallback paths in launch_rms_browser_context (reached whenever the branded
+    chrome/msedge channel isn't installed on the host, which is the normal case
+    on a fresh Azure App Service worker)."""
+    try:
+        return playwright.chromium.launch_persistent_context(**kwargs)
+    except Exception as exc:
+        message = str(exc)
+        print(f"[RMS Auto Grab] launch_persistent_context failed: {message[:500]}", file=sys.stderr)
+        if not is_missing_browser_binary(message) and not is_missing_browser_deps(message):
+            raise
+        print("[RMS Auto Grab] Missing Chromium binary/deps detected; attempting self-repair install.", file=sys.stderr)
+        if is_missing_browser_deps(message):
+            install_playwright_system_deps()
+        install_playwright_chromium()
+        print("[RMS Auto Grab] Self-repair install complete; retrying launch_persistent_context.", file=sys.stderr)
+        return playwright.chromium.launch_persistent_context(**kwargs)
 
 def rms_browser_choice():
     # Default RMS automation to Microsoft Edge using the persistent EOMS profile.
@@ -899,6 +936,7 @@ def launch_rms_browser_context(playwright, headless=True):
     lock while it is open.
     """
     choice = rms_browser_choice()
+    print(f"[RMS Auto Grab] launch_rms_browser_context: choice={choice} headless={headless} IS_AZURE={IS_AZURE}", file=sys.stderr)
     common_kwargs = {
         "user_agent": RMS_BROWSER_USER_AGENT,
         "viewport": {"width": 1366, "height": 768},
@@ -921,14 +959,17 @@ def launch_rms_browser_context(playwright, headless=True):
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
+                    *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                 ],
                 **common_kwargs,
             )
             return None, context
         except Exception as exc:
             chrome_error = str(exc)[:500]
+            print(f"[RMS Auto Grab] channel=chrome launch failed, falling back to bundled Chromium: {chrome_error}", file=sys.stderr)
             try:
-                context = playwright.chromium.launch_persistent_context(
+                context = launch_persistent_context_with_repair(
+                    playwright,
                     user_data_dir=str(rms_normal_profile_dir()),
                     headless=False,
                     accept_downloads=True,
@@ -936,11 +977,13 @@ def launch_rms_browser_context(playwright, headless=True):
                         "--start-maximized",
                         "--disable-blink-features=AutomationControlled",
                         "--no-first-run",
+                        *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                     ],
                     **common_kwargs,
                 )
                 return None, context
             except Exception as fallback_exc:
+                print(f"[RMS Auto Grab] bundled Chromium fallback also failed: {str(fallback_exc)[:500]}", file=sys.stderr)
                 raise RuntimeError(
                     "EOMS could not launch local Chrome for RMS, and Chromium fallback also failed. "
                     "Install Chrome support with: python -m playwright install chrome. "
@@ -958,14 +1001,17 @@ def launch_rms_browser_context(playwright, headless=True):
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
+                    *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                 ],
                 **common_kwargs,
             )
             return None, context
         except Exception as exc:
             edge_error = str(exc)[:500]
+            print(f"[RMS Auto Grab] channel=msedge launch failed, falling back to bundled Chromium: {edge_error}", file=sys.stderr)
             try:
-                context = playwright.chromium.launch_persistent_context(
+                context = launch_persistent_context_with_repair(
+                    playwright,
                     user_data_dir=str(rms_chromium_profile_dir()),
                     headless=False if rms_manual_login_enabled() else headless,
                     accept_downloads=True,
@@ -973,11 +1019,13 @@ def launch_rms_browser_context(playwright, headless=True):
                         "--start-maximized",
                         "--disable-blink-features=AutomationControlled",
                         "--no-first-run",
+                        *RMS_LINUX_SAFE_CHROMIUM_ARGS,
                     ],
                     **common_kwargs,
                 )
                 return None, context
             except Exception as fallback_exc:
+                print(f"[RMS Auto Grab] bundled Chromium fallback also failed: {str(fallback_exc)[:500]}", file=sys.stderr)
                 raise RuntimeError(
                     "EOMS could not launch Microsoft Edge for RMS, and the Chromium fallback also failed. "
                     "Close all RMS/Edge automation windows and try again. Edge details: "
@@ -1097,7 +1145,13 @@ def close_rms_browser(browser, context):
 def rms_headless(default=True):
     value = clean(os.environ.get("RMS_HEADLESS"))
     if value == "":
-        # If manual login or local Chrome is selected, keep RMS visible by default.
+        # Azure App Service (Linux) workers have no display server, so a headed
+        # ("visible") browser cannot launch there under any circumstances -- it
+        # closes immediately on spawn. Always default to headless in production,
+        # regardless of browser choice, unless RMS_HEADLESS explicitly overrides it.
+        if IS_AZURE:
+            return default
+        # Locally: if manual login or local Chrome is selected, keep RMS visible by default.
         if rms_manual_login_enabled() or rms_browser_choice() in {"chrome", "google-chrome", "normal", "local", "edge", "msedge", "microsoft-edge"}:
             return False
         return default
@@ -3981,12 +4035,42 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     errors = []
 
     with sync_playwright() as p:
-        browser, context = launch_rms_browser_context(p, headless=headless)
-        bol_url = normalized_rms_bol_list_url(bol_url)
-        reused_page = None
-        if rms_manual_login_enabled() or rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
-            reused_page = find_existing_rms_page(context)
-        page = reused_page if reused_page is not None else context.new_page()
+        # FT5.1A: the browser/context/page acquisition itself (as opposed to the
+        # RMS navigation/parsing below) is the step most likely to fail in
+        # production -- missing browser binary, no display server, sandbox
+        # restrictions, etc. It used to sit outside any try/except here, so a
+        # launch failure was an uncaught exception instead of a clean failed
+        # job status. Give it its own try/except with the same result shape as
+        # the parsing try/except below, so every caller (the direct dashboard
+        # route and the RMS worker subprocess alike) always gets back a clean
+        # dict instead of a raw browser/context crash.
+        browser = None
+        context = None
+        try:
+            print(f"[RMS Auto Grab] Launching RMS browser context: choice={rms_browser_choice()} headless={headless}", file=sys.stderr)
+            browser, context = launch_rms_browser_context(p, headless=headless)
+            bol_url = normalized_rms_bol_list_url(bol_url)
+            reused_page = None
+            if rms_manual_login_enabled() or rms_browser_choice() in {"cdp", "edge-cdp", "remote-edge"}:
+                reused_page = find_existing_rms_page(context)
+            page = reused_page if reused_page is not None else context.new_page()
+        except Exception as e:
+            print(f"[RMS Auto Grab] Browser launch failed: {str(e)[:500]}", file=sys.stderr)
+            close_rms_browser(browser, context)
+            return {
+                "ok": False,
+                "status": "BROWSER LAUNCH ERROR",
+                "message": f"RMS Auto Grab could not launch the browser: {str(e)[:300]}",
+                "imported": 0,
+                "updated": 0,
+                "skipped": 0,
+                "need_review": 0,
+                "bol_count": 0,
+                "found": 0,
+                "failed": 1,
+                "errors": [str(e)[:300]],
+            }
+
         try:
             if reused_page is not None:
                 # Reuse the operator's already-authenticated RMS tab. Opening a
