@@ -2105,10 +2105,8 @@ def dashboard():
 def design_system_demo():
     return render_template("design_system_demo.html")
 
-@app.route("/roadmap")
-def roadmap_workspace():
-    workspace = build_roadmap_workspace(ROADMAP_FILE)
-    return render_template("roadmap.html", workspace=workspace)
+from routes.roadmap import roadmap_bp
+app.register_blueprint(roadmap_bp)
 
 from routes.reporting import reporting_bp
 app.register_blueprint(reporting_bp)
