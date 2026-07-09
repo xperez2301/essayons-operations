@@ -859,7 +859,17 @@ def is_missing_browser_deps(message):
         "Host system is missing dependencies" in message or
         "playwright install-deps" in message or
         "libglib2.0-0" in message or
-        "libnss3" in message
+        "libnss3" in message or
+        # FT6: on a fresh Azure App Service worker, Chromium is often present
+        # (the binary self-installs fine) but the Linux shared libraries it
+        # needs at runtime (libnss3, libatk-bridge, libgtk-3, libgbm1, etc.)
+        # are not. When that happens the Chromium process spawns and then
+        # exits immediately, and Playwright surfaces it as this generic
+        # "the browser closed on launch" message rather than the more
+        # specific missing-dependency text above. Treating it as a missing-
+        # deps signal too lets the self-repair install actually run instead
+        # of failing outright on every single Auto Grab attempt.
+        "Target page, context or browser has been closed" in message
     )
 
 # FT5.1A: Linux-safe Chromium launch args. Azure App Service (Linux) containers

@@ -125,5 +125,32 @@ class RmsAutoGrabDashboardTests(unittest.TestCase):
         self.assertIn("/automation-center", rules)
 
 
+class MissingBrowserDepsDetectionTests(unittest.TestCase):
+    """On a fresh Azure App Service worker, Chromium's binary is often already
+    installed but the Linux shared libraries it needs at runtime (libnss3,
+    libatk-bridge, libgbm1, etc.) are not - so the browser process spawns and
+    exits immediately. Playwright surfaces that as a generic 'Target page,
+    context or browser has been closed' launch error rather than the more
+    specific missing-dependency text. is_missing_browser_deps() needs to catch
+    that generic message too, or the self-repair install-deps step never
+    fires and every single Auto Grab attempt fails the same way forever."""
+
+    def test_recognizes_generic_browser_closed_message_as_missing_deps(self):
+        message = (
+            "BrowserType.launch: Target page, context or browser has been "
+            "closed Browser logs: <launching> /home/playwright/chromium-1217/"
+            "chrome-linux64/chrome --no-sandbox --headless ..."
+        )
+        self.assertTrue(eoms_app.is_missing_browser_deps(message))
+
+    def test_still_recognizes_original_missing_deps_messages(self):
+        self.assertTrue(eoms_app.is_missing_browser_deps("Host system is missing dependencies to run browsers."))
+        self.assertTrue(eoms_app.is_missing_browser_deps("Please run: playwright install-deps"))
+        self.assertTrue(eoms_app.is_missing_browser_deps("error while loading shared libraries: libnss3.so"))
+
+    def test_unrelated_errors_are_not_treated_as_missing_deps(self):
+        self.assertFalse(eoms_app.is_missing_browser_deps("Timeout 60000ms exceeded waiting for selector"))
+
+
 if __name__ == "__main__":
     unittest.main()
