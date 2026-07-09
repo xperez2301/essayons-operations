@@ -800,6 +800,17 @@ function initMap(){
         authOptions:{authType:"subscriptionKey", subscriptionKey:window.AZURE_MAPS_KEY}
     });
 
+    // The Azure Maps SDK renders base-map road/label tiles in a background
+    // worker (its own data, not anything we send it - our store/hub markers
+    // below already guard against missing lat/lng). Occasionally a base tile
+    // fails to parse internally and the SDK throws instead of just skipping
+    // that tile. Catching it here keeps that a harmless console warning
+    // instead of an uncaught error, and keeps the map (our own markers,
+    // routing, etc.) working normally regardless.
+    map.events.add("error", function(e){
+        console.warn("Azure Maps internal tile/render warning (non-fatal, map still functional):", e && e.error ? e.error : e);
+    });
+
     map.events.add("ready", function(){
         const positions = [];
 
