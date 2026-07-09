@@ -3723,6 +3723,14 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
     skipped = 0
     need_review = 0
     errors = []
+    # FT6: track exactly which BOLs got a new/updated PDF saved during THIS
+    # run (bol number -> {pdf_path, due_date, assigned_date}). A caller
+    # running this locally (eoms_local_worker.py) needs this list to know
+    # which files to upload to Azure's /api/local-rms/import afterward -
+    # RMS blocks Azure's own servers from scraping directly, so pushing the
+    # PDFs this run already saved locally is the only way the data reaches
+    # the live site.
+    imported_pdfs = {}
 
     with sync_playwright() as p:
         # FT5.1A: the browser/context/page acquisition itself (as opposed to the
@@ -3887,6 +3895,12 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         imported += 1
                     if item.get("status") == "Need Review":
                         need_review += 1
+                    if item.get("bol") and item.get("pdf_path"):
+                        imported_pdfs[clean(item["bol"])] = {
+                            "pdf_path": item["pdf_path"],
+                            "due_date": item.get("due_date", ""),
+                            "assigned_date": item.get("assigned_date", ""),
+                        }
 
                 except Exception as e:
                     errors.append(f"{link.get('bol')}: {str(e)[:120]}")
@@ -3916,7 +3930,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 "both_closed": rms_closeout["both_closed"],
                 "failed": len(errors),
                 "diagnostic": diagnostic,
-                "errors": errors[:10]
+                "errors": errors[:10],
+                "imported_pdfs": imported_pdfs,
             }
 
         except Exception as e:
@@ -3933,7 +3948,8 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                 "bol_count": 0,
                 "found": 0,
                 "failed": max(1, len(errors)),
-                "errors": errors[:10]
+                "errors": errors[:10],
+                "imported_pdfs": imported_pdfs,
             }
 
 

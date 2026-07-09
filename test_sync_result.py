@@ -117,6 +117,51 @@ class SyncResultTests(unittest.TestCase):
             1,
         )
 
+    def test_local_worker_uploads_imported_pdfs_to_azure_when_present(self):
+        sidecar = Path(self.temporary_directory.name) / "bol_data.json"
+        log_path = Path(self.temporary_directory.name) / "worker.log"
+        with (
+            patch.object(eoms_local_worker, "BOL_DATA_PATH", sidecar),
+            patch.object(eoms_local_worker, "LOG_PATH", log_path),
+            patch.object(eoms_local_worker, "ensure_dedicated_edge", return_value=None),
+            patch.object(eoms_local_worker, "run_auto_grab", return_value={
+                "ok": True,
+                "status": "IMPORT COMPLETE",
+                "found": 1,
+                "imported": 1,
+                "errors": [],
+                "imported_pdfs": {"12345": {"pdf_path": "/tmp/does-not-matter.pdf", "due_date": "", "assigned_date": ""}},
+            }),
+            patch.object(eoms_local_worker, "upload_local_import_to_azure", return_value={"ok": True}) as upload,
+            patch.object(eoms_local_worker, "post_sync_result", return_value={"ok": True}),
+            patch.object(eoms_local_worker, "close_dedicated_edge", return_value=True),
+        ):
+            exit_code = eoms_local_worker.main()
+            logging.shutdown()
+
+        self.assertEqual(exit_code, 0)
+        upload.assert_called_once_with({"12345": {"pdf_path": "/tmp/does-not-matter.pdf", "due_date": "", "assigned_date": ""}})
+
+    def test_local_worker_skips_upload_when_no_imported_pdfs(self):
+        sidecar = Path(self.temporary_directory.name) / "bol_data.json"
+        log_path = Path(self.temporary_directory.name) / "worker.log"
+        with (
+            patch.object(eoms_local_worker, "BOL_DATA_PATH", sidecar),
+            patch.object(eoms_local_worker, "LOG_PATH", log_path),
+            patch.object(eoms_local_worker, "ensure_dedicated_edge", return_value=None),
+            patch.object(eoms_local_worker, "run_auto_grab", return_value={
+                "ok": True, "status": "IMPORT COMPLETE", "found": 0, "imported": 0, "errors": [],
+            }),
+            patch.object(eoms_local_worker, "upload_local_import_to_azure") as upload,
+            patch.object(eoms_local_worker, "post_sync_result", return_value={"ok": True}),
+            patch.object(eoms_local_worker, "close_dedicated_edge", return_value=True),
+        ):
+            exit_code = eoms_local_worker.main()
+            logging.shutdown()
+
+        self.assertEqual(exit_code, 0)
+        upload.assert_not_called()
+
     def test_worker_launches_dedicated_edge_when_cdp_is_absent(self):
         process = Mock()
         process.poll.return_value = None

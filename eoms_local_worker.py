@@ -201,12 +201,80 @@ def post_sync_result(timestamp, result):
     return response.json()
 
 
+def upload_local_import_to_azure(imported_pdfs):
+    """Push the PDFs this run just saved locally up to Azure's
+    /api/local-rms/import, so the BOLs this scrape found actually show up on
+    the live site - not just a status summary. RMS blocks Azure's own servers
+    from scraping directly, so this upload is the only way the real data gets
+    there: the scrape has to happen on a machine RMS will actually let in
+    (this one), then the result gets carried over separately.
+
+    imported_pdfs: {bol_number: {"pdf_path": str, "due_date": str, "assigned_date": str}}
+    as returned by app.rms_full_import_with_playwright().
+    """
+    if not imported_pdfs:
+        logging.info("No new/updated PDFs this run - nothing to upload to Azure.")
+        return {"ok": True, "message": "Nothing to upload.", "skipped": True}
+
+    base_url = clean(os.environ.get("EOMS_BASE_URL") or os.environ.get("AZURE_EOMS_URL")).rstrip("/")
+    token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
+    if not base_url:
+        raise RuntimeError("EOMS_BASE_URL is required.")
+    if not token:
+        raise RuntimeError(
+            "LOCAL_RMS_IMPORT_TOKEN is required to upload scraped BOLs to Azure "
+            "(this must match LOCAL_RMS_IMPORT_TOKEN in Azure App Service settings)."
+        )
+
+    bol_data_sidecar = {
+        bol: {"due_date": info.get("due_date", ""), "assigned_date": info.get("assigned_date", "")}
+        for bol, info in imported_pdfs.items()
+    }
+
+    open_files = []
+    try:
+        files = []
+        for bol, info in imported_pdfs.items():
+            pdf_path = Path(info.get("pdf_path") or "")
+            if not pdf_path.is_file():
+                logging.warning("Skipping upload for BOL %s - saved PDF not found at %s.", bol, pdf_path)
+                continue
+            handle = open(pdf_path, "rb")
+            open_files.append(handle)
+            files.append(("rms_file", (pdf_path.name, handle, "application/pdf")))
+
+        if not files:
+            logging.warning("No saved PDF files were found on disk to upload for this run.")
+            return {"ok": False, "message": "No PDF files found on disk to upload."}
+
+        files.append((
+            "rms_file",
+            ("bol_data.json", json.dumps(bol_data_sidecar).encode("utf-8"), "application/json"),
+        ))
+
+        response = requests.post(
+            f"{base_url}/api/local-rms/import",
+            headers={"Authorization": f"Bearer {token}"},
+            files=files,
+            timeout=int(os.environ.get("EOMS_WORKER_HTTP_TIMEOUT", "120")),
+        )
+        response.raise_for_status()
+        return response.json()
+    finally:
+        for handle in open_files:
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+
 def main():
     configure_logging()
     timestamp = datetime.now().isoformat(timespec="seconds")
     logging.info("Local visible RMS worker started.")
     edge_process = None
     report_posted = False
+    raw_result = {}
     try:
         try:
             edge_process = ensure_dedicated_edge()
@@ -223,6 +291,18 @@ def main():
 
         atomic_write_json(BOL_DATA_PATH, {"last_run": timestamp, "last_result": summary})
         logging.info("Updated %s using atomic UTF-8 write.", BOL_DATA_PATH)
+
+        # RMS blocks Azure's own servers, so the scrape only ever runs here
+        # (a machine RMS will actually let in). Whatever PDFs this run saved
+        # locally need to be pushed to Azure separately - the status summary
+        # posted below is NOT the actual BOL data, just a dashboard status.
+        imported_pdfs = (raw_result or {}).get("imported_pdfs") or {}
+        if imported_pdfs:
+            try:
+                upload_local_import_to_azure(imported_pdfs)
+                logging.info("Uploaded %d scraped BOL(s) to Azure via /api/local-rms/import.", len(imported_pdfs))
+            except Exception:
+                logging.exception("Unable to upload scraped BOLs to Azure.")
 
         try:
             post_sync_result(timestamp, summary)
