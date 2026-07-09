@@ -12,6 +12,25 @@ import threading
 import time
 import traceback
 import getpass
+
+# FT6 note: when this file is launched directly (`python app.py`, used by every
+# local RUN_*.bat script), Python loads it as module "__main__" - but gunicorn
+# (Azure/Procfile: `gunicorn app:app`) and every test file (`import app as
+# eoms_app`) load it as module "app". The FT6 blueprint split added routes/*.py
+# modules that do `from app import SOME_NAME` at import time. If this file is
+# running as "__main__", that `from app import ...` doesn't recognize
+# "__main__" as itself - it triggers a SECOND, fresh top-to-bottom import of
+# this same file under the name "app", which re-hits the very same blueprint
+# import before that blueprint module has finished initializing, raising
+# "cannot import name '...' from partially initialized module" (a circular
+# import). Aliasing sys.modules["app"] to this already-running module BEFORE
+# any `from routes.X import Y_bp` line executes fixes it: later `from app
+# import ...` calls just reuse this same in-progress module instead of
+# re-executing the file. No effect under gunicorn/pytest, since sys.modules["app"]
+# is already correct there.
+if __name__ == "__main__":
+    sys.modules.setdefault("app", sys.modules[__name__])
+
 from eoms_modules.database_validator import DatabaseValidator, validate_records
 from eoms_modules.legacy_rms_repair import (
     LegacyRMSRepair,
