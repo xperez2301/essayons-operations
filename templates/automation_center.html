@@ -13,7 +13,7 @@
     <div>
       <span class="eoms-module-title">Automation</span>
       <h2>Automation Center</h2>
-      <p>RMS Auto Grab runs locally in the operator's visible Edge window.</p>
+      <p>{% if is_azure %}RMS Auto Grab runs here on the server (headless, no visible browser) using the RMS login saved in Settings.{% else %}RMS Auto Grab runs locally in the operator's visible Edge window.{% endif %}</p>
     </div>
     <div class="rms-actions">
       <span id="syncStatus" class="eoms-status eoms-status-warning">Loading</span>
@@ -95,6 +95,8 @@
 </style>
 
 <script>
+const IS_AZURE = {{ 'true' if is_azure else 'false' }};
+
 function setText(id, value, fallback = "--") {
   const element = document.getElementById(id);
   if (element) element.textContent = value ?? fallback;
@@ -154,26 +156,53 @@ async function pollForRmsCompletion(previousTimestamp, attemptsRemaining = 240) 
   );
 }
 
+async function runRmsAutoGrabLocal(button, notice) {
+  const response = await fetch("/api/rms-local-worker/run", {
+    method: "POST",
+    headers: {"Accept": "application/json"}
+  });
+  const payload = await response.json().catch(() => ({}));
+  notice.textContent = payload.message || `Unable to start RMS Auto Grab (HTTP ${response.status}).`;
+  notice.classList.toggle("success", Boolean(response.ok && payload.ok));
+  notice.hidden = false;
+  if (!response.ok || !payload.ok) return;
+  const previousTimestamp = lastKnownSyncTimestamp;
+  setText("syncStatus", "Running");
+  window.setTimeout(() => pollForRmsCompletion(previousTimestamp), 3000);
+}
+
+async function runRmsAutoGrabAzure(button, notice) {
+  // This request runs the whole RMS scrape synchronously on the server (it
+  // can take a couple of minutes) and only resolves once it's fully done -
+  // there's no background worker to poll for here, unlike the local path.
+  button.textContent = "Running... (can take a few minutes)";
+  const response = await fetch("/api/rms/auto-grab-bols", {
+    method: "POST",
+    headers: {"Accept": "application/json", "Content-Type": "application/json"},
+    body: JSON.stringify({}),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const result = payload.result || {};
+  notice.textContent = result.message || `Auto Grab finished (HTTP ${response.status}).`;
+  notice.classList.toggle("success", Boolean(response.ok && payload.ok));
+  notice.hidden = false;
+  setText("syncStatus", payload.ok ? "Complete" : "Needs Attention");
+  await loadSyncResult();
+}
+
 async function runRmsAutoGrab() {
   const button = document.getElementById("runRmsAutoGrabBtn");
   const notice = document.getElementById("syncNotice");
   button.disabled = true;
   button.textContent = "Starting...";
   try {
-    const response = await fetch("/api/rms-local-worker/run", {
-      method: "POST",
-      headers: {"Accept": "application/json"}
-    });
-    const payload = await response.json().catch(() => ({}));
-    notice.textContent = payload.message || `Unable to start RMS Auto Grab (HTTP ${response.status}).`;
-    notice.classList.toggle("success", Boolean(response.ok && payload.ok));
-    notice.hidden = false;
-    if (!response.ok || !payload.ok) return;
-    const previousTimestamp = lastKnownSyncTimestamp;
-    setText("syncStatus", "Running");
-    window.setTimeout(() => pollForRmsCompletion(previousTimestamp), 3000);
+    if (IS_AZURE) {
+      await runRmsAutoGrabAzure(button, notice);
+    } else {
+      await runRmsAutoGrabLocal(button, notice);
+    }
   } catch (error) {
-    notice.textContent = `Unable to start RMS Auto Grab: ${error.message}`;
+    notice.textContent = `Unable to run RMS Auto Grab: ${error.message}`;
     notice.classList.remove("success");
     notice.hidden = false;
   } finally {

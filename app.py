@@ -4382,10 +4382,22 @@ def api_rms_debug_cdp_state():
 
 
 @app.route("/api/rms/auto-grab-bols", methods=["POST"])
+@admin_required
 def api_rms_auto_grab_bols():
     """Dashboard one-click RMS grabber.
     Uses the same full RMS multi-page import engine as RMS Sync, but gives the
     dashboard button a dedicated endpoint and simpler response target.
+
+    FT6: this is also the Azure-side handler for the Automation Center's "Run
+    RMS Auto Grab" button. Unlike /api/rms-local-worker/run (which spawns a
+    LOCAL subprocess to drive a visible browser and only makes sense on an
+    operator's own machine, so it safely refuses on Azure), this endpoint runs
+    the import synchronously in-process using a headless Chromium browser and
+    RMS username/password saved in Settings - no visible window or human login
+    step required, so it works on Azure's headless servers. Requires admin
+    (matches the /automation-center page's own access control - this was
+    previously reachable by any logged-in user even though the page itself is
+    admin-only).
     """
     try:
         history = read_json(SYNC_HISTORY_FILE)
@@ -4415,6 +4427,35 @@ def api_rms_auto_grab_bols():
         history.append(result)
         write_json(SYNC_HISTORY_FILE, history)
         audit("Dashboard Auto Grab BOLs", result)
+
+        # Mirror the same SYNC_STATE_FILE shape (and the same field names) that
+        # eoms_local_worker.py's summarize_result() produces before its
+        # /api/sync-result POST, so the Automation Center dashboard cards
+        # (which read via GET /api/sync-result and expect bols_found/
+        # stores_checked/error_message) show a consistent "Last RMS Run"
+        # regardless of whether the run happened locally or here on the server.
+        errors = result.get("errors") or []
+        if not isinstance(errors, list):
+            errors = [clean(errors)] if errors else []
+        summarized_result = {
+            "ok": bool(result.get("ok")),
+            "status": clean(result.get("status")),
+            "bols_found": int(result.get("found", result.get("bol_count", 0)) or 0),
+            "bols_new": int(result.get("imported", result.get("added", 0)) or 0),
+            "stores_checked": int(result.get("stores_checked", result.get("found", result.get("bol_count", 0))) or 0),
+            "imported": int(result.get("imported", 0) or 0),
+            "updated": int(result.get("updated", 0) or 0),
+            "errors": errors,
+            "error_message": clean(result.get("message")) if not result.get("ok") else "",
+            "message": clean(result.get("message")),
+        }
+        sync_state = {
+            "timestamp": result.get("time") or datetime.now().isoformat(timespec="seconds"),
+            "source": "azure-dashboard-auto-grab",
+            "result": summarized_result,
+            "received_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        write_json(SYNC_STATE_FILE, sync_state)
 
         return jsonify({"ok": result.get("ok", False), "result": result})
     except Exception as exc:
@@ -4585,7 +4626,7 @@ def api_store_closeout_update(store_id):
 @app.route("/automation-center")
 @admin_required
 def automation_center_page():
-    return render_template("automation_center.html")
+    return render_template("automation_center.html", is_azure=IS_AZURE)
 
 
 @app.route("/api/rms-local-worker/run", methods=["POST"])
