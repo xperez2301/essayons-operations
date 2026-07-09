@@ -3163,7 +3163,7 @@ def rms_blocked_result(message, action="RMS Import"):
         "status": "RMS BLOCKED / 403",
         "message": (
             "The RMS login URL is correct: https://rms.reusability.com/login. "
-            "Correct RMS flow is login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ https://rms.reusability.com/bills-of-lading ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ https://rms.reusability.com/bills-of-lading/<BOL>/print. "
+            "Correct RMS flow is login → https://rms.reusability.com/bills-of-lading → https://rms.reusability.com/bills-of-lading/<BOL>/print. "
             "RMS returned 403 Forbidden before the login form loaded, so EOMS never got a chance to enter the username/password. "
             "This is a server/network security block, not a bad password or wrong URL. "
             "Fix: run EOMS from a computer/network that can manually open RMS, use RUN_LOCAL_EOMS.bat with RMS_HEADLESS=0 for headed mode, "
@@ -3590,9 +3590,9 @@ def collect_bol_links_from_all_pages(page, max_pages=50):
 
         # First try button/link with text that looks like next arrow.
         possible_next = [
-            'button:has-text("ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº")',
+            'button:has-text("›")',
             'button:has-text(">")',
-            'a:has-text("ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº")',
+            'a:has-text("›")',
             'a:has-text(">")',
             'button[aria-label*="Next"]',
             'a[aria-label*="Next"]'
@@ -4308,7 +4308,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             rms_debug_hold(page)
             close_rms_browser(browser, context)
 
-            message = f"RMS import complete using correct RMS flow: login ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ bills-of-lading list ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped existing {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
+            message = f"RMS import complete using correct RMS flow: login → bills-of-lading list → individual /print pages. Scanned {len(bol_links)} BOLs. Imported {imported}. Updated {updated}. Skipped existing {skipped}. Need Review {need_review}. RMS missing/closed {rms_closeout['rms_missing']}."
             if diagnostic:
                 message = "RMS login/page load completed, but no BOL links were detected. Check RMS credentials, BOL URL, filters, and diagnostics. " + diagnostic.get("page", "")
             all_failed = bool(bol_links) and not imported and not updated and bool(errors)

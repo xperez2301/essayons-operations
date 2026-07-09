@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+pytest-cache-files-*/
 .venv/
 venv/
 env/
@@ -36,6 +37,10 @@ data/sync_history.json
 data/sync_state.json
 data/rms_queue.json
 data/*.tmp
+data/stores.json
+data/rms_worker_log.json
+data/worker_jobs.json
+data/workers.json
 bol_data.json
 
 # Editor / OS
@@ -64,14 +69,3 @@ _cleanup_hold/
 # Temporary backup files
 data/*.backup*.json
 data/*backup*.json
-
-# Runtime logs
-*.log
-daily_sync.log
-
-# Accidental duplicate files
-app .py
-
-browser_profiles/
-
-eoms.db

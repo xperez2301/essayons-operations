@@ -246,7 +246,7 @@ async function loadDrivers(){
             const option = document.createElement("option");
             option.value = driver.name || driver.username;
             option.dataset.phone = driver.phone || "";
-            option.textContent = (driver.name || driver.username) + (driver.cities && driver.cities.length ? " â€” " + driver.cities.join(", ") : "");
+            option.textContent = (driver.name || driver.username) + (driver.cities && driver.cities.length ? " — " + driver.cities.join(", ") : "");
             if(existing && option.value === existing) option.selected = true;
             select.appendChild(option);
         });
@@ -272,8 +272,8 @@ function renderStores(){
             <input type="checkbox" class="store-box" data-store-id="${store.id}" data-racks="${store.expected_racks || 0}" data-weight="${store.weight || 0}">
             <div>
                 <strong>${store.store_name || store.origin || "Unknown Store"}</strong>
-                <span>BOL ${store.bol || ""} â€¢ Origin ${store.origin || ""}</span>
-                <span>${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks</span>
+                <span>BOL ${store.bol || ""} • Origin ${store.origin || ""}</span>
+                <span>${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks</span>
                 <span>${dueLabel(store)}</span>
                 <small>${store.hub || "Manual Review"}</small><br><a class="mini-link" href="/bol-live/${store.bol}" target="_blank" onclick="event.stopPropagation()">Live BOL</a> <a class="mini-link" href="/bol-view/${store.id}" target="_blank" onclick="event.stopPropagation()">Saved Copy</a> <a class="mini-link" href="/bol-print/${store.id}" target="_blank" onclick="event.stopPropagation()">Print</a>
             </div>
@@ -992,7 +992,7 @@ function renderMapDispatchBoard(){
                         <span class="due-chip due-${color}">${store.due_date || "No Due"}</span>
                     </div>
                     <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
-                    <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
+                    <div class="map-board-sub">${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks • ${store.weight || 0} lbs</div>
                     ${materialEditorHtml(store)}
                     ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                     <div class="map-board-actions">
@@ -1164,7 +1164,7 @@ async function renderMapDispatchBoardLive(){
                             <span class="due-chip due-${color}">${store.due_date || "No Due"}</span>
                         </div>
                         <div class="map-board-store">${store.store_name || store.origin_name || "Store"} / ${store.origin || ""}</div>
-                        <div class="map-board-sub">${store.city || ""}, ${store.state || ""} â€¢ ${store.expected_racks || 0} racks â€¢ ${store.weight || 0} lbs</div>
+                        <div class="map-board-sub">${store.city || ""}, ${store.state || ""} • ${store.expected_racks || 0} racks • ${store.weight || 0} lbs</div>
                         ${materialEditorHtml(store)}
                         ${store.assigned_driver ? `<div class="map-board-driver">Driver: <b>${store.assigned_driver}</b></div>` : ""}
                         <div class="map-board-actions">
