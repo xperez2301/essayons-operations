@@ -1,3 +1,6 @@
+# ARCHIVED REFERENCE ONLY (FT5.3A)
+# The active RMS path is eoms_local_worker.py attached to visible Edge via CDP.
+# Do not use this image for current validation or production operation.
 FROM mcr.microsoft.com/playwright/python:v1.59.0-jammy
 
 ENV PYTHONUNBUFFERED=1 \

@@ -8,6 +8,7 @@ import requests
 import zipfile
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import getpass
@@ -81,6 +82,8 @@ except Exception:  # pragma: no cover
         )
 
 app = Flask(__name__)
+_LOCAL_RMS_WORKER_PROCESS = None
+_LOCAL_RMS_WORKER_LOCK = threading.Lock()
 
 app.register_blueprint(database_center_bp)
 app.register_blueprint(system_health_bp)
@@ -5006,6 +5009,54 @@ def api_store_closeout_update(store_id):
 @admin_required
 def automation_center_page():
     return render_template("automation_center.html")
+
+
+@app.route("/api/rms-local-worker/run", methods=["POST"])
+@admin_required
+def api_rms_local_worker_run():
+    global _LOCAL_RMS_WORKER_PROCESS
+
+    if IS_AZURE:
+        return jsonify({
+            "ok": False,
+            "message": "The local RMS worker can only be started from a local EOMS installation.",
+        }), 403
+
+    worker_script = BASE_DIR / "eoms_local_worker.py"
+    if not worker_script.exists():
+        return jsonify({
+            "ok": False,
+            "message": "The local RMS worker script was not found.",
+        }), 500
+
+    with _LOCAL_RMS_WORKER_LOCK:
+        if (
+            _LOCAL_RMS_WORKER_PROCESS is not None
+            and _LOCAL_RMS_WORKER_PROCESS.poll() is None
+        ):
+            return jsonify({
+                "ok": False,
+                "message": "RMS Auto Grab is already running.",
+            }), 409
+
+        try:
+            _LOCAL_RMS_WORKER_PROCESS = subprocess.Popen(
+                [sys.executable, str(worker_script)],
+                cwd=str(BASE_DIR),
+                env=os.environ.copy(),
+            )
+        except Exception as exc:
+            _LOCAL_RMS_WORKER_PROCESS = None
+            return jsonify({
+                "ok": False,
+                "message": f"Unable to start RMS Auto Grab: {str(exc)[:300]}",
+            }), 500
+
+    return jsonify({
+        "ok": True,
+        "message": "RMS Auto Grab started.",
+    })
+
 
 def worker_token_required(view):
     @wraps(view)

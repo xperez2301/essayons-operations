@@ -1,3 +1,5 @@
+# ARCHIVED REFERENCE ONLY (FT5.3A).
+# The active worker is eoms_local_worker.py using visible Edge over CDP.
 import json
 import os
 import sys
@@ -64,15 +66,34 @@ def configure_runtime():
     os.environ.setdefault("BOL_DIR", "/app/bol_files")
 
 
+def worker_configuration():
+    return {
+        "token": clean(os.environ.get("EOMS_WORKER_TOKEN")),
+        "worker_id": clean(os.environ.get("EOMS_WORKER_ID")) or "rms-docker-worker",
+        "base_url": clean(os.environ.get("EOMS_API_URL")).rstrip("/"),
+    }
+
+
+def print_startup_diagnostics():
+    config = worker_configuration()
+    print_json({
+        "event": "worker_startup",
+        "token_configured": bool(config["token"]),
+        "token_length": len(config["token"]),
+        "worker_id": config["worker_id"],
+        "base_url": config["base_url"],
+    })
+
+
 def api_headers():
-    token = clean(os.environ.get("EOMS_WORKER_TOKEN"))
+    token = worker_configuration()["token"]
     if not token:
         raise RuntimeError("EOMS_WORKER_TOKEN is required for bridge mode.")
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
 def api_url(path):
-    base = clean(os.environ.get("EOMS_API_URL")).rstrip("/")
+    base = worker_configuration()["base_url"]
     if not base:
         raise RuntimeError("EOMS_API_URL is required for bridge mode.")
     if not base.lower().startswith("https://") and clean(os.environ.get("EOMS_ALLOW_HTTP")).lower() not in {"1", "true", "yes"}:
@@ -147,7 +168,7 @@ def run_auto_grab_once():
 
 def loop_forever():
     interval = int(os.environ.get("RMS_WORKER_INTERVAL_SECONDS", "10") or 10)
-    worker_id = clean(os.environ.get("EOMS_WORKER_ID")) or "rms-docker-worker"
+    worker_id = worker_configuration()["worker_id"]
     version = clean(os.environ.get("EOMS_WORKER_VERSION")) or "FT5.2A"
     current_job = None
     last_job = None
@@ -209,6 +230,8 @@ def loop_forever():
 def main():
     mode = clean(sys.argv[1] if len(sys.argv) > 1 else os.environ.get("RMS_WORKER_MODE") or "run").lower()
     try:
+        configure_runtime()
+        print_startup_diagnostics()
         if mode in {"smoke", "smoke-test", "chromium-smoke"}:
             return chromium_smoke_test()
         if mode in {"loop", "daemon"}:

@@ -33,8 +33,10 @@ data/users.json
 data/routes.json
 data/audit_log.json
 data/sync_history.json
+data/sync_state.json
 data/rms_queue.json
 data/*.tmp
+bol_data.json
 
 # Editor / OS
 .vscode/

@@ -1,17 +1,20 @@
+# ARCHIVED REFERENCE ONLY (FT5.3A)
+# The active RMS path is: python eoms_local_worker.py
+# This service is retained only as historical implementation reference.
 services:
   rms-worker:
+    profiles: ["archived-reference"]
     build:
       context: .
       dockerfile: Dockerfile.rms-worker
     image: eoms-rms-worker
-    env_file:
-      - .env
     environment:
       RMS_BROWSER: chromium
       RMS_HEADLESS: "true"
       RMS_WORKER_MODE: loop
       EOMS_API_URL: ${EOMS_API_URL:-http://host.docker.internal:5000}
-      EOMS_WORKER_TOKEN: ${EOMS_WORKER_TOKEN}
+      EOMS_WORKER_TOKEN: ${EOMS_WORKER_TOKEN:-local-dev-token}
+      EOMS_WORKER_ID: ${EOMS_WORKER_ID:-rms-docker-worker}
       EOMS_ALLOW_HTTP: ${EOMS_ALLOW_HTTP:-true}
       DATA_DIR: /app/data
       UPLOAD_DIR: /app/uploads

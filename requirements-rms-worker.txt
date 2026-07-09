@@ -1,3 +1,4 @@
+# ARCHIVED REFERENCE ONLY (FT5.3A). Active local runs use requirements.txt.
 Flask==3.0.3
 Werkzeug==3.0.3
 python-dotenv==1.0.1
