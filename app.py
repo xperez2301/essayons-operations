@@ -5970,100 +5970,12 @@ from routes.driver_portal import driver_portal_bp
 app.register_blueprint(driver_portal_bp)
 
 # ---------------------------------------------------------------------------
-# Database Maintenance Center
+# Database Maintenance Center (routes moved to routes/database_maintenance.py)
 # ---------------------------------------------------------------------------
-from database_tools import (
-    backup_stores_json,
-    database_health as database_health_report,
-    repair_duplicate_bols,
-)
+from database_tools import backup_stores_json
 
-
-@app.route("/api/database/backup", methods=["POST"])
-@admin_required
-def api_database_backup():
-    backup_path = backup_stores_json(STORES_FILE, BASE_DIR / "backups", reason="manual_backup")
-    result = {"ok": True, "backup_path": str(backup_path), "message": "Database backup created."}
-    audit("Database Backup", result)
-    return jsonify(result)
-
-@app.route("/api/database/repair-duplicates", methods=["POST"])
-@admin_required
-def api_database_repair_duplicates():
-    result = repair_duplicate_bols(STORES_FILE, BASE_DIR / "backups", BOL_DIR, UPLOAD_DIR)
-    audit("Repair Duplicate BOLs", result)
-    return jsonify(result)
-
-@app.route("/api/database/duplicates")
-@admin_required
-def api_database_duplicates():
-    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
-    return jsonify({
-        "ok": True,
-        "duplicate_count": report.get("duplicate_bol_count", 0),
-        "duplicates": report.get("duplicates", []),
-    })
-
-@app.route("/api/database/missing-pdfs")
-@admin_required
-def api_database_missing_pdfs():
-    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
-    return jsonify({
-        "ok": True,
-        "missing_pdf_count": report.get("missing_pdf_count", 0),
-        "missing_pdfs": report.get("missing_pdfs", []),
-    })
-
-@app.route("/api/database/orphan-pdfs")
-@admin_required
-def api_database_orphan_pdfs():
-    report = database_health_report(STORES_FILE, BOL_DIR, UPLOAD_DIR)
-    return jsonify({
-        "ok": True,
-        "orphan_pdf_count": report.get("orphan_pdf_count", 0),
-        "orphan_pdfs": report.get("orphan_pdfs", []),
-    })
-
-@app.route("/api/database/backups")
-@admin_required
-def api_database_backups():
-    backups_dir = BASE_DIR / "backups"
-    backups_dir.mkdir(parents=True, exist_ok=True)
-
-    files = []
-    for p in sorted(backups_dir.glob("stores_*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
-        files.append({
-            "name": p.name,
-            "path": str(p),
-            "size_bytes": p.stat().st_size,
-            "modified_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
-        })
-
-    return jsonify({"ok": True, "backups": files, "count": len(files)})
-
-@app.route("/api/database/restore-backup", methods=["POST"])
-@admin_required
-def api_database_restore_backup():
-    data = request.get_json(force=True)
-    backup_name = clean(data.get("backup_name"))
-
-    backups_dir = BASE_DIR / "backups"
-    backup_path = backups_dir / backup_name
-
-    if not backup_name or not backup_path.exists() or backup_path.parent.resolve() != backups_dir.resolve():
-        return jsonify({"ok": False, "message": "Invalid backup selected."}), 400
-
-    safety_backup = backup_stores_json(STORES_FILE, backups_dir, reason="before_restore")
-    shutil.copy2(backup_path, STORES_FILE)
-
-    result = {
-        "ok": True,
-        "message": "Backup restored successfully.",
-        "restored_from": str(backup_path),
-        "safety_backup": str(safety_backup),
-    }
-    audit("Restore Database Backup", result)
-    return jsonify(result)
+from routes.database_maintenance import database_maintenance_bp
+app.register_blueprint(database_maintenance_bp)
 
 app.config["BACKUP_STORES_JSON"] = backup_stores_json
 app.config["AUDIT"] = audit
