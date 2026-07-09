@@ -45,10 +45,10 @@ from eoms_modules.operational_engine import ensure_operational_exception, resolv
 # in routes/driver_portal.py, which imports directly from
 # eoms_modules.driver_center_service itself. Nothing else in app.py uses
 # these, so they're no longer imported here.
-from eoms_modules.recovery_center_service import (
-    delete_route_if_allowed,
-    summarize_recovery_workspace_from_records,
-)
+# summarize_recovery_workspace_from_records moved to routes/recovery_center.py
+# with the /recovery page. delete_route_if_allowed is still used below by the
+# route-deletion API, so it stays imported here.
+from eoms_modules.recovery_center_service import delete_route_if_allowed
 # Receiving workspace logic now lives entirely in routes/receiving.py, which
 # imports directly from eoms_modules.receiving_service itself.
 # Dispatcher Closeout, Inventory, and Fulfillment workspace logic now lives
@@ -56,7 +56,7 @@ from eoms_modules.recovery_center_service import (
 # routes/fulfillment.py, which import directly from their respective
 # eoms_modules service files.
 from eoms_modules.command_center_service import build_command_center_workspace
-from eoms_modules.reporting_service import build_reporting_workspace
+# build_reporting_workspace moved to routes/reporting.py with the /reporting page.
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
 
 # Playwright is only needed for the RMS scraping features. It is heavy and not
@@ -2110,40 +2110,11 @@ def roadmap_workspace():
     workspace = build_roadmap_workspace(ROADMAP_FILE)
     return render_template("roadmap.html", workspace=workspace)
 
-@app.route("/reporting")
-def reporting_workspace():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    routes = filter_routes_for_user(read_json(ROUTES_FILE))
-    roadmap = build_roadmap_workspace(ROADMAP_FILE)
+from routes.reporting import reporting_bp
+app.register_blueprint(reporting_bp)
 
-    try:
-        from eoms_modules.automation_center_manager import automation_center
-        automation_status = automation_center.center_health()
-    except Exception as exc:
-        automation_status = {
-            "status": "OFFLINE",
-            "worker_health": "OFFLINE",
-            "error": str(exc),
-        }
-
-    workspace = build_reporting_workspace(
-        stores=stores,
-        routes=routes,
-        roadmap_workspace=roadmap,
-        automation_status=automation_status,
-    )
-    return render_template("reporting.html", workspace=workspace)
-
-@app.route("/recovery")
-def recovery_center():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    routes = filter_routes_for_user(read_json(ROUTES_FILE))
-    workspace = summarize_recovery_workspace_from_records(routes, stores)
-    workspace["sms_status"] = sms_status_payload(read_json(SETTINGS_FILE))
-    return render_template(
-        "recovery_center.html",
-        workspace=workspace,
-    )
+from routes.recovery_center import recovery_center_bp
+app.register_blueprint(recovery_center_bp)
 
 from routes.receiving import receiving_bp
 app.register_blueprint(receiving_bp)
