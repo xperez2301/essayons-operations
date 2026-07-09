@@ -76,7 +76,9 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
             result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs)
 
-        self.assertEqual(result, {"ok": True, "imported": 1})
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["imported"], 1)
+        self.assertEqual(result["batch_count"], 1)
         mock_post.assert_called_once()
         call = mock_post.call_args
         self.assertEqual(call.args[0], "https://eoms.example.test/api/local-rms/import")
@@ -116,6 +118,50 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
             result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs)
         self.assertFalse(result["ok"])
         mock_post.assert_not_called()
+
+    def test_splits_large_imports_into_multiple_batches(self):
+        # 25 BOLs with batch_size=10 should mean 3 separate requests to Azure,
+        # not one giant request that risks a platform-level 502 timeout.
+        imported_pdfs = {}
+        for i in range(25):
+            pdf_path = self.make_pdf(f"BOL_{i}.pdf")
+            imported_pdfs[str(i)] = {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True, "imported": 10}
+        mock_response.raise_for_status.return_value = None
+
+        with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
+            result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs, batch_size=10)
+
+        self.assertEqual(mock_post.call_count, 3)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["batch_count"], 3)
+        self.assertEqual(result["imported"], 30)  # 10 + 10 + 10 reported per batch
+
+        for call in mock_post.call_args_list:
+            files = call.kwargs["files"]
+            pdf_count = sum(1 for f in files if f[1][0] != "bol_data.json")
+            self.assertLessEqual(pdf_count, 10)
+
+    def test_one_failed_batch_does_not_block_the_others(self):
+        good_pdf_1 = self.make_pdf("BOL_1.pdf")
+        good_pdf_2 = self.make_pdf("BOL_2.pdf")
+        imported_pdfs = {
+            "1": {"pdf_path": str(good_pdf_1), "due_date": "", "assigned_date": ""},
+            "2": {"pdf_path": str(good_pdf_2), "due_date": "", "assigned_date": ""},
+        }
+        ok_response = MagicMock()
+        ok_response.json.return_value = {"ok": True, "imported": 1}
+        ok_response.raise_for_status.return_value = None
+
+        with patch.object(eoms_local_worker.requests, "post", side_effect=[Exception("boom"), ok_response]) as mock_post:
+            result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs, batch_size=1)
+
+        self.assertEqual(mock_post.call_count, 2)
+        self.assertFalse(result["ok"])  # overall failure surfaces since one batch failed
+        self.assertEqual(result["batch_count"], 2)
+        self.assertEqual(result["imported"], 1)  # the batch that succeeded still counted
 
 
 if __name__ == "__main__":
