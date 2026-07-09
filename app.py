@@ -51,9 +51,10 @@ from eoms_modules.recovery_center_service import (
 )
 # Receiving workspace logic now lives entirely in routes/receiving.py, which
 # imports directly from eoms_modules.receiving_service itself.
-from eoms_modules.inventory_service import build_inventory_workspace, adjust_inventory
-from eoms_modules.dispatcher_closeout_service import build_closeout_workspace, closeout_store, refresh_route_closeout
-from eoms_modules.fulfillment_service import build_fulfillment_workspace, reserve_inventory, ship_order
+# Dispatcher Closeout, Inventory, and Fulfillment workspace logic now lives
+# entirely in routes/dispatcher_closeout.py, routes/inventory.py, and
+# routes/fulfillment.py, which import directly from their respective
+# eoms_modules service files.
 from eoms_modules.command_center_service import build_command_center_workspace
 from eoms_modules.reporting_service import build_reporting_workspace
 from eoms_modules.roadmap_service import build_workspace as build_roadmap_workspace
@@ -2147,149 +2148,14 @@ def recovery_center():
 from routes.receiving import receiving_bp
 app.register_blueprint(receiving_bp)
 
-@app.route("/dispatcher-closeout")
-@dispatch_required
-def dispatcher_closeout_workspace():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    routes = filter_routes_for_user(read_json(ROUTES_FILE))
-    workspace = build_closeout_workspace(stores, routes)
-    return render_template("dispatcher_closeout.html", workspace=workspace)
+from routes.dispatcher_closeout import dispatcher_closeout_bp
+app.register_blueprint(dispatcher_closeout_bp)
 
-@app.route("/api/dispatcher/closeout", methods=["POST"])
-@dispatch_required
-@synchronized_data_write(STORES_FILE, ROUTES_FILE)
-def api_dispatcher_closeout():
-    data = request.get_json(force=True) or {}
-    stores = read_json(STORES_FILE)
-    routes = read_json(ROUTES_FILE)
+from routes.inventory import inventory_bp
+app.register_blueprint(inventory_bp)
 
-    try:
-        closed = closeout_store(
-            stores,
-            data.get("store_id"),
-            closed_by=session.get("username", "system"),
-            notes=data.get("dispatcher_closeout_notes"),
-        )
-        already_closed = bool(closed.get("already_closed"))
-        updated_routes = [] if already_closed else refresh_route_closeout(routes, stores, closed.get("id"))
-    except LookupError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 404
-    except ValueError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 400
-
-    write_json(STORES_FILE, stores)
-    write_json(ROUTES_FILE, routes)
-    workspace = build_inventory_workspace(stores)
-    closeout_workspace = build_closeout_workspace(stores, routes)
-    audit("Dispatcher Close-Out", {
-        "store_id": closed.get("id"),
-        "bol": closed.get("bol"),
-        "inventory_source": closed.get("inventory_source"),
-        "already_closed": already_closed,
-    })
-
-    return jsonify({
-        "ok": True,
-        "already_closed": already_closed,
-        "store": closed,
-        "next_load": closeout_workspace.get("selected_load"),
-        "updated_routes": len(updated_routes),
-        "inventory_summary": workspace.get("summary", {}),
-    })
-
-@app.route("/inventory")
-def inventory_workspace():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    workspace = build_inventory_workspace(stores, request.args.get("component"))
-    return render_template("inventory.html", workspace=workspace)
-
-@app.route("/api/inventory/adjust", methods=["POST"])
-@synchronized_data_write(STORES_FILE)
-def api_inventory_adjust():
-    data = request.get_json(force=True) or {}
-    stores = read_json(STORES_FILE)
-
-    try:
-        adjustment = adjust_inventory(
-            stores,
-            data.get("component"),
-            data.get("amount"),
-            data.get("reason"),
-            adjusted_by=session.get("username", "system"),
-        )
-    except ValueError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 400
-
-    write_json(STORES_FILE, stores)
-    workspace = build_inventory_workspace(stores, adjustment.get("component"))
-    audit("Adjust Inventory", adjustment)
-
-    return jsonify({
-        "ok": True,
-        "adjustment": adjustment,
-        "summary": workspace.get("summary", {}),
-    })
-
-@app.route("/fulfillment")
-def fulfillment_workspace():
-    stores = filter_stores_for_user(read_json(STORES_FILE))
-    workspace = build_fulfillment_workspace(stores, request.args.get("order"))
-    return render_template("fulfillment.html", workspace=workspace)
-
-@app.route("/api/fulfillment/reserve", methods=["POST"])
-@synchronized_data_write(STORES_FILE)
-def api_fulfillment_reserve():
-    data = request.get_json(force=True) or {}
-    stores = read_json(STORES_FILE)
-
-    try:
-        order = reserve_inventory(
-            stores,
-            data,
-            reserved_by=session.get("username", "system"),
-        )
-    except ValueError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 400
-
-    write_json(STORES_FILE, stores)
-    workspace = build_fulfillment_workspace(stores, order.get("order_number"))
-    audit("Reserve Fulfillment Inventory", {"order_number": order.get("order_number"), "customer": order.get("customer")})
-
-    return jsonify({
-        "ok": True,
-        "order": order,
-        "summary": workspace.get("summary", {}),
-    })
-
-@app.route("/api/fulfillment/ship", methods=["POST"])
-@synchronized_data_write(STORES_FILE)
-def api_fulfillment_ship():
-    data = request.get_json(force=True) or {}
-    stores = read_json(STORES_FILE)
-
-    try:
-        order = ship_order(
-            stores,
-            data.get("order_number"),
-            shipped_by=session.get("username", "system"),
-            shipment_notes=data.get("shipment_notes"),
-        )
-        already_shipped = bool(order.pop("already_shipped", False))
-    except LookupError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 404
-    except ValueError as exc:
-        return jsonify({"ok": False, "message": str(exc)}), 400
-
-    write_json(STORES_FILE, stores)
-    workspace = build_fulfillment_workspace(stores, order.get("order_number"))
-    audit("Ship Fulfillment Order", {"order_number": order.get("order_number"), "already_shipped": already_shipped})
-
-    return jsonify({
-        "ok": True,
-        "already_shipped": already_shipped,
-        "order": order,
-        "summary": workspace.get("summary", {}),
-    })
+from routes.fulfillment import fulfillment_bp
+app.register_blueprint(fulfillment_bp)
 
 @app.route("/api/dashboard-live")
 def api_dashboard_live():
