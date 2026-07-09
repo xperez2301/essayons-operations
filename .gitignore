@@ -69,3 +69,14 @@ _cleanup_hold/
 # Temporary backup files
 data/*.backup*.json
 data/*backup*.json
+
+# Runtime logs
+*.log
+daily_sync.log
+
+# Accidental duplicate files
+app .py
+
+browser_profiles/
+
+eoms.db
