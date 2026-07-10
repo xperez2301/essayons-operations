@@ -70,14 +70,17 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
             "12345": {"pdf_path": str(pdf_path), "due_date": "07/15/2026", "assigned_date": "07/09/2026"},
         }
         mock_response = MagicMock()
-        mock_response.json.return_value = {"ok": True, "imported": 1}
+        # Real server response shape from import_rms_uploaded_files(): added/
+        # duplicates/need_review, not imported/updated.
+        mock_response.json.return_value = {"ok": True, "added": 1, "duplicates": 0, "need_review": 0}
         mock_response.raise_for_status.return_value = None
 
         with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
             result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs)
 
         self.assertTrue(result["ok"])
-        self.assertEqual(result["imported"], 1)
+        self.assertEqual(result["added"], 1)
+        self.assertEqual(result["imported"], 1)  # backward-compat alias
         self.assertEqual(result["batch_count"], 1)
         mock_post.assert_called_once()
         call = mock_post.call_args
@@ -128,7 +131,7 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
             imported_pdfs[str(i)] = {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {"ok": True, "imported": 10}
+        mock_response.json.return_value = {"ok": True, "added": 10, "duplicates": 0, "need_review": 0}
         mock_response.raise_for_status.return_value = None
 
         with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
@@ -137,7 +140,8 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 3)
         self.assertTrue(result["ok"])
         self.assertEqual(result["batch_count"], 3)
-        self.assertEqual(result["imported"], 30)  # 10 + 10 + 10 reported per batch
+        self.assertEqual(result["added"], 30)  # 10 + 10 + 10 reported per batch
+        self.assertEqual(result["imported"], 30)  # backward-compat alias
 
         for call in mock_post.call_args_list:
             files = call.kwargs["files"]
@@ -152,7 +156,7 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
             "2": {"pdf_path": str(good_pdf_2), "due_date": "", "assigned_date": ""},
         }
         ok_response = MagicMock()
-        ok_response.json.return_value = {"ok": True, "imported": 1}
+        ok_response.json.return_value = {"ok": True, "added": 1, "duplicates": 0, "need_review": 0}
         ok_response.raise_for_status.return_value = None
 
         with patch.object(eoms_local_worker.requests, "post", side_effect=[Exception("boom"), ok_response]) as mock_post:
@@ -161,7 +165,7 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 2)
         self.assertFalse(result["ok"])  # overall failure surfaces since one batch failed
         self.assertEqual(result["batch_count"], 2)
-        self.assertEqual(result["imported"], 1)  # the batch that succeeded still counted
+        self.assertEqual(result["added"], 1)  # the batch that succeeded still counted
 
 
 if __name__ == "__main__":

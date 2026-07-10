@@ -282,8 +282,9 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
     batches = [dict(items[i:i + batch_size]) for i in range(0, len(items), batch_size)]
 
     batch_results = []
-    total_imported = 0
-    total_updated = 0
+    total_added = 0
+    total_duplicates = 0
+    total_need_review = 0
     all_ok = True
     for index, batch in enumerate(batches, start=1):
         logging.info("Uploading batch %d/%d (%d BOL(s)) to Azure...", index, len(batches), len(batch))
@@ -295,15 +296,23 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
         batch_results.append(result)
         if not result.get("ok"):
             all_ok = False
-        total_imported += int(result.get("imported", 0) or 0)
-        total_updated += int(result.get("updated", 0) or 0)
+        # /api/local-rms/import (import_rms_uploaded_files()) reports counts as
+        # added/duplicates/need_review - not imported/updated. Match its real
+        # field names so the rolled-up totals here (and what the Automation
+        # Center dashboard displays) actually reflect what happened.
+        total_added += int(result.get("added", 0) or 0)
+        total_duplicates += int(result.get("duplicates", 0) or 0)
+        total_need_review += int(result.get("need_review", 0) or 0)
 
     return {
         "ok": all_ok,
         "message": f"Uploaded {len(batches)} batch(es) covering {len(items)} BOL(s). "
-                   f"Imported {total_imported}, updated {total_updated}.",
-        "imported": total_imported,
-        "updated": total_updated,
+                   f"Added {total_added}, need review {total_need_review}, "
+                   f"skipped duplicates {total_duplicates}.",
+        "added": total_added,
+        "imported": total_added,  # kept for backward compatibility with existing dashboard/tests
+        "duplicates": total_duplicates,
+        "need_review": total_need_review,
         "batch_count": len(batches),
         "batch_results": batch_results,
     }
