@@ -311,20 +311,36 @@ def run_auto_grab():
 
 
 def post_sync_result(timestamp, result):
-    base_url = clean(os.environ.get("EOMS_BASE_URL") or os.environ.get("AZURE_EOMS_URL")).rstrip("/")
-    token = clean(os.environ.get("EOMS_WORKER_TOKEN"))
+    base_url = worker_base_url()
+    token, auth_mode = worker_auth_token()
     if not base_url:
         raise RuntimeError("EOMS_BASE_URL is required.")
     if not token:
-        raise RuntimeError("EOMS_WORKER_TOKEN is required.")
+        raise RuntimeError("EOMS_WORKER_TOKEN is required for final sync callbacks.")
+    target_url = f"{base_url}/api/sync-result"
+    logging.info("Posting final RMS sync result to %s using %s authentication.", target_url, auth_mode)
     response = requests.post(
-        f"{base_url}/api/sync-result",
+        target_url,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={"timestamp": timestamp, "source": "eoms-local-worker", "result": result},
         timeout=int(os.environ.get("EOMS_WORKER_HTTP_TIMEOUT", "30")),
     )
     response.raise_for_status()
     return response.json()
+
+
+def worker_base_url():
+    return clean(os.environ.get("EOMS_BASE_URL") or os.environ.get("AZURE_EOMS_URL")).rstrip("/")
+
+
+def worker_auth_token():
+    token = clean(os.environ.get("EOMS_WORKER_TOKEN"))
+    if token:
+        return token, "EOMS_WORKER_TOKEN"
+    legacy_token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
+    if legacy_token:
+        return legacy_token, "LOCAL_RMS_IMPORT_TOKEN legacy fallback"
+    return "", "missing worker token"
 
 
 def _upload_batch_to_azure(base_url, token, batch):
@@ -491,14 +507,14 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
         logging.info("No pending local RMS PDFs to upload to Azure.")
         return {"ok": True, "message": "Nothing pending to upload.", "skipped": True, "run": run_record}
 
-    base_url = clean(os.environ.get("EOMS_BASE_URL") or os.environ.get("AZURE_EOMS_URL")).rstrip("/")
-    token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
+    base_url = worker_base_url()
+    token, auth_mode = worker_auth_token()
     if not base_url:
         raise RuntimeError("EOMS_BASE_URL is required.")
     if not token:
         raise RuntimeError(
-            "LOCAL_RMS_IMPORT_TOKEN is required to upload scraped BOLs to Azure "
-            "(this must match LOCAL_RMS_IMPORT_TOKEN in Azure App Service settings)."
+            "EOMS_WORKER_TOKEN is required to upload scraped BOLs to Azure "
+            "(LOCAL_RMS_IMPORT_TOKEN is supported only as a legacy fallback)."
         )
 
     deduped = {}
@@ -523,7 +539,14 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
     failed_bols = []
     bol_statuses = {}
     for index, batch in enumerate(batches, start=1):
-        logging.info("Uploading batch %d/%d (%d BOL(s)) to Azure...", index, len(batches), len(batch))
+        logging.info(
+            "Uploading batch %d/%d (%d BOL(s)) to %s/api/local-rms/import using %s authentication.",
+            index,
+            len(batches),
+            len(batch),
+            base_url,
+            auth_mode,
+        )
         queue = mark_queue_status(load_sync_queue(), batch.keys(), "Uploading")
         try:
             result = _upload_batch_to_azure(base_url, token, batch)

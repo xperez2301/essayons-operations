@@ -40,6 +40,7 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.env_patch = patch.dict(os.environ, {
             "EOMS_BASE_URL": "https://eoms.example.test",
+            "EOMS_WORKER_TOKEN": "",
             "LOCAL_RMS_IMPORT_TOKEN": "shared-secret-token",
             "EOMS_LOCAL_SYNC_QUEUE_FILE": str(Path(self.temp_dir.name) / "sync_queue.json"),
             "EOMS_LOCAL_SYNC_HISTORY_FILE": str(Path(self.temp_dir.name) / "sync_history.json"),
@@ -71,7 +72,7 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         mock_post.assert_not_called()
 
     def test_missing_token_raises(self):
-        with patch.dict(os.environ, {"LOCAL_RMS_IMPORT_TOKEN": ""}):
+        with patch.dict(os.environ, {"EOMS_WORKER_TOKEN": "", "LOCAL_RMS_IMPORT_TOKEN": ""}):
             with self.assertRaises(RuntimeError):
                 eoms_local_worker.upload_local_import_to_azure({
                     "12345": {"pdf_path": str(self.make_pdf()), "due_date": "", "assigned_date": ""}
@@ -122,6 +123,29 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         sidecar_entry = next(f for f in files if f[1][0] == "bol_data.json")
         sidecar_payload = json.loads(sidecar_entry[1][1])
         self.assertEqual(sidecar_payload["12345"]["due_date"], "07/15/2026")
+
+    def test_upload_prefers_eoms_worker_token_when_configured(self):
+        pdf_path = self.make_pdf("BOL_worker_token.pdf")
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "added": 1,
+            "duplicates": 0,
+            "need_review": 0,
+            "added_bols": [{"bol": "555", "normalized_bol": "555"}],
+        }
+        mock_response.raise_for_status.return_value = None
+
+        with (
+            patch.dict(os.environ, {"EOMS_WORKER_TOKEN": "worker-token", "LOCAL_RMS_IMPORT_TOKEN": "legacy-token"}),
+            patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post,
+        ):
+            result = eoms_local_worker.upload_local_import_to_azure({
+                "555": {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+            })
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(mock_post.call_args.kwargs["headers"]["Authorization"], "Bearer worker-token")
 
     def test_deletes_local_pdf_when_azure_confirms_duplicate_exists(self):
         pdf_path = self.make_pdf("BOL_duplicate.pdf")

@@ -516,16 +516,48 @@ def audit(action, details):
     log.append({"id": str(uuid4()), "time": datetime.now().isoformat(timespec="seconds"), "action": action, "details": details})
     write_json(AUDIT_FILE, log)
 
-def local_rms_import_authorized():
-    token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
-    if not token:
-        return False
+def configured_worker_tokens():
+    tokens = []
+    for mode, env_name in (
+        ("EOMS_WORKER_TOKEN", "EOMS_WORKER_TOKEN"),
+        ("LOCAL_RMS_IMPORT_TOKEN legacy fallback", "LOCAL_RMS_IMPORT_TOKEN"),
+    ):
+        token = clean(os.environ.get(env_name))
+        if token and token not in [existing for _, existing in tokens]:
+            tokens.append((mode, token))
+    return tokens
+
+
+def worker_auth_result():
     auth = clean(request.headers.get("Authorization"))
     supplied = ""
     if auth.lower().startswith("bearer "):
         supplied = clean(auth[7:])
     supplied = supplied or clean(request.headers.get("X-EOMS-Import-Token"))
-    return bool(supplied) and secrets.compare_digest(supplied, token)
+    if not configured_worker_tokens():
+        return False, "not_configured"
+    if not supplied:
+        return False, "missing"
+    for mode, expected in configured_worker_tokens():
+        if secrets.compare_digest(supplied, expected):
+            return True, mode
+    return False, "invalid"
+
+
+def worker_authorization_failure_response(reason):
+    if reason == "not_configured":
+        return jsonify({
+            "ok": False,
+            "message": "Worker token is not configured. Set EOMS_WORKER_TOKEN in the environment."
+        }), 503
+    if reason == "missing":
+        return jsonify({"ok": False, "message": "Worker bearer token is required."}), 401
+    return jsonify({"ok": False, "message": "Invalid worker token."}), 401
+
+
+def local_rms_import_authorized():
+    ok, _ = worker_auth_result()
+    return ok
 
 def clean(value):
     return "" if value is None else str(value).strip()
@@ -2025,7 +2057,7 @@ def enforce_login():
     path = request.path or "/"
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
         return None
-    if path == "/api/local-rms/import" and local_rms_import_authorized():
+    if path == "/api/local-rms/import":
         return None
     if path == "/api/sync-result" and request.method == "POST":
         # Local workers authenticate with EOMS_WORKER_TOKEN, not a browser
@@ -2230,13 +2262,10 @@ def rms_import():
 
 @app.route("/api/local-rms/import", methods=["POST"])
 def api_local_rms_import():
-    if not clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN")):
-        return jsonify({
-            "ok": False,
-            "message": "LOCAL_RMS_IMPORT_TOKEN is not configured in Azure App Service settings."
-        }), 503
-    if not local_rms_import_authorized():
-        return jsonify({"ok": False, "message": "Invalid or missing local RMS import token."}), 401
+    authorized, auth_mode = worker_auth_result()
+    if not authorized:
+        return worker_authorization_failure_response(auth_mode)
+    app.logger.info("/api/local-rms/import accepted worker authentication mode: %s", auth_mode)
 
     files = request.files.getlist("rms_file") or request.files.getlist("files")
     if not files:
@@ -4755,13 +4784,10 @@ def api_rms_local_worker_run():
 def worker_token_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        expected = str(os.environ.get("EOMS_WORKER_TOKEN") or "").strip()
-        supplied = str(request.headers.get("Authorization") or "").strip()
-        scheme, separator, token = supplied.partition(" ")
-        if not expected or separator != " " or scheme != "Bearer":
-            return jsonify({"ok": False, "message": "Worker authorization required."}), 401
-        if not secrets.compare_digest(token.strip(), expected):
-            return jsonify({"ok": False, "message": "Invalid worker token."}), 401
+        authorized, auth_mode = worker_auth_result()
+        if not authorized:
+            return worker_authorization_failure_response(auth_mode)
+        request.worker_auth_mode = auth_mode
         return view(*args, **kwargs)
     return wrapped
 
@@ -4769,6 +4795,7 @@ def worker_token_required(view):
 @app.route("/api/sync-result", methods=["POST"])
 @worker_token_required
 def api_sync_result_post():
+    app.logger.info("/api/sync-result accepted worker authentication mode: %s", getattr(request, "worker_auth_mode", "unknown"))
     data = request.get_json(silent=True) or {}
     if not isinstance(data.get("result"), dict):
         return jsonify({"ok": False, "message": "result must be a JSON object."}), 400

@@ -44,6 +44,16 @@ class SyncResultTests(unittest.TestCase):
                 json={"timestamp": "2026-07-08T12:00:00", "result": {}},
             )
         self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["message"], "Invalid worker token.")
+
+    def test_post_rejects_missing_worker_bearer_token(self):
+        with patch.dict(os.environ, {"EOMS_WORKER_TOKEN": "correct-token", "LOCAL_RMS_IMPORT_TOKEN": ""}):
+            response = self.client.post(
+                "/api/sync-result",
+                json={"timestamp": "2026-07-08T12:00:00", "result": {}},
+            )
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["message"], "Worker bearer token is required.")
 
     def test_post_persists_and_get_returns_last_result(self):
         payload = {
@@ -69,6 +79,37 @@ class SyncResultTests(unittest.TestCase):
 
         self.assertEqual(fetched.status_code, 200)
         self.assertEqual(fetched.get_json()["sync"]["result"]["imported"], 3)
+
+    def test_legacy_import_token_can_post_sync_result_when_worker_token_is_absent(self):
+        payload = {
+            "timestamp": "2026-07-08T12:00:00",
+            "source": "eoms-local-worker",
+            "result": {"ok": True, "status": "IMPORT COMPLETE"},
+        }
+        with patch.dict(os.environ, {"EOMS_WORKER_TOKEN": "", "LOCAL_RMS_IMPORT_TOKEN": "shared-token"}):
+            response = self.client.post(
+                "/api/sync-result",
+                headers={"Authorization": "Bearer shared-token"},
+                json=payload,
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+
+    def test_import_and_sync_result_accept_same_worker_token(self):
+        with patch.dict(os.environ, {"EOMS_WORKER_TOKEN": "shared-worker-token", "LOCAL_RMS_IMPORT_TOKEN": ""}):
+            sync_response = self.client.post(
+                "/api/sync-result",
+                headers={"Authorization": "Bearer shared-worker-token"},
+                json={"timestamp": "2026-07-08T12:00:00", "result": {"ok": True}},
+            )
+            import_response = self.client.post(
+                "/api/local-rms/import",
+                headers={"Authorization": "Bearer shared-worker-token"},
+            )
+
+        self.assertEqual(sync_response.status_code, 200)
+        self.assertEqual(import_response.status_code, 400)
+        self.assertEqual(import_response.get_json()["message"], "Attach PDF, Excel, or CSV files as rms_file.")
 
     def test_local_summary_and_sidecar_are_utf8_without_bom(self):
         sidecar = Path(self.temporary_directory.name) / "bol_data.json"
@@ -116,6 +157,30 @@ class SyncResultTests(unittest.TestCase):
             json.loads(sidecar.read_text(encoding="utf-8"))["last_result"]["imported"],
             1,
         )
+
+    def test_post_sync_result_uses_worker_token_and_logs_target_without_secret(self):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"ok": True}
+        with (
+            patch.dict(os.environ, {
+                "EOMS_BASE_URL": "https://eoms.example.test/",
+                "EOMS_WORKER_TOKEN": "super-secret-token",
+                "LOCAL_RMS_IMPORT_TOKEN": "legacy-token",
+            }),
+            patch.object(eoms_local_worker.requests, "post", return_value=response) as mock_post,
+            self.assertLogs(level="INFO") as logs,
+        ):
+            result = eoms_local_worker.post_sync_result("2026-07-08T12:00:00", {"ok": True})
+
+        self.assertTrue(result["ok"])
+        call = mock_post.call_args
+        self.assertEqual(call.args[0], "https://eoms.example.test/api/sync-result")
+        self.assertEqual(call.kwargs["headers"]["Authorization"], "Bearer super-secret-token")
+        log_output = "\n".join(logs.output)
+        self.assertIn("https://eoms.example.test/api/sync-result", log_output)
+        self.assertIn("EOMS_WORKER_TOKEN authentication", log_output)
+        self.assertNotIn("super-secret-token", log_output)
 
     def test_local_worker_uploads_imported_pdfs_to_azure_when_present(self):
         sidecar = Path(self.temporary_directory.name) / "bol_data.json"
