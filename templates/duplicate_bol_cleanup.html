@@ -1,0 +1,224 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Duplicate BOL Cleanup" %}
+{% set module_title = "Database Center" %}
+
+{% block topbar_actions %}
+    <a class="eoms-button eoms-button-secondary" href="/database-center">Back to Database Center</a>
+    <button class="eoms-button" type="button" onclick="scanDuplicateBols()">Scan Now</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <div>
+            <h3>Live Duplicate BOL Cleanup Center</h3>
+            <p class="muted">
+                This center scans duplicate BOL records by normalized BOL number. Cleanup is never automatic:
+                only records classified as safe duplicates are removed after a verified backup is created.
+            </p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="primary-btn" type="button" onclick="scanDuplicateBols()">Scan</button>
+            <button class="secondary-btn" type="button" onclick="downloadDuplicateReport()">Download Audit Report</button>
+        </div>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric"><span>Total BOL Records</span><strong id="metricTotal">—</strong></div>
+        <div class="metric"><span>Unique Normalized BOLs</span><strong id="metricUnique">—</strong></div>
+        <div class="metric"><span>Duplicate Groups</span><strong id="metricGroups">—</strong></div>
+        <div class="metric"><span>Extra Duplicate Records</span><strong id="metricExtra">—</strong></div>
+        <div class="metric"><span>Safe Duplicates</span><strong id="metricSafe">—</strong></div>
+        <div class="metric"><span>Merge Required</span><strong id="metricMerge">—</strong></div>
+        <div class="metric"><span>Protected</span><strong id="metricProtected">—</strong></div>
+        <div class="metric"><span>Uncertain</span><strong id="metricUncertain">—</strong></div>
+    </div>
+
+    <div class="panel" style="margin-top:14px;">
+        <p><strong>Last Scan:</strong> <span id="lastScan">Not scanned yet</span></p>
+        <p><strong>Last Cleanup:</strong> <span id="lastCleanup">None found</span></p>
+        <p><strong>Latest Backup:</strong> <span id="latestBackup">None found</span></p>
+        <p class="muted" id="cleanupMessage">Run a scan to review duplicate groups before cleanup.</p>
+    </div>
+</section>
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <div>
+            <h3>Approved Actions</h3>
+            <p class="muted">Safe duplicates can be cleaned. Protected, merge-required, and uncertain records remain untouched.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="primary-btn" type="button" onclick="cleanupSafeDuplicates()">Clean Safe Duplicates</button>
+            <button class="danger-btn" type="button" onclick="rollbackDuplicateCleanup()">Rollback Last Cleanup</button>
+        </div>
+    </div>
+</section>
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <h3>Review Duplicate Groups</h3>
+        <select id="classificationFilter" onchange="renderDuplicateGroups()">
+            <option value="">All classifications</option>
+            <option value="Safe Duplicate">Safe Duplicate</option>
+            <option value="Merge Required">Merge Required</option>
+            <option value="Protected">Protected</option>
+            <option value="Uncertain">Uncertain</option>
+        </select>
+    </div>
+
+    <div id="duplicateGroups">
+        <p class="muted">No scan results loaded.</p>
+    </div>
+</section>
+
+<script>
+let duplicateBolReport = null;
+
+function textValue(value) {
+    return value === undefined || value === null || value === "" ? "—" : value;
+}
+
+function setMetric(id, value) {
+    const node = document.getElementById(id);
+    if (node) node.textContent = textValue(value);
+}
+
+function setCleanupMessage(message, isError) {
+    const node = document.getElementById("cleanupMessage");
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? "#b42318" : "";
+}
+
+async function scanDuplicateBols() {
+    setCleanupMessage("Scanning duplicate BOL records...", false);
+    const response = await fetch("/api/admin/duplicate-bols/scan", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        setCleanupMessage(payload.message || "Duplicate BOL scan failed.", true);
+        return;
+    }
+    duplicateBolReport = payload;
+    updateDuplicateMetrics(payload);
+    renderDuplicateGroups();
+    setCleanupMessage("Scan complete. Review classifications before cleanup.", false);
+}
+
+function updateDuplicateMetrics(report) {
+    const metrics = report.metrics || {};
+    setMetric("metricTotal", metrics.total_bol_records);
+    setMetric("metricUnique", metrics.unique_normalized_bols);
+    setMetric("metricGroups", metrics.duplicate_groups);
+    setMetric("metricExtra", metrics.extra_duplicate_records);
+    setMetric("metricSafe", metrics.safe_duplicates);
+    setMetric("metricMerge", metrics.merge_required_duplicates);
+    setMetric("metricProtected", metrics.protected_duplicates);
+    setMetric("metricUncertain", metrics.uncertain_duplicates);
+    document.getElementById("lastScan").textContent = textValue(report.scan_time);
+    document.getElementById("lastCleanup").textContent = textValue(metrics.last_cleanup_time);
+    document.getElementById("latestBackup").textContent = textValue(metrics.latest_backup_filename);
+}
+
+function renderDuplicateGroups() {
+    const container = document.getElementById("duplicateGroups");
+    const filter = document.getElementById("classificationFilter").value;
+    if (!duplicateBolReport || !Array.isArray(duplicateBolReport.groups) || duplicateBolReport.groups.length === 0) {
+        container.innerHTML = '<p class="muted">No duplicate BOL groups found.</p>';
+        return;
+    }
+
+    const cards = [];
+    duplicateBolReport.groups.forEach(group => {
+        const rows = (group.rows || []).filter(row => !filter || row.classification === filter);
+        if (!rows.length) return;
+        const body = rows.map(row => {
+            const record = row.record || {};
+            return `
+                <tr>
+                    <td>${row.is_canonical ? "Yes" : "No"}</td>
+                    <td>${textValue(record.id)}</td>
+                    <td>${textValue(record.bol)}</td>
+                    <td>${textValue(record.status)}</td>
+                    <td>${textValue(record.hub)}</td>
+                    <td>${textValue(row.classification)}</td>
+                    <td>${textValue(row.recommended_action)}</td>
+                    <td>${textValue(row.reason)}</td>
+                </tr>
+            `;
+        }).join("");
+        cards.push(`
+            <div class="panel" style="margin-top:12px;">
+                <h3>BOL ${textValue(group.normalized_bol)}</h3>
+                <p class="muted">
+                    Original values: ${(group.original_bol_values || []).join(", ") || "—"} |
+                    Canonical record: ${textValue(group.canonical_record_id)}
+                </p>
+                <table class="activity-table">
+                    <thead>
+                        <tr>
+                            <th>Canonical</th>
+                            <th>Record ID</th>
+                            <th>BOL</th>
+                            <th>Status</th>
+                            <th>Hub</th>
+                            <th>Classification</th>
+                            <th>Action</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>${body}</tbody>
+                </table>
+            </div>
+        `);
+    });
+
+    container.innerHTML = cards.length ? cards.join("") : '<p class="muted">No groups match this filter.</p>';
+}
+
+async function cleanupSafeDuplicates() {
+    if (!confirm("Clean only records classified as Safe Duplicate? A verified backup will be created first.")) {
+        return;
+    }
+    setCleanupMessage("Creating backup and cleaning safe duplicate records...", false);
+    const response = await fetch("/api/admin/duplicate-bols/cleanup", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        setCleanupMessage(payload.message || "Safe duplicate cleanup failed.", true);
+        return;
+    }
+    setCleanupMessage(payload.message || "Safe duplicate cleanup complete.", false);
+    await scanDuplicateBols();
+}
+
+async function rollbackDuplicateCleanup() {
+    const confirmation = prompt("Type ROLLBACK to restore the latest duplicate BOL cleanup backup.");
+    if (confirmation !== "ROLLBACK") {
+        setCleanupMessage("Rollback cancelled.", false);
+        return;
+    }
+    setCleanupMessage("Restoring latest duplicate cleanup backup...", false);
+    const response = await fetch("/api/admin/duplicate-bols/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        setCleanupMessage(payload.message || "Rollback failed.", true);
+        return;
+    }
+    setCleanupMessage(payload.message || "Rollback complete.", false);
+    await scanDuplicateBols();
+}
+
+function downloadDuplicateReport() {
+    window.location.href = "/api/admin/duplicate-bols/report";
+}
+
+document.addEventListener("DOMContentLoaded", scanDuplicateBols);
+</script>
+
+{% endblock %}

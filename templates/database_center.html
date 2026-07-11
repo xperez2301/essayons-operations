@@ -5,6 +5,7 @@
 
 {% block topbar_actions %}
     <a class="eoms-button" href="/database-health">Legacy Health Page</a>
+    <a class="eoms-button eoms-button-secondary" href="/admin/duplicate-bols">Duplicate BOL Cleanup</a>
     <a class="eoms-button eoms-button-secondary" href="/api/database/backups" target="_blank">Backup JSON</a>
 {% endblock %}
 
@@ -47,6 +48,7 @@
         <button class="secondary-btn" type="button" onclick="showTab('validator')">Database Validator</button>
         <button class="secondary-btn" type="button" onclick="showTab('geocoding')">Geocoding Center</button>
         <button class="secondary-btn" type="button" onclick="showTab('backups')">Backup Manager</button>
+        <a class="secondary-btn" href="/admin/duplicate-bols" style="text-decoration:none;">Duplicate BOL Cleanup</a>
         <button class="secondary-btn" type="button" onclick="showTab('diagnostics')">RMS Diagnostics</button>
         <button class="secondary-btn" type="button" onclick="showTab('activity')">Activity Log</button>
     </div>
