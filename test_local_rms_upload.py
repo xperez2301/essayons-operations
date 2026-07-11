@@ -23,6 +23,16 @@ from unittest.mock import patch, MagicMock
 os.environ.setdefault("SECRET_KEY", "local-rms-upload-test-secret")
 
 import eoms_local_worker
+import app as eoms_app
+
+
+class FakeUpload:
+    def __init__(self, filename, content=b"%PDF-fake"):
+        self.filename = filename
+        self.content = content
+
+    def save(self, path):
+        Path(path).write_bytes(self.content)
 
 
 class UploadLocalImportToAzureTests(unittest.TestCase):
@@ -31,10 +41,20 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.env_patch = patch.dict(os.environ, {
             "EOMS_BASE_URL": "https://eoms.example.test",
             "LOCAL_RMS_IMPORT_TOKEN": "shared-secret-token",
+            "EOMS_LOCAL_SYNC_QUEUE_FILE": str(Path(self.temp_dir.name) / "sync_queue.json"),
+            "EOMS_LOCAL_SYNC_HISTORY_FILE": str(Path(self.temp_dir.name) / "sync_history.json"),
         })
         self.env_patch.start()
+        self.path_patches = [
+            patch.object(eoms_local_worker, "SYNC_QUEUE_PATH", Path(os.environ["EOMS_LOCAL_SYNC_QUEUE_FILE"])),
+            patch.object(eoms_local_worker, "SYNC_HISTORY_PATH", Path(os.environ["EOMS_LOCAL_SYNC_HISTORY_FILE"])),
+        ]
+        for item in self.path_patches:
+            item.start()
 
     def tearDown(self):
+        for item in self.path_patches:
+            item.stop()
         self.env_patch.stop()
         self.temp_dir.cleanup()
 
@@ -72,7 +92,13 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         mock_response = MagicMock()
         # Real server response shape from import_rms_uploaded_files(): added/
         # duplicates/need_review, not imported/updated.
-        mock_response.json.return_value = {"ok": True, "added": 1, "duplicates": 0, "need_review": 0}
+        mock_response.json.return_value = {
+            "ok": True,
+            "added": 1,
+            "duplicates": 0,
+            "need_review": 0,
+            "added_bols": [{"bol": "12345", "normalized_bol": "12345"}],
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
@@ -82,6 +108,8 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.assertEqual(result["added"], 1)
         self.assertEqual(result["imported"], 1)  # backward-compat alias
         self.assertEqual(result["batch_count"], 1)
+        self.assertEqual(result["confirmed_bols"], ["12345"])
+        self.assertFalse(pdf_path.exists())
         mock_post.assert_called_once()
         call = mock_post.call_args
         self.assertEqual(call.args[0], "https://eoms.example.test/api/local-rms/import")
@@ -95,6 +123,49 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         sidecar_payload = json.loads(sidecar_entry[1][1])
         self.assertEqual(sidecar_payload["12345"]["due_date"], "07/15/2026")
 
+    def test_deletes_local_pdf_when_azure_confirms_duplicate_exists(self):
+        pdf_path = self.make_pdf("BOL_duplicate.pdf")
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "added": 0,
+            "duplicates": 1,
+            "need_review": 0,
+            "duplicate_bols": [{"bol": "BOL 12345", "normalized_bol": "12345"}],
+        }
+        mock_response.raise_for_status.return_value = None
+
+        with patch.object(eoms_local_worker.requests, "post", return_value=mock_response):
+            result = eoms_local_worker.upload_local_import_to_azure({
+                "BOL 12345": {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+            })
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["duplicates"], 1)
+        self.assertFalse(pdf_path.exists())
+        self.assertEqual(result["retained_for_retry"], {})
+
+    def test_retains_unconfirmed_pdf_for_retry_with_reason(self):
+        pdf_path = self.make_pdf("BOL_unconfirmed.pdf")
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": False,
+            "added": 0,
+            "duplicates": 0,
+            "failed_bols": [{"bol": "999", "normalized_bol": "999", "reason": "parse failed"}],
+        }
+        mock_response.raise_for_status.return_value = None
+
+        with patch.object(eoms_local_worker.requests, "post", return_value=mock_response):
+            result = eoms_local_worker.upload_local_import_to_azure({
+                "999": {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+            })
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(pdf_path.exists())
+        self.assertIn("999", result["retained_for_retry"])
+        self.assertIn("failure_reason", result["retained_for_retry"]["999"])
+
     def test_skips_missing_pdf_files_but_still_uploads_sidecar_for_the_rest(self):
         good_pdf = self.make_pdf("BOL_111.pdf")
         imported_pdfs = {
@@ -102,16 +173,23 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
             "222": {"pdf_path": str(Path(self.temp_dir.name) / "does_not_exist.pdf"), "due_date": "", "assigned_date": ""},
         }
         mock_response = MagicMock()
-        mock_response.json.return_value = {"ok": True}
+        mock_response.json.return_value = {
+            "ok": True,
+            "added": 1,
+            "duplicates": 0,
+            "added_bols": [{"bol": "111", "normalized_bol": "111"}],
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch.object(eoms_local_worker.requests, "post", return_value=mock_response) as mock_post:
             result = eoms_local_worker.upload_local_import_to_azure(imported_pdfs)
 
-        self.assertTrue(result["ok"])
+        self.assertFalse(result["ok"])
         files = mock_post.call_args.kwargs["files"]
         pdf_field_names = [f[1][0] for f in files if f[1][0] != "bol_data.json"]
         self.assertEqual(pdf_field_names, ["BOL_111.pdf"])
+        self.assertFalse(good_pdf.exists())
+        self.assertIn("222", result["retained_for_retry"])
 
     def test_all_pdfs_missing_returns_failure_without_posting(self):
         imported_pdfs = {
@@ -166,6 +244,103 @@ class UploadLocalImportToAzureTests(unittest.TestCase):
         self.assertFalse(result["ok"])  # overall failure surfaces since one batch failed
         self.assertEqual(result["batch_count"], 2)
         self.assertEqual(result["added"], 1)  # the batch that succeeded still counted
+
+    def test_unconfirmed_success_response_remains_in_persistent_queue_for_retry(self):
+        pdf_path = self.make_pdf("BOL_unconfirmed_ok.pdf")
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True, "added": 0, "duplicates": 0}
+        mock_response.raise_for_status.return_value = None
+
+        with patch.object(eoms_local_worker.requests, "post", return_value=mock_response):
+            result = eoms_local_worker.upload_local_import_to_azure({
+                "777": {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+            })
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(pdf_path.exists())
+        self.assertEqual(result["active_queue_count"], 1)
+        queue = json.loads(Path(os.environ["EOMS_LOCAL_SYNC_QUEUE_FILE"]).read_text(encoding="utf-8"))
+        self.assertEqual(queue["777"]["status"], "Failed")
+
+    def test_confirmed_history_prevents_reupload_after_worker_restart(self):
+        pdf_path = self.make_pdf("BOL_history.pdf")
+        history_path = Path(os.environ["EOMS_LOCAL_SYNC_HISTORY_FILE"])
+        history_path.write_text(json.dumps([{
+            "run_id": "old",
+            "bols": [{"bol": "888", "normalized_bol": "888", "status": "Imported"}],
+        }]), encoding="utf-8")
+
+        with patch.object(eoms_local_worker.requests, "post") as mock_post:
+            result = eoms_local_worker.upload_local_import_to_azure({
+                "BOL-888": {"pdf_path": str(pdf_path), "due_date": "", "assigned_date": ""}
+            })
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertFalse(json.loads(Path(os.environ["EOMS_LOCAL_SYNC_QUEUE_FILE"]).read_text(encoding="utf-8")))
+        mock_post.assert_not_called()
+
+
+class LocalRmsImportDuplicateTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        self.stores_path = self.root / "stores.json"
+        self.routes_path = self.root / "routes.json"
+        self.audit_path = self.root / "audit.json"
+        self.queue_path = self.root / "rms_queue.json"
+        self.upload_dir = self.root / "uploads"
+        self.bol_dir = self.root / "bol_files"
+        self.upload_dir.mkdir()
+        self.bol_dir.mkdir()
+        self.stores_path.write_text(json.dumps([
+            {"id": "existing", "bol": "BOL-12345", "origin": "Austin", "status": "Unassigned"}
+        ]), encoding="utf-8")
+        self.audit_path.write_text("[]", encoding="utf-8")
+        self.queue_path.write_text(json.dumps([
+            {"bol": "12345", "queue_status": "New"}
+        ]), encoding="utf-8")
+
+        self.patches = [
+            patch.object(eoms_app, "STORES_FILE", self.stores_path),
+            patch.object(eoms_app, "ROUTES_FILE", self.routes_path),
+            patch.object(eoms_app, "AUDIT_FILE", self.audit_path),
+            patch.object(eoms_app, "RMS_QUEUE_FILE", self.queue_path),
+            patch.object(eoms_app, "UPLOAD_DIR", self.upload_dir),
+            patch.object(eoms_app, "BOL_DIR", self.bol_dir),
+        ]
+        for item in self.patches:
+            item.start()
+
+    def tearDown(self):
+        for item in self.patches:
+            item.stop()
+        self.temp_dir.cleanup()
+
+    def test_duplicate_pdf_is_reported_and_not_retained_in_bol_storage(self):
+        parsed_duplicate = {
+            "id": "new",
+            "bol": "12345",
+            "origin": "Austin",
+            "store_name": "Duplicate Store",
+            "city": "Austin",
+            "state": "TX",
+            "status": "Unassigned",
+        }
+        with patch.object(eoms_app, "parse_rms_pdf", return_value=parsed_duplicate):
+            result = eoms_app.import_rms_uploaded_files(
+                [FakeUpload("BOL_12345.pdf")],
+                source="Local RMS Import",
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["added"], 0)
+        self.assertEqual(result["duplicates"], 1)
+        self.assertEqual(result["duplicate_bols"][0]["normalized_bol"], "12345")
+        self.assertEqual(result["queue_confirmed"], 1)
+        self.assertEqual(json.loads(self.stores_path.read_text(encoding="utf-8"))[0]["bol"], "BOL-12345")
+        self.assertEqual(json.loads(self.queue_path.read_text(encoding="utf-8"))[0]["queue_status"], "Imported")
+        self.assertEqual(list(self.bol_dir.rglob("*.pdf")), [])
 
 
 if __name__ == "__main__":

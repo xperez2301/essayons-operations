@@ -1084,6 +1084,19 @@ input[type="checkbox"] {
   background: var(--eoms-green);
 }
 
+.azure-stop-marker.is-selected {
+  transform: scale(1.12);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.95),
+    0 0 0 8px rgba(47, 138, 75, 0.45),
+    0 10px 24px rgba(15, 23, 42, 0.42);
+}
+
+.azure-stop-marker.is-ineligible {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .azure-hub-marker {
   background: var(--eoms-blue);
 }

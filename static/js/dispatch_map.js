@@ -6,7 +6,31 @@ const MAX_CAPACITY = window.MAX_PAYLOAD || 25001;
 const CAN_VIEW_FINANCIALS = !!window.EOMS_CAN_VIEW_FINANCIALS;
 const MAP_SETTINGS = window.EOMS_MAP_SETTINGS || {};
 const SMS_STATUS = window.EOMS_SMS_STATUS || {available:false, reason:"SMS unavailable"};
-let selectedOrder = [];
+const selectionManager = {
+    ids: [],
+    set(ids){
+        this.ids = Array.from(new Set((ids || []).filter(id => stores.some(store => store.id === id && canSelectStore(store)))));
+        selectedOrder = this.ids;
+        return this.ids;
+    },
+    add(id){
+        if(!this.ids.includes(id)) this.set([...this.ids, id]);
+    },
+    remove(id){
+        this.set(this.ids.filter(existing => existing !== id));
+    },
+    toggle(id){
+        if(this.ids.includes(id)) this.remove(id);
+        else this.add(id);
+    },
+    has(id){
+        return this.ids.includes(id);
+    },
+    all(){
+        return [...this.ids];
+    }
+};
+let selectedOrder = selectionManager.ids;
 let activeClusterInfo = null;
 let storeSearchTerm = "";
 
@@ -24,7 +48,7 @@ function restoreDispatchContext(context){
     storeSearchTerm = context.search || storeSearchTerm;
     const search = document.getElementById("store-search");
     if(search) search.value = storeSearchTerm;
-    if(Array.isArray(context.selected)) selectedOrder = context.selected.filter(id => stores.some(store => store.id === id && store.status === "Unassigned"));
+    if(Array.isArray(context.selected)) selectionManager.set(context.selected);
     const available = document.getElementById("available-stores");
     if(available) available.scrollTop = context.scrollTop || 0;
 }
@@ -73,9 +97,12 @@ function azureMapStyle(value){
     return "satellite_road_labels";
 }
 
-function pinIcon(number, color){
+function pinIcon(number, color, selected, selectable = true){
     const status = ["red", "amber", "green", "none"].includes(color) ? color : "green";
-    return `<button class="azure-stop-marker pin-${status}" type="button" aria-label="Stop ${number} ${status} due status" title="${status.toUpperCase()} due status">${number}</button>`;
+    const selectedClass = selected ? " is-selected" : "";
+    const disabledClass = selectable ? "" : " is-ineligible";
+    const selectedText = selected ? " selected" : "";
+    return `<button class="azure-stop-marker pin-${status}${selectedClass}${disabledClass}" type="button" aria-label="Stop ${number} ${status} due status${selectedText}" title="${status.toUpperCase()} due status${selectedText}">${number}</button>`;
 }
 
 function hubIcon(){
@@ -109,11 +136,22 @@ function materialEditorHtml(store){
         </div>`;
 }
 
-function syncSelectedMarkerVisibility(){
+function canSelectStore(store){
+    return (store && (store.status || "Unassigned") === "Unassigned");
+}
+
+function syncSelectedMarkerState(){
     if(!map || !markers) return;
     Object.keys(markers).forEach(id => {
-        if(!markers[id]) return;
-        setMarkerVisible(markers[id], !selectedOrder.includes(id));
+        const marker = markers[id];
+        if(!marker) return;
+        const store = stores.find(item => item.id === id);
+        setMarkerVisible(marker, true);
+        if(typeof marker.setOptions === "function"){
+            marker.setOptions({
+                htmlContent: pinIcon(marker._eomsPinNumber || "", marker._eomsColor || dueStatus(store || {}), selectedOrder.includes(id), canSelectStore(store))
+            });
+        }
     });
 }
 
@@ -128,26 +166,34 @@ function setMarkerVisible(marker, visible){
     }
 }
 
-function focusStoreCard(storeId){
-    document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
-    const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
-    if(!selectedOrder.includes(storeId)){
-        selectedOrder.push(storeId);
+function focusStoreCard(storeId, options = {}){
+    const store = stores.find(item => item.id === storeId);
+    if(!canSelectStore(store)){
+        if(store) hoverStorePreview(store, markers[storeId] ? markers[storeId]._eomsPinNumber : "");
+        return;
     }
+    document.querySelectorAll(".store-card").forEach(card => card.classList.remove("active-store"));
+    if(options.toggle){
+        selectionManager.toggle(storeId);
+    }else if(!selectionManager.has(storeId)){
+        selectionManager.add(storeId);
+    }
+    renderStores();
+    const box = document.querySelector(`.store-box[data-store-id="${storeId}"]`);
     if(box){
+        box.checked = selectedOrder.includes(storeId);
         const card = box.closest(".store-card");
         if(card){
             card.classList.add("active-store");
             card.scrollIntoView({behavior:"smooth", block:"center"});
         }
     }
-    renderStores();
-    syncSelectedMarkerVisibility();
+    syncSelectedMarkerState();
     updateTotals();
 }
 
 function selectStoreFromMap(storeId){
-    focusStoreCard(storeId);
+    focusStoreCard(storeId, {toggle: true});
     if(activeClusterInfo) activeClusterInfo.close();
     previewRoute();
 }
@@ -190,33 +236,33 @@ function storeMatchesSearch(store){
     return haystack.includes(term);
 }
 
-function visibleUnassignedStores(){ return stores.filter(s => s.status === "Unassigned" && !selectedOrder.includes(s.id) && storeMatchesSearch(s)); }
+function visibleUnassignedStores(){ return stores.filter(s => canSelectStore(s) && storeMatchesSearch(s)); }
 
 function selectedIds(){
-    return [...selectedOrder];
+    return selectionManager.all();
 }
 
 function updateSelectionOrder(){
     const ids = selectedIds();
-    ids.forEach(id => { if(!selectedOrder.includes(id)) selectedOrder.push(id); });
-    selectedOrder = selectedOrder.filter(id => ids.includes(id));
+    ids.forEach(id => { if(!selectionManager.has(id)) selectionManager.add(id); });
+    selectionManager.set(selectedOrder.filter(id => ids.includes(id)));
 }
 
 
 function selectAllVisible(){
     const context = dispatchContext();
-    visibleUnassignedStores().forEach(store => { if(!selectedOrder.includes(store.id)) selectedOrder.push(store.id); });
+    visibleUnassignedStores().forEach(store => { if(!selectionManager.has(store.id)) selectionManager.add(store.id); });
     renderStores();
-    restoreDispatchContext(context);
-    syncSelectedMarkerVisibility();
+    restoreDispatchContext({...context, selected: selectedOrder});
+    syncSelectedMarkerState();
     updateTotals();
 }
 function clearSelection(){
     const context = dispatchContext();
-    selectedOrder = [];
+    selectionManager.set([]);
     renderStores();
     restoreDispatchContext({...context, selected: []});
-    syncSelectedMarkerVisibility();
+    syncSelectedMarkerState();
     updateTotals();
 }
 function selectDueToday(){
@@ -226,11 +272,11 @@ function selectDueToday(){
         const due = parseDueDate(store.due_date);
         if(due){ due.setHours(0,0,0,0); }
         const shouldSelect = due && due <= today;
-        if(shouldSelect && !selectedOrder.includes(store.id)) selectedOrder.push(store.id);
+        if(shouldSelect && !selectionManager.has(store.id)) selectionManager.add(store.id);
     });
     renderStores();
-    restoreDispatchContext(context);
-    syncSelectedMarkerVisibility();
+    restoreDispatchContext({...context, selected: selectedOrder});
+    syncSelectedMarkerState();
     updateTotals();
 }
 async function loadDrivers(){
@@ -267,9 +313,10 @@ function renderStores(){
     available.forEach(store => {
         const label = document.createElement("label");
         label.className = "store-card";
+        if(selectedOrder.includes(store.id)) label.classList.add("active-store");
         label.dataset.storeId = store.id;
         label.innerHTML = `
-            <input type="checkbox" class="store-box" data-store-id="${store.id}" data-racks="${store.expected_racks || 0}" data-weight="${store.weight || 0}">
+            <input type="checkbox" class="store-box" data-store-id="${store.id}" data-racks="${store.expected_racks || 0}" data-weight="${store.weight || 0}" ${selectedOrder.includes(store.id) ? "checked" : ""}>
             <div>
                 <strong>${store.store_name || store.origin || "Unknown Store"}</strong>
                 <span>BOL ${store.bol || ""} • Origin ${store.origin || ""}</span>
@@ -415,10 +462,10 @@ async function assignDriver(){
     const driverResults = document.getElementById("driver-results");
     if(driverResults && driverResults.querySelector(".small-muted")) driverResults.innerHTML = "";
     driverResults.appendChild(routeBlock);
-    selectedOrder = selectedOrder.filter(id => !ids.includes(id));
+    selectionManager.set(selectedOrder.filter(id => !ids.includes(id)));
     renderStores();
     restoreDispatchContext({...context, selected: selectedOrder});
-    syncSelectedMarkerVisibility();
+    syncSelectedMarkerState();
     renderMapDispatchBoardLive();
     updateTotals();
     document.getElementById("route-preview").innerHTML = "<p class='safe'>Route assigned. Dispatch it from the Assigned Queue below.</p>";
@@ -611,9 +658,9 @@ function markStoresUnassigned(storeIds){
 }
 
 function refreshDispatchAfterUnassign(storeIds, message){
-    selectedOrder = selectedOrder.filter(id => !(storeIds || []).includes(id));
+    selectionManager.set(selectedOrder.filter(id => !(storeIds || []).includes(id)));
     renderStores();
-    syncSelectedMarkerVisibility();
+    syncSelectedMarkerState();
     renderMapDispatchBoardLive();
     updateTotals();
     document.getElementById("route-preview").innerHTML = `<p class="safe">${message || "Route unassigned."}</p>`;
@@ -844,17 +891,19 @@ function initMap(){
 
             markers[store.id] = new atlas.HtmlMarker({
                 position: pos,
-                htmlContent: pinIcon(thisPinNumber, color)
+                htmlContent: pinIcon(thisPinNumber, color, selectedOrder.includes(store.id), canSelectStore(store))
             });
             markers[store.id]._eomsOnMap = true;
+            markers[store.id]._eomsPinNumber = thisPinNumber;
+            markers[store.id]._eomsColor = color;
             map.markers.add(markers[store.id]);
 
             positions.push(pos);
             map.events.add("mouseover", markers[store.id], () => hoverStorePreview(store, thisPinNumber));
             map.events.add("mouseout", markers[store.id], restoreRoutePreviewAfterHover);
             map.events.add("click", markers[store.id], () => {
-                if((store.status || "Unassigned") === "Unassigned"){
-                    focusStoreCard(store.id);
+                if(canSelectStore(store)){
+                    focusStoreCard(store.id, {toggle: true});
                 }else{
                     hoverStorePreview(store, thisPinNumber);
                 }
@@ -862,6 +911,7 @@ function initMap(){
         });
 
         renderStores();
+        syncSelectedMarkerState();
 
         const visibleMarkers = Object.keys(markers).length;
         if(positions.length === 1){
@@ -934,13 +984,13 @@ document.addEventListener("change", function(e){
         const context = dispatchContext();
         const id = e.target.dataset.storeId;
         if(e.target.checked){
-            if(!selectedOrder.includes(id)) selectedOrder.push(id);
+            if(!selectionManager.has(id)) selectionManager.add(id);
         }else{
-            selectedOrder = selectedOrder.filter(x => x !== id);
+            selectionManager.remove(id);
         }
         renderStores();
         restoreDispatchContext({...context, selected: selectedOrder});
-        syncSelectedMarkerVisibility();
+        syncSelectedMarkerState();
         updateTotals();
     }
 });
@@ -1055,10 +1105,10 @@ async function setMapBoardStatus(storeId, status){
     }else if(original){
         original.status = status;
     }
-    selectedOrder = selectedOrder.filter(id => id !== storeId);
+    selectionManager.remove(storeId);
     renderStores();
     restoreDispatchContext({...context, selected: selectedOrder});
-    syncSelectedMarkerVisibility();
+    syncSelectedMarkerState();
     renderMapDispatchBoard();
     renderMapDispatchBoardLive();
     updateTotals();

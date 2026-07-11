@@ -3,11 +3,13 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import requests
 from dotenv import load_dotenv
@@ -17,11 +19,16 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 LOG_PATH = Path(os.environ.get("EOMS_LOCAL_WORKER_LOG") or BASE_DIR / "diagnostics" / "eoms_local_worker.log")
 BOL_DATA_PATH = Path(os.environ.get("EOMS_BOL_DATA_FILE") or BASE_DIR / "bol_data.json")
+SYNC_QUEUE_PATH = Path(os.environ.get("EOMS_LOCAL_SYNC_QUEUE_FILE") or BASE_DIR / "diagnostics" / "rms_sync_queue.json")
+SYNC_HISTORY_PATH = Path(os.environ.get("EOMS_LOCAL_SYNC_HISTORY_FILE") or BASE_DIR / "diagnostics" / "rms_sync_history.json")
 EDGE_PROFILE_PATH = Path(
     os.environ.get("EOMS_EDGE_PROFILE_DIR")
     or BASE_DIR / "runtime" / "rms_user_edge_debug_profile"
 )
 RMS_URL = "https://rms.reusability.com/bills-of-lading"
+WORKER_VERSION = os.environ.get("EOMS_LOCAL_WORKER_VERSION") or "FT6.1"
+ACTIVE_SYNC_STATUSES = {"Pending", "Failed"}
+PERSISTED_SYNC_STATUSES = {"Pending", "Uploading", "Failed"}
 
 
 def configure_logging():
@@ -41,11 +48,130 @@ def clean(value):
     return "" if value is None else str(value).strip()
 
 
+def normalize_bol_number(value):
+    raw = clean(value).upper()
+    if raw.startswith("BOL"):
+        raw = raw[3:]
+    return re.sub(r"[^A-Z0-9]", "", raw)
+
+
 def atomic_write_json(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     os.replace(temporary, path)
+
+
+def read_json_file(path, default):
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, type(default)) else default
+    except Exception:
+        return default
+
+
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def sync_operator():
+    return clean(os.environ.get("EOMS_OPERATOR") or os.environ.get("USERNAME") or os.environ.get("USER") or "local-operator")
+
+
+def load_sync_queue():
+    queue = read_json_file(SYNC_QUEUE_PATH, {})
+    changed = False
+    for entry in queue.values():
+        if clean(entry.get("status")) == "Uploading":
+            entry["status"] = "Pending"
+            entry["failure_reason"] = "Worker stopped before upload confirmation; retry pending."
+            changed = True
+    if changed:
+        save_sync_queue(queue)
+    return queue
+
+
+def save_sync_queue(queue):
+    active = {
+        bol: entry
+        for bol, entry in (queue or {}).items()
+        if clean(entry.get("status")) in PERSISTED_SYNC_STATUSES
+    }
+    atomic_write_json(SYNC_QUEUE_PATH, active)
+    return active
+
+
+def load_sync_history():
+    return read_json_file(SYNC_HISTORY_PATH, [])
+
+
+def save_sync_history(history):
+    atomic_write_json(SYNC_HISTORY_PATH, (history or [])[-250:])
+
+
+def history_confirmed_bols(history=None):
+    confirmed = set()
+    for run in history or load_sync_history():
+        for item in run.get("bols") or []:
+            if clean(item.get("status")) in {"Imported", "Already Exists"}:
+                normalized = normalize_bol_number(item.get("normalized_bol") or item.get("bol"))
+                if normalized:
+                    confirmed.add(normalized)
+    return confirmed
+
+
+def merge_imported_pdfs_into_queue(imported_pdfs):
+    queue = load_sync_queue()
+    historical_confirmed = history_confirmed_bols()
+    now = utc_now_iso()
+    duplicates_skipped = []
+
+    for bol, info in (imported_pdfs or {}).items():
+        normalized = normalize_bol_number(bol)
+        if not normalized:
+            continue
+        if normalized in historical_confirmed:
+            duplicates_skipped.append(normalized)
+            continue
+
+        current = queue.get(normalized) if isinstance(queue.get(normalized), dict) else {}
+        if clean(current.get("status")) not in {"Uploading"}:
+            queue[normalized] = {
+                **current,
+                **(info or {}),
+                "bol": clean(info.get("source_bol") if isinstance(info, dict) else "") or clean(bol),
+                "normalized_bol": normalized,
+                "status": clean(current.get("status")) if clean(current.get("status")) in ACTIVE_SYNC_STATUSES else "Pending",
+                "failure_reason": clean(current.get("failure_reason")),
+                "queued_at": clean(current.get("queued_at")) or now,
+                "updated_at": now,
+            }
+
+    save_sync_queue(queue)
+    return load_sync_queue(), duplicates_skipped
+
+
+def active_upload_entries(queue):
+    entries = {}
+    for bol, entry in (queue or {}).items():
+        if clean(entry.get("status")) in ACTIVE_SYNC_STATUSES:
+            entries[bol] = entry
+    return entries
+
+
+def mark_queue_status(queue, bols, status, reason=""):
+    now = utc_now_iso()
+    for bol in bols or []:
+        normalized = normalize_bol_number(bol)
+        if normalized in queue:
+            queue[normalized]["status"] = status
+            queue[normalized]["updated_at"] = now
+            if reason:
+                queue[normalized]["failure_reason"] = reason
+            elif status in {"Pending", "Uploading", "Imported", "Already Exists"}:
+                queue[normalized]["failure_reason"] = ""
+    save_sync_queue(queue)
+    return load_sync_queue()
 
 
 def summarize_result(result):
@@ -204,10 +330,13 @@ def post_sync_result(timestamp, result):
 def _upload_batch_to_azure(base_url, token, batch):
     """Upload a single batch (dict of bol -> {pdf_path, due_date, assigned_date})
     in one multipart request. Raises on any HTTP-level failure."""
-    bol_data_sidecar = {
-        bol: {"due_date": info.get("due_date", ""), "assigned_date": info.get("assigned_date", "")}
-        for bol, info in batch.items()
-    }
+    bol_data_sidecar = {}
+    for bol, info in batch.items():
+        normalized = normalize_bol_number(bol)
+        bol_data_sidecar[normalized or clean(bol)] = {
+            "due_date": info.get("due_date", ""),
+            "assigned_date": info.get("assigned_date", ""),
+        }
 
     open_files = []
     try:
@@ -236,13 +365,82 @@ def _upload_batch_to_azure(base_url, token, batch):
             timeout=int(os.environ.get("EOMS_WORKER_HTTP_TIMEOUT", "120")),
         )
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        result["_attempted_bols"] = [normalize_bol_number(bol) for bol in batch.keys()]
+        return result
     finally:
         for handle in open_files:
             try:
                 handle.close()
             except Exception:
                 pass
+
+
+def confirmed_bols_from_upload_result(result):
+    confirmed = set()
+    for field in ("added_bols", "duplicate_bols", "existing_bols", "imported_bols"):
+        for item in result.get(field) or []:
+            if isinstance(item, dict):
+                bol = item.get("normalized_bol") or item.get("bol")
+            else:
+                bol = item
+            normalized = normalize_bol_number(bol)
+            if normalized:
+                confirmed.add(normalized)
+
+    if not confirmed and result.get("ok") and not result.get("failed_bols"):
+        attempted = [bol for bol in result.get("_attempted_bols") or [] if bol]
+        expected_confirmed_count = int(result.get("added", 0) or 0) + int(result.get("duplicates", 0) or 0)
+        if attempted and expected_confirmed_count >= len(attempted):
+            confirmed.update(attempted)
+    return confirmed
+
+
+def bol_statuses_from_upload_result(result):
+    statuses = {}
+    for field, status in (("added_bols", "Imported"), ("imported_bols", "Imported"), ("duplicate_bols", "Already Exists"), ("existing_bols", "Already Exists")):
+        for item in result.get(field) or []:
+            bol = item.get("normalized_bol") or item.get("bol") if isinstance(item, dict) else item
+            normalized = normalize_bol_number(bol)
+            if normalized:
+                statuses[normalized] = status
+
+    attempted = [bol for bol in result.get("_attempted_bols") or [] if bol]
+    if not statuses and result.get("ok") and attempted and not result.get("failed_bols"):
+        added = int(result.get("added", 0) or 0)
+        duplicates = int(result.get("duplicates", 0) or 0)
+        if added >= len(attempted):
+            statuses.update({bol: "Imported" for bol in attempted})
+        elif duplicates >= len(attempted):
+            statuses.update({bol: "Already Exists" for bol in attempted})
+    return statuses
+
+
+def cleanup_confirmed_local_pdfs(imported_pdfs, confirmed_bols):
+    removed = []
+    retained = {}
+    for bol, info in (imported_pdfs or {}).items():
+        normalized = normalize_bol_number(bol)
+        pdf_path = Path(info.get("pdf_path") or "")
+        if normalized in confirmed_bols:
+            if pdf_path.is_file():
+                try:
+                    pdf_path.unlink()
+                    removed.append(str(pdf_path))
+                except Exception as exc:
+                    logging.warning("Confirmed BOL %s but could not remove local PDF %s: %s", bol, pdf_path, exc)
+            continue
+        retry_info = dict(info)
+        retry_info["failure_reason"] = retry_info.get("failure_reason") or "Not confirmed by EOMS import response."
+        retained[bol] = retry_info
+    return {"removed": removed, "retained": retained}
+
+
+def append_sync_history(run_record):
+    history = load_sync_history()
+    history.append(run_record)
+    save_sync_history(history)
+    return run_record
 
 
 def upload_local_import_to_azure(imported_pdfs, batch_size=10):
@@ -264,9 +462,34 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
     imported_pdfs: {bol_number: {"pdf_path": str, "due_date": str, "assigned_date": str}}
     as returned by app.rms_full_import_with_playwright().
     """
-    if not imported_pdfs:
-        logging.info("No new/updated PDFs this run - nothing to upload to Azure.")
-        return {"ok": True, "message": "Nothing to upload.", "skipped": True}
+    run_id = str(uuid4())
+    started_at = utc_now_iso()
+    started_monotonic = time.monotonic()
+    queue, duplicate_candidates = merge_imported_pdfs_into_queue(imported_pdfs)
+    upload_entries = active_upload_entries(queue)
+
+    if not upload_entries:
+        finished_at = utc_now_iso()
+        run_record = {
+            "run_id": run_id,
+            "start_time": started_at,
+            "finish_time": finished_at,
+            "duration_seconds": round(time.monotonic() - started_monotonic, 3),
+            "total_scanned": len(imported_pdfs or {}),
+            "imported": 0,
+            "already_exists": len(duplicate_candidates),
+            "failed": 0,
+            "upload_errors": [],
+            "operator": sync_operator(),
+            "worker_version": WORKER_VERSION,
+            "bols": [
+                {"bol": bol, "normalized_bol": bol, "status": "Already Exists", "failure_reason": "", "upload_result": "previously confirmed", "timestamp": finished_at}
+                for bol in duplicate_candidates
+            ],
+        }
+        append_sync_history(run_record)
+        logging.info("No pending local RMS PDFs to upload to Azure.")
+        return {"ok": True, "message": "Nothing pending to upload.", "skipped": True, "run": run_record}
 
     base_url = clean(os.environ.get("EOMS_BASE_URL") or os.environ.get("AZURE_EOMS_URL")).rstrip("/")
     token = clean(os.environ.get("LOCAL_RMS_IMPORT_TOKEN"))
@@ -278,7 +501,17 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
             "(this must match LOCAL_RMS_IMPORT_TOKEN in Azure App Service settings)."
         )
 
-    items = list(imported_pdfs.items())
+    deduped = {}
+    for bol, info in upload_entries.items():
+        normalized = normalize_bol_number(bol)
+        if not normalized:
+            continue
+        deduped[normalized] = {**(info or {}), "source_bol": info.get("bol") or bol}
+
+    items = list(deduped.items())
+    if not items:
+        return {"ok": False, "message": "No normalized BOL numbers were available to upload.", "failed": len(imported_pdfs or {})}
+
     batches = [dict(items[i:i + batch_size]) for i in range(0, len(items), batch_size)]
 
     batch_results = []
@@ -286,13 +519,22 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
     total_duplicates = 0
     total_need_review = 0
     all_ok = True
+    confirmed_bols = set()
+    failed_bols = []
+    bol_statuses = {}
     for index, batch in enumerate(batches, start=1):
         logging.info("Uploading batch %d/%d (%d BOL(s)) to Azure...", index, len(batches), len(batch))
+        queue = mark_queue_status(load_sync_queue(), batch.keys(), "Uploading")
         try:
             result = _upload_batch_to_azure(base_url, token, batch)
         except Exception as exc:
             logging.exception("Batch %d/%d failed to upload.", index, len(batches))
             result = {"ok": False, "message": f"Batch {index} failed: {exc}"}
+            failed_bols.extend({
+                "bol": bol,
+                "normalized_bol": normalize_bol_number(bol),
+                "reason": str(exc)[:300],
+            } for bol in batch.keys())
         batch_results.append(result)
         if not result.get("ok"):
             all_ok = False
@@ -303,6 +545,81 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
         total_added += int(result.get("added", 0) or 0)
         total_duplicates += int(result.get("duplicates", 0) or 0)
         total_need_review += int(result.get("need_review", 0) or 0)
+        confirmed_bols.update(confirmed_bols_from_upload_result(result))
+        bol_statuses.update(bol_statuses_from_upload_result(result))
+        failed_bols.extend(result.get("failed_bols") or [])
+
+        confirmed_in_batch = confirmed_bols_from_upload_result(result)
+        failed_in_batch = {normalize_bol_number(item.get("normalized_bol") or item.get("bol")) for item in result.get("failed_bols") or [] if isinstance(item, dict)}
+        failed_in_batch.update({normalize_bol_number(bol) for bol in batch.keys() if not result.get("ok")})
+        queue = load_sync_queue()
+        queue = mark_queue_status(queue, confirmed_in_batch, "Imported")
+        queue = mark_queue_status(queue, failed_in_batch - confirmed_in_batch, "Failed", result.get("message") or "Upload was not confirmed by EOMS.")
+
+    cleanup = cleanup_confirmed_local_pdfs(deduped, confirmed_bols)
+    if cleanup["retained"]:
+        all_ok = False
+        retained_reason = "Upload completed without per-BOL import/existing confirmation from EOMS."
+        queue = load_sync_queue()
+        for bol in cleanup["retained"].keys():
+            if bol in queue:
+                queue[bol]["status"] = "Failed"
+                queue[bol]["failure_reason"] = retained_reason
+                queue[bol]["updated_at"] = utc_now_iso()
+        save_sync_queue(queue)
+
+    active_after_cleanup = {}
+    queue = load_sync_queue()
+    for bol, entry in queue.items():
+        if bol in confirmed_bols:
+            continue
+        active_after_cleanup[bol] = entry
+    save_sync_queue(active_after_cleanup)
+
+    finished_at = utc_now_iso()
+    bol_records = []
+    for bol, info in deduped.items():
+        status = bol_statuses.get(bol)
+        if not status and bol in confirmed_bols:
+            status = "Imported"
+        if not status:
+            status = "Failed"
+        failure = ""
+        if status == "Failed":
+            failure = clean((cleanup["retained"].get(bol) or {}).get("failure_reason")) or "Upload was not confirmed by EOMS."
+        bol_records.append({
+            "bol": clean(info.get("bol") or info.get("source_bol") or bol),
+            "normalized_bol": bol,
+            "status": status,
+            "failure_reason": failure,
+            "upload_result": next((r.get("message", "") for r in batch_results if bol in (r.get("_attempted_bols") or [])), ""),
+            "timestamp": finished_at,
+        })
+    for bol in duplicate_candidates:
+        bol_records.append({
+            "bol": bol,
+            "normalized_bol": bol,
+            "status": "Already Exists",
+            "failure_reason": "",
+            "upload_result": "previously confirmed",
+            "timestamp": finished_at,
+        })
+
+    run_record = {
+        "run_id": run_id,
+        "start_time": started_at,
+        "finish_time": finished_at,
+        "duration_seconds": round(time.monotonic() - started_monotonic, 3),
+        "total_scanned": len(imported_pdfs or {}),
+        "imported": sum(1 for item in bol_records if item["status"] == "Imported"),
+        "already_exists": sum(1 for item in bol_records if item["status"] == "Already Exists"),
+        "failed": sum(1 for item in bol_records if item["status"] == "Failed"),
+        "upload_errors": [clean(r.get("message")) for r in batch_results if not r.get("ok") and clean(r.get("message"))],
+        "operator": sync_operator(),
+        "worker_version": WORKER_VERSION,
+        "bols": bol_records,
+    }
+    append_sync_history(run_record)
 
     return {
         "ok": all_ok,
@@ -315,6 +632,12 @@ def upload_local_import_to_azure(imported_pdfs, batch_size=10):
         "need_review": total_need_review,
         "batch_count": len(batches),
         "batch_results": batch_results,
+        "confirmed_bols": sorted(confirmed_bols),
+        "failed_bols": failed_bols,
+        "cleanup": cleanup,
+        "retained_for_retry": cleanup["retained"],
+        "active_queue_count": len(load_sync_queue()),
+        "run": run_record,
     }
 
 
@@ -339,9 +662,6 @@ def main():
                 "errors": [str(exc)],
             })
 
-        atomic_write_json(BOL_DATA_PATH, {"last_run": timestamp, "last_result": summary})
-        logging.info("Updated %s using atomic UTF-8 write.", BOL_DATA_PATH)
-
         # RMS blocks Azure's own servers, so the scrape only ever runs here
         # (a machine RMS will actually let in). Whatever PDFs this run saved
         # locally need to be pushed to Azure separately - the status summary
@@ -349,10 +669,23 @@ def main():
         imported_pdfs = (raw_result or {}).get("imported_pdfs") or {}
         if imported_pdfs:
             try:
-                upload_local_import_to_azure(imported_pdfs)
+                upload_result = upload_local_import_to_azure(imported_pdfs)
+                summary["upload"] = upload_result
+                if not upload_result.get("ok"):
+                    summary["ok"] = False
+                    summary["status"] = "PARTIAL FAILURE"
+                    summary["error_message"] = upload_result.get("message") or "One or more BOL uploads were not confirmed by EOMS."
+                    summary.setdefault("errors", []).append(summary["error_message"])
                 logging.info("Uploaded %d scraped BOL(s) to Azure via /api/local-rms/import.", len(imported_pdfs))
-            except Exception:
+            except Exception as exc:
                 logging.exception("Unable to upload scraped BOLs to Azure.")
+                summary["ok"] = False
+                summary["status"] = "PARTIAL FAILURE"
+                summary["error_message"] = f"Unable to upload scraped BOLs to EOMS: {exc}"
+                summary.setdefault("errors", []).append(summary["error_message"])
+
+        atomic_write_json(BOL_DATA_PATH, {"last_run": timestamp, "last_result": summary})
+        logging.info("Updated %s using atomic UTF-8 write.", BOL_DATA_PATH)
 
         try:
             post_sync_result(timestamp, summary)

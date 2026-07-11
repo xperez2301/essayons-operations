@@ -740,8 +740,14 @@ def render_saved_bol(record, path, auto_print=False):
 </body>
 </html>"""
 
+def normalize_bol_number(value):
+    raw = clean(value).upper()
+    if raw.startswith("BOL"):
+        raw = raw[3:]
+    return re.sub(r"[^A-Z0-9]", "", raw)
+
 def bol_duplicate_key(item):
-    bol = clean(item.get("bol"))
+    bol = normalize_bol_number(item.get("bol"))
     origin = clean(item.get("origin"))
     return bol, origin
 
@@ -760,6 +766,23 @@ def track_bol_key(item, existing_keys, existing_bols):
         existing_keys.add((bol, origin))
     if bol:
         existing_bols.add(bol)
+
+def mark_rms_queue_bols_imported(normalized_bols):
+    normalized_bols = {normalize_bol_number(bol) for bol in (normalized_bols or []) if normalize_bol_number(bol)}
+    if not normalized_bols:
+        return 0
+    queue = read_json(RMS_QUEUE_FILE)
+    if not isinstance(queue, list):
+        return 0
+    updated = 0
+    for item in queue:
+        if normalize_bol_number(item.get("bol")) in normalized_bols:
+            item["queue_status"] = "Imported"
+            item["import_confirmed_at"] = datetime.now().isoformat(timespec="seconds")
+            updated += 1
+    if updated:
+        write_json(RMS_QUEUE_FILE, queue)
+    return updated
 
 def completion_summary_for_stores(stores):
     expected = round(sum(num(s.get("expected_racks")) for s in stores), 2)
@@ -1669,13 +1692,16 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
     bol_data = bol_data or {}
     existing = read_json(STORES_FILE)
     existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
-    existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
+    existing_bols = {normalize_bol_number(s.get("bol")) for s in existing if normalize_bol_number(s.get("bol"))}
     added, duplicates, review = 0, 0, 0
     errors = []
+    added_bols = []
+    duplicate_bols = []
+    failed_bols = []
 
     def merge_bol_data(item):
         """Apply list-page data (due date, contact) from the sidecar by BOL number."""
-        info = bol_data.get(clean(item.get("bol")))
+        info = bol_data.get(normalize_bol_number(item.get("bol"))) or bol_data.get(clean(item.get("bol")))
         if not isinstance(info, dict):
             return item
         for field in ("due_date", "assigned_date", "contact", "contact_phone", "contact_email"):
@@ -1696,13 +1722,6 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
             lower = filename.lower()
             if lower.endswith(".pdf"):
                 item = merge_bol_data(parse_rms_pdf(temp_path))
-                clean_name = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
-                root = "Need_Review" if item["status"] == "Need Review" else "Imported"
-                final_path = month_folder(root) / clean_name
-                if final_path.exists():
-                    final_path = final_path.with_name(final_path.stem + "_" + datetime.now().strftime("%H%M%S") + final_path.suffix)
-                shutil.move(str(temp_path), str(final_path))
-                item["pdf_path"] = str(final_path)
                 imported = [item]
             elif lower.endswith(".xlsx"):
                 imported = [merge_bol_data(i) for i in parse_xlsx(temp_path)]
@@ -1710,26 +1729,53 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
                 imported = [merge_bol_data(i) for i in parse_csv(temp_path)]
             else:
                 errors.append(f"{filename}: unsupported file type")
+                failed_bols.append({"bol": "", "filename": filename, "reason": "unsupported file type"})
         except Exception as exc:
             errors.append(f"{filename}: {str(exc)[:180]}")
+            failed_bols.append({"bol": "", "filename": filename, "reason": str(exc)[:180]})
         finally:
-            try:
-                if temp_path.exists():
-                    temp_path.unlink()
-            except Exception:
-                pass
+            pass
 
         for item in imported:
+            normalized_bol = normalize_bol_number(item.get("bol"))
             if is_duplicate_bol(item, existing_keys, existing_bols):
                 duplicates += 1
+                duplicate_bols.append({
+                    "bol": clean(item.get("bol")),
+                    "normalized_bol": normalized_bol,
+                    "filename": filename,
+                    "reason": "BOL already exists in EOMS.",
+                })
                 continue
+            if filename.lower().endswith(".pdf"):
+                clean_name = f"BOL_{safe_part(item.get('bol'))}_{safe_part(item.get('origin'))}_{safe_part(item.get('store_name'))}_{safe_part(item.get('city'))}_{safe_part(item.get('state'))}.pdf"
+                root = "Need_Review" if item["status"] == "Need Review" else "Imported"
+                final_path = month_folder(root) / clean_name
+                if final_path.exists():
+                    final_path = final_path.with_name(final_path.stem + "_" + datetime.now().strftime("%H%M%S") + final_path.suffix)
+                shutil.move(str(temp_path), str(final_path))
+                item["pdf_path"] = str(final_path)
             existing.append(item)
             track_bol_key(item, existing_keys, existing_bols)
             added += 1
+            added_bols.append({
+                "bol": clean(item.get("bol")),
+                "normalized_bol": normalized_bol,
+                "filename": filename,
+            })
             if item.get("status") == "Need Review":
                 review += 1
 
+        try:
+            if temp_path.exists():
+                temp_path.unlink()
+        except Exception:
+            pass
+
     write_json(STORES_FILE, existing)
+    queue_confirmed = mark_rms_queue_bols_imported(
+        [item["normalized_bol"] for item in added_bols + duplicate_bols]
+    )
     result = {
         "ok": True,
         "status": "IMPORT COMPLETE",
@@ -1738,6 +1784,10 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
         "duplicates": duplicates,
         "need_review": review,
         "errors": errors[:20],
+        "added_bols": added_bols,
+        "duplicate_bols": duplicate_bols,
+        "failed_bols": failed_bols[:20],
+        "queue_confirmed": queue_confirmed,
         "message": f"Import complete. Added {added}. Need Review {review}. Skipped duplicates {duplicates}."
     }
     audit(source, result)
@@ -3716,7 +3766,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
     existing = read_json(STORES_FILE)
     existing_keys = {bol_duplicate_key(s) for s in existing if clean(s.get("bol")) or clean(s.get("origin"))}
-    existing_bols = {clean(s.get("bol")) for s in existing if clean(s.get("bol"))}
+    existing_bols = {normalize_bol_number(s.get("bol")) for s in existing if normalize_bol_number(s.get("bol"))}
 
     imported = 0
     updated = 0
@@ -3811,7 +3861,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
 
             for link in bol_links:
                 try:
-                    bol_number = clean(link.get("bol"))
+                    bol_number = normalize_bol_number(link.get("bol"))
 
                     # Fast skip: if this BOL already exists in EOMS, do not open
                     # the printable page or download/save another PDF. We still
@@ -3821,7 +3871,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         reopened = False
 
                         for store in existing:
-                            if clean(store.get("bol")) != bol_number:
+                            if normalize_bol_number(store.get("bol")) != bol_number:
                                 continue
 
                             if (
@@ -3844,7 +3894,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
                         if reopened:
                             current_stores = read_json(STORES_FILE)
                             for idx, current in enumerate(current_stores):
-                                if clean(current.get("bol")) == bol_number:
+                                if normalize_bol_number(current.get("bol")) == bol_number:
                                     current_stores[idx] = store
                                     break
                             else:
