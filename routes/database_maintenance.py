@@ -40,6 +40,7 @@ from eoms_modules.duplicate_bol_cleanup_service import (
     restore_backup_manifest,
     scan_duplicate_bols,
 )
+from eoms_modules.bol_data_audit_service import bol_data_audit_report
 
 database_maintenance_bp = Blueprint("database_maintenance", __name__)
 
@@ -75,6 +76,31 @@ def _duplicate_bol_snapshot():
 @admin_required
 def duplicate_bol_cleanup_page():
     return render_template("duplicate_bol_cleanup.html")
+
+
+@database_maintenance_bp.route("/admin/bol-data-audit")
+@admin_required
+def bol_data_audit_page():
+    return render_template("bol_data_audit.html")
+
+
+@database_maintenance_bp.route("/api/admin/bol-data-audit/scan", methods=["POST"])
+@admin_required
+def api_bol_data_audit_scan():
+    report = bol_data_audit_report(read_json(STORES_FILE), read_json(ROUTES_FILE))
+    return jsonify(report)
+
+
+@database_maintenance_bp.route("/api/admin/bol-data-audit/report")
+@admin_required
+def api_bol_data_audit_report():
+    report = bol_data_audit_report(read_json(STORES_FILE), read_json(ROUTES_FILE))
+    payload = json.dumps(report, indent=2)
+    return Response(
+        payload,
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=production-bol-data-audit-report.json"},
+    )
 
 
 @database_maintenance_bp.route("/api/admin/duplicate-bols/scan", methods=["POST"])

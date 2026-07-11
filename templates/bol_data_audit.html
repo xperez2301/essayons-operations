@@ -1,0 +1,329 @@
+{% extends "layouts/eoms_base.html" %}
+
+{% set page_title = "Production BOL Data Audit" %}
+{% set module_title = "Database Center" %}
+
+{% block topbar_actions %}
+    <a class="eoms-button eoms-button-secondary" href="/database-center">Back to Database Center</a>
+    <a class="eoms-button eoms-button-secondary" href="/admin/duplicate-bols">Duplicate BOL Cleanup</a>
+    <button class="eoms-button" type="button" id="bolAuditTopScanBtn">Scan Now</button>
+{% endblock %}
+
+{% block content %}
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <div>
+            <h3>Production BOL Data Audit Center</h3>
+            <p class="muted">
+                Read-only audit view for explaining record volume, active versus historical records,
+                missing fields, uncertain statuses, and suspicious test/demo indicators.
+            </p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="primary-btn" type="button" id="bolAuditScanBtn">Scan Production Data</button>
+            <button class="secondary-btn" type="button" id="bolAuditReportBtn">Download JSON Report</button>
+        </div>
+    </div>
+
+    <p class="muted" id="bolAuditStatus">Ready to scan production BOL data.</p>
+
+    <div class="metrics-grid">
+        <div class="metric"><span>Total BOL Records</span><strong id="auditTotal">—</strong></div>
+        <div class="metric"><span>Unique Normalized BOLs</span><strong id="auditUnique">—</strong></div>
+        <div class="metric"><span>Duplicate Groups</span><strong id="auditDuplicates">—</strong></div>
+        <div class="metric"><span>Active</span><strong id="auditActive">—</strong></div>
+        <div class="metric"><span>Completed</span><strong id="auditCompleted">—</strong></div>
+        <div class="metric"><span>Recovered</span><strong id="auditRecovered">—</strong></div>
+        <div class="metric"><span>Received</span><strong id="auditReceived">—</strong></div>
+        <div class="metric"><span>Archived / Inactive</span><strong id="auditArchived">—</strong></div>
+        <div class="metric"><span>Older Than 30 Days</span><strong id="auditAge30">—</strong></div>
+        <div class="metric"><span>Older Than 60 Days</span><strong id="auditAge60">—</strong></div>
+        <div class="metric"><span>Older Than 90 Days</span><strong id="auditAge90">—</strong></div>
+        <div class="metric"><span>Older Than 180 Days</span><strong id="auditAge180">—</strong></div>
+        <div class="metric"><span>No Route Reference</span><strong id="auditNoRoute">—</strong></div>
+        <div class="metric"><span>No RMS / Source ID</span><strong id="auditNoSource">—</strong></div>
+        <div class="metric"><span>Test / Demo / Sample</span><strong id="auditTestDemo">—</strong></div>
+        <div class="metric"><span>Invalid BOL</span><strong id="auditInvalidBol">—</strong></div>
+        <div class="metric"><span>Missing Status</span><strong id="auditMissingStatus">—</strong></div>
+        <div class="metric"><span>Missing Created</span><strong id="auditMissingCreated">—</strong></div>
+        <div class="metric"><span>Missing Updated</span><strong id="auditMissingUpdated">—</strong></div>
+        <div class="metric"><span>Uncertain</span><strong id="auditUncertain">—</strong></div>
+        <div class="metric"><span>Open in RMS</span><strong id="auditOpenRms">—</strong></div>
+        <div class="metric"><span>Missing from RMS</span><strong id="auditMissingRms">—</strong></div>
+        <div class="metric"><span>Closed in RMS</span><strong id="auditClosedRms">—</strong></div>
+    </div>
+</section>
+
+<section class="panel import-panel">
+    <h3>Status Breakdown</h3>
+    <table class="activity-table">
+        <thead>
+            <tr>
+                <th>Raw Stored Status</th>
+                <th>Normalized Category</th>
+                <th>Record Count</th>
+            </tr>
+        </thead>
+        <tbody id="bolAuditStatusBreakdown">
+            <tr><td colspan="3" class="muted">Run a scan to load status counts.</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section class="panel import-panel">
+    <div class="right-head">
+        <h3>Record Review</h3>
+        <span class="muted" id="bolAuditVisibleCount">0 records shown</span>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <select id="auditCategoryFilter"><option value="">All categories</option></select>
+        <select id="auditHubFilter"><option value="">All hubs</option></select>
+        <select id="auditRouteFilter">
+            <option value="">Route association</option>
+            <option value="with-route">With route reference</option>
+            <option value="without-route">No route reference</option>
+        </select>
+        <select id="auditAgeFilter">
+            <option value="">All ages</option>
+            <option value="0-30 days">0-30 days</option>
+            <option value=">30 days">&gt;30 days</option>
+            <option value=">60 days">&gt;60 days</option>
+            <option value=">90 days">&gt;90 days</option>
+            <option value=">180 days">&gt;180 days</option>
+            <option value="Missing">Missing age</option>
+        </select>
+        <select id="auditSourceFilter">
+            <option value="">Source identifier</option>
+            <option value="with-source">With source</option>
+            <option value="without-source">No source</option>
+        </select>
+        <select id="auditTestDemoFilter">
+            <option value="">Test/demo indicator</option>
+            <option value="test-demo">Detected</option>
+            <option value="not-test-demo">Not detected</option>
+        </select>
+        <select id="auditMissingFilter">
+            <option value="">Missing fields</option>
+            <option value="missing_or_invalid_bol">Missing/invalid BOL</option>
+            <option value="missing_status">Missing status</option>
+            <option value="missing_created_timestamp">Missing created timestamp</option>
+            <option value="missing_updated_timestamp">Missing updated timestamp</option>
+            <option value="no_route_reference">No route reference</option>
+            <option value="no_source_identifier">No source identifier</option>
+        </select>
+        <select id="auditLifecycleFilter">
+            <option value="">Active vs historical</option>
+            <option value="Active">Active</option>
+            <option value="Historical">Historical</option>
+            <option value="Uncertain">Uncertain</option>
+        </select>
+    </div>
+
+    <div style="overflow:auto;">
+        <table class="activity-table">
+            <thead>
+                <tr>
+                    <th>Record ID</th>
+                    <th>Raw BOL</th>
+                    <th>Normalized BOL</th>
+                    <th>Store / Origin</th>
+                    <th>Status</th>
+                    <th>Hub</th>
+                    <th>Route</th>
+                    <th>Created</th>
+                    <th>Latest Timestamp</th>
+                    <th>Source / RMS</th>
+                    <th>Flags</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody id="bolAuditRecords">
+                <tr><td colspan="12" class="muted">Run a scan to load records.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let bolAuditReport = null;
+
+function auditText(value) {
+    return value === undefined || value === null || value === "" ? "—" : value;
+}
+
+function setAuditStatus(message, isError = false) {
+    const node = document.getElementById("bolAuditStatus");
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? "#b42318" : "";
+}
+
+function setAuditMetric(id, value) {
+    const node = document.getElementById(id);
+    if (node) node.textContent = auditText(value);
+}
+
+async function scanBolAudit() {
+    setAuditStatus("Scanning production BOL records...");
+    const response = await fetch("/api/admin/bol-data-audit/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+        setAuditStatus(payload.message || "Production BOL data audit failed.", true);
+        return;
+    }
+    bolAuditReport = payload;
+    renderAuditMetrics(payload);
+    renderStatusBreakdown(payload.status_breakdown || []);
+    populateAuditFilters(payload);
+    renderAuditRecords();
+    setAuditStatus(`Audit scan complete at ${payload.scan_time}.`);
+}
+
+function renderAuditMetrics(report) {
+    const m = report.metrics || {};
+    setAuditMetric("auditTotal", m.total_bol_records);
+    setAuditMetric("auditUnique", m.unique_normalized_bols);
+    setAuditMetric("auditDuplicates", m.duplicate_groups);
+    setAuditMetric("auditActive", m.active_records);
+    setAuditMetric("auditCompleted", m.completed_records);
+    setAuditMetric("auditRecovered", m.recovered_records);
+    setAuditMetric("auditReceived", m.received_records);
+    setAuditMetric("auditArchived", m.archived_inactive_records);
+    setAuditMetric("auditAge30", m.older_than_30_days);
+    setAuditMetric("auditAge60", m.older_than_60_days);
+    setAuditMetric("auditAge90", m.older_than_90_days);
+    setAuditMetric("auditAge180", m.older_than_180_days);
+    setAuditMetric("auditNoRoute", m.records_with_no_route_reference);
+    setAuditMetric("auditNoSource", m.records_with_no_rms_source_identifier);
+    setAuditMetric("auditTestDemo", m.test_demo_sample_records);
+    setAuditMetric("auditInvalidBol", m.missing_or_invalid_bol_records);
+    setAuditMetric("auditMissingStatus", m.missing_status_records);
+    setAuditMetric("auditMissingCreated", m.missing_created_timestamp_records);
+    setAuditMetric("auditMissingUpdated", m.missing_updated_timestamp_records);
+    setAuditMetric("auditUncertain", m.uncertain_records);
+    setAuditMetric("auditOpenRms", m.open_in_rms_records);
+    setAuditMetric("auditMissingRms", m.missing_from_rms_records);
+    setAuditMetric("auditClosedRms", m.closed_in_rms_records);
+}
+
+function renderStatusBreakdown(rows) {
+    const body = document.getElementById("bolAuditStatusBreakdown");
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="3" class="muted">No status rows found.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(row => `
+        <tr>
+            <td>${auditText(row.raw_status)}</td>
+            <td>${auditText(row.normalized_status_category)}</td>
+            <td>${auditText(row.record_count)}</td>
+        </tr>
+    `).join("");
+}
+
+function populateSelect(id, values, label) {
+    const select = document.getElementById(id);
+    const current = select.value;
+    select.innerHTML = `<option value="">${label}</option>` + values.map(value => `<option value="${value}">${value}</option>`).join("");
+    select.value = current;
+}
+
+function populateAuditFilters(report) {
+    const filters = report.filters || {};
+    populateSelect("auditCategoryFilter", filters.categories || [], "All categories");
+    populateSelect("auditHubFilter", filters.hubs || [], "All hubs");
+}
+
+function auditFilterValue(id) {
+    return document.getElementById(id).value;
+}
+
+function filteredAuditRows() {
+    if (!bolAuditReport) return [];
+    return (bolAuditReport.records || []).filter(row => {
+        const category = auditFilterValue("auditCategoryFilter");
+        const hub = auditFilterValue("auditHubFilter");
+        const route = auditFilterValue("auditRouteFilter");
+        const age = auditFilterValue("auditAgeFilter");
+        const source = auditFilterValue("auditSourceFilter");
+        const testDemo = auditFilterValue("auditTestDemoFilter");
+        const missing = auditFilterValue("auditMissingFilter");
+        const lifecycle = auditFilterValue("auditLifecycleFilter");
+        const flags = row.audit_flags || [];
+
+        if (category && row.normalized_status_category !== category) return false;
+        if (hub && row.hub !== hub) return false;
+        if (route === "with-route" && !row.has_route_reference) return false;
+        if (route === "without-route" && row.has_route_reference) return false;
+        if (age && row.age_bucket !== age) return false;
+        if (source === "with-source" && !row.source_identifier) return false;
+        if (source === "without-source" && row.source_identifier) return false;
+        if (testDemo === "test-demo" && !flags.includes("test_demo_sample")) return false;
+        if (testDemo === "not-test-demo" && flags.includes("test_demo_sample")) return false;
+        if (missing && !flags.includes(missing)) return false;
+        if (lifecycle && row.active_or_historical !== lifecycle) return false;
+        return true;
+    });
+}
+
+function renderAuditRecords() {
+    const body = document.getElementById("bolAuditRecords");
+    const rows = filteredAuditRows();
+    document.getElementById("bolAuditVisibleCount").textContent = `${rows.length} record${rows.length === 1 ? "" : "s"} shown`;
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="12" class="muted">No records match the current filters.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(row => `
+        <tr>
+            <td>${auditText(row.record_id)}</td>
+            <td>${auditText(row.raw_bol)}</td>
+            <td>${auditText(row.normalized_bol)}</td>
+            <td>${auditText(row.store_origin)}</td>
+            <td>${auditText(row.raw_status)}<br><span class="muted">${auditText(row.normalized_status_category)}</span></td>
+            <td>${auditText(row.hub)}</td>
+            <td>${auditText(row.route_id || row.route_name)}</td>
+            <td>${auditText(row.created_at)}</td>
+            <td>${auditText(row.latest_operational_timestamp)}</td>
+            <td>${auditText(row.source_identifier)}</td>
+            <td>${(row.audit_flags || []).join(", ") || "—"}</td>
+            <td>${auditText(row.reason)}</td>
+        </tr>
+    `).join("");
+}
+
+function downloadBolAuditReport() {
+    window.location.href = "/api/admin/bol-data-audit/report";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Production BOL Data Audit JavaScript loaded");
+
+    const scanButton = document.getElementById("bolAuditScanBtn");
+    const topScanButton = document.getElementById("bolAuditTopScanBtn");
+    const reportButton = document.getElementById("bolAuditReportBtn");
+
+    if (!scanButton) {
+        console.error("Production BOL audit scan button not found");
+        return;
+    }
+
+    scanButton.addEventListener("click", scanBolAudit);
+    if (topScanButton) topScanButton.addEventListener("click", scanBolAudit);
+    if (reportButton) reportButton.addEventListener("click", downloadBolAuditReport);
+
+    [
+        "auditCategoryFilter", "auditHubFilter", "auditRouteFilter", "auditAgeFilter",
+        "auditSourceFilter", "auditTestDemoFilter", "auditMissingFilter", "auditLifecycleFilter"
+    ].forEach(id => document.getElementById(id).addEventListener("change", renderAuditRecords));
+});
+</script>
+{% endblock %}

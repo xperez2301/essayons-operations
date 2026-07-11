@@ -5,7 +5,8 @@
 
 {% block topbar_actions %}
     <a class="eoms-button eoms-button-secondary" href="/database-center">Back to Database Center</a>
-    <button class="eoms-button" type="button" onclick="scanDuplicateBols()">Scan Now</button>
+    <a class="eoms-button eoms-button-secondary" href="/admin/bol-data-audit">BOL Data Audit</a>
+    <button class="eoms-button" type="button" id="scanDuplicateBolsTopBtn">Scan Now</button>
 {% endblock %}
 
 {% block content %}
@@ -20,7 +21,7 @@
             </p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="primary-btn" type="button" onclick="scanDuplicateBols()">Scan</button>
+            <button class="primary-btn" type="button" id="scanDuplicateBolsBtn">Scan Production Data</button>
             <button class="secondary-btn" type="button" onclick="downloadDuplicateReport()">Download Audit Report</button>
         </div>
     </div>
@@ -74,6 +75,9 @@
     </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
 let duplicateBolReport = null;
 
@@ -93,18 +97,27 @@ function setCleanupMessage(message, isError) {
     node.style.color = isError ? "#b42318" : "";
 }
 
+function setStatus(message, isError = false) {
+    setCleanupMessage(message, isError);
+}
+
 async function scanDuplicateBols() {
-    setCleanupMessage("Scanning duplicate BOL records...", false);
-    const response = await fetch("/api/admin/duplicate-bols/scan", { method: "POST" });
+    setStatus("Scanning duplicate BOL records...");
+    const response = await fetch("/api/admin/duplicate-bols/scan", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    });
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-        setCleanupMessage(payload.message || "Duplicate BOL scan failed.", true);
+        setStatus(payload.message || "Duplicate BOL scan failed.", true);
         return;
     }
     duplicateBolReport = payload;
     updateDuplicateMetrics(payload);
     renderDuplicateGroups();
-    setCleanupMessage("Scan complete. Review classifications before cleanup.", false);
+    setStatus("Scan complete. Review classifications before cleanup.");
 }
 
 function updateDuplicateMetrics(report) {
@@ -218,7 +231,29 @@ function downloadDuplicateReport() {
     window.location.href = "/api/admin/duplicate-bols/report";
 }
 
-document.addEventListener("DOMContentLoaded", scanDuplicateBols);
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Duplicate BOL Cleanup JavaScript loaded");
+
+    const scanButton = document.getElementById("scanDuplicateBolsBtn");
+    const topScanButton = document.getElementById("scanDuplicateBolsTopBtn");
+
+    if (!scanButton) {
+        console.error("Scan button not found");
+        return;
+    }
+
+    scanButton.addEventListener("click", async () => {
+        console.log("Scan button clicked");
+        await scanDuplicateBols();
+    });
+
+    if (topScanButton) {
+        topScanButton.addEventListener("click", async () => {
+            console.log("Top scan button clicked");
+            await scanDuplicateBols();
+        });
+    }
+});
 </script>
 
 {% endblock %}
