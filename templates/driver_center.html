@@ -197,7 +197,7 @@
       {% else %}<p class="muted">No routes assigned yet. Refresh when your dispatcher assigns work.</p>{% endfor %}
       {% if workspace.selected_route %}<h3>{{ workspace.selected_route.label }} — Stops</h3>{% endif %}
       {% for stop in workspace.stops %}
-        <div class="driver-bol-row"><div><b>{{ stop.store_name or stop.store or 'Pickup' }}</b><small>BOL {{ stop.bol }} · Due {{ stop.due_date or 'Not set' }}</small><small>{{ stop.address }}</small></div><a class="eoms-button eoms-button-secondary" href="{{ url_for('driver_portal.driver_bol', store_id=stop.id) }}" target="_blank" rel="noopener">View BOL</a></div>
+        <div class="driver-bol-row"><div><b>{{ stop.store_name or stop.store or 'Pickup' }}</b><small>BOL {{ stop.bol }} · Due {{ stop.due_date or 'Not set' }}</small><small>{{ stop.address }}, {{ stop.city }}, {{ stop.state }} {{ stop.zip or '' }}</small><small>{{ stop.service_history }}</small></div><div>{% if stop.route_driver_status == 'Accepted' %}{% if stop.driver_work_status == 'Current' %}<span class="eoms-status eoms-status-success">Current pickup</span>{% else %}<button class="eoms-button eoms-button-primary" type="button" data-select-stop="{{ stop.id }}" data-select-route="{{ stop.route_id }}">Recover this store first</button>{% endif %}{% endif %}<a class="eoms-button eoms-button-secondary" href="{{ url_for('driver_portal.driver_bol', store_id=stop.id) }}" target="_blank" rel="noopener">View BOL</a></div></div>
       {% endfor %}
     </section>
     <section class="driver-kpis" aria-label="Driver summary">
@@ -252,7 +252,7 @@
         {% if assignment_accepted and workspace.selected_stop_detail %}
           <div class="driver-stop-meta">
             <p><b>Location:</b> {{ workspace.selected_stop_detail.city_state }}</p>
-            <p><b>Due:</b> {{ workspace.selected_stop_detail.due_date }}</p>
+            <p><b>Due:</b> {{ workspace.selected_stop_detail.due_date }}</p><p class="muted">{{ workspace.selected_stop_detail.service_history }}</p>
           </div>
 
           <div class="driver-action-row">
@@ -365,6 +365,18 @@
 {% block scripts %}
 <script>
 (function(){
+  document.querySelectorAll('[data-select-stop]').forEach(function(button){
+    button.addEventListener('click', async function(){
+      if (document.querySelector('[data-driver-stop-form]') && !window.confirm('Switch pickups? Save any unsaved counts first.')) return;
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/driver/select-stop', {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':{{ session.get('driver_stop_csrf')|tojson }}},body:JSON.stringify({store_id:button.dataset.selectStop,route_id:button.dataset.selectRoute})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Unable to select pickup.');
+        window.location.href = '/driver?route_id=' + encodeURIComponent(button.dataset.selectRoute);
+      } catch(error) {window.alert(error.message);button.disabled=false;}
+    });
+  });
   var saveButton = document.getElementById("driverSaveCountsBtn");
   var saveExceptionButton = document.getElementById("driverSaveExceptionBtn");
   var completeButton = document.getElementById("driverCompleteStopBtn");

@@ -67,6 +67,14 @@ def driver_portal():
     )
     all_work = build_driver_workspace(routes=visible_routes, stores=stores, driver_names=names)
     workspace["available_routes"] = all_work["routes"]
+    from eoms_modules.driver_stop_selection import service_history
+    for stop in workspace["stops"]:
+        stop["service_history"] = service_history(stop, stores)
+    if workspace.get("selected_stop_detail") and workspace.get("selected_stop"):
+        workspace["selected_stop_detail"]["service_history"] = service_history(workspace["selected_stop"], stores)
+    if not session.get("driver_stop_csrf"):
+        import secrets
+        session["driver_stop_csrf"] = secrets.token_urlsafe(32)
     response = make_response(render_template("driver_center.html", workspace=workspace))
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -332,3 +340,30 @@ def api_driver_complete():
         "next_stop": promoted,
         "updated_routes": len(updated_routes),
     })
+
+
+@driver_portal_bp.post("/api/driver/select-stop")
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
+def api_driver_select_stop():
+    import secrets
+    from eoms_modules.driver_stop_selection import select_driver_stop
+    if not secrets.compare_digest(request.headers.get("X-CSRF-Token", ""), session.get("driver_stop_csrf", "!")):
+        return jsonify(ok=False, message="Refresh the driver portal and try again."), 403
+    names = _current_driver_names()
+    if current_role() == "Driver" and not any(clean(name) for name in names):
+        abort(403)
+    payload = request.get_json(silent=True) or {}
+    stores = read_json(STORES_FILE)
+    routes = read_json(ROUTES_FILE)
+    try:
+        chosen = select_driver_stop(routes, stores, payload.get("route_id"), payload.get("store_id"), names)
+    except PermissionError as exc:
+        return jsonify(ok=False, message=str(exc)), 403
+    except LookupError as exc:
+        return jsonify(ok=False, message=str(exc)), 404
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    write_json(STORES_FILE, stores)
+    write_json(ROUTES_FILE, routes)
+    audit("Driver Selected Pickup", {"route_id": payload.get("route_id"), "store_id": chosen.get("id"), "driver": session.get("username")})
+    return jsonify(ok=True)

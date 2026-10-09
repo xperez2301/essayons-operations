@@ -62,3 +62,14 @@ def test_pallets_default_zero_and_reject_negative_counts():
     from eoms_modules.driver_center_service import normalize_driver_count_payload
     assert normalize_driver_count_payload({})['wood_pallet']==0
     with pytest.raises(ValueError):normalize_driver_count_payload({'wood_pallet':-1})
+
+def test_stop_selection_endpoint_requires_csrf_and_ownership(driver_client):
+    routes=core.read_json(portal.ROUTES_FILE);routes[0]['driver_status']='Accepted';core.write_json(portal.ROUTES_FILE,routes)
+    stores=core.read_json(portal.STORES_FILE);stores[0]['assigned_driver']='d1';core.write_json(portal.STORES_FILE,stores)
+    driver_client.get('/driver')
+    with driver_client.session_transaction() as session:token=session['driver_stop_csrf']
+    assert driver_client.post('/api/driver/select-stop',json={'route_id':'r1','store_id':'own'}).status_code==403
+    headers={'X-CSRF-Token':token}
+    assert driver_client.post('/api/driver/select-stop',json={'route_id':'r2','store_id':'other'},headers=headers).status_code==403
+    assert driver_client.post('/api/driver/select-stop',json={'route_id':'r1','store_id':'own'},headers=headers).status_code==200
+    assert core.read_json(portal.STORES_FILE)[0]['driver_work_status']=='Current'
