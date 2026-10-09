@@ -104,3 +104,49 @@ def test_archive_status_can_be_corrected_again(setup):
     archived_record(status='Completed',rms_status='Open')
     assert archive_save(setup,'Exception').status_code==200
     assert archive_save(setup,'Completed').status_code==200
+
+
+@pytest.fixture
+def reset_setup(setup,monkeypatch,tmp_path):
+    monkeypatch.setattr(owner,'DATA_DIR',tmp_path/'data');owner.DATA_DIR.mkdir()
+    monkeypatch.setattr(core,'RMS_QUEUE_FILE',tmp_path/'reset_queue.json');core.write_json(core.RMS_QUEUE_FILE,[])
+    monkeypatch.setattr(core,'BOL_DIR',tmp_path/'bols');core.BOL_DIR.mkdir()
+    monkeypatch.setattr(core,'UPLOAD_DIR',tmp_path/'uploads');core.UPLOAD_DIR.mkdir()
+    monkeypatch.setattr(core,'audit',lambda *args:None)
+    return setup
+
+def reset_request(c,**changes):
+    payload={'csrf':'test-csrf','confirmation':'CLEAR BOLS'};payload.update(changes)
+    return c.post('/bol-reset',data=payload)
+
+def test_reset_backs_up_documents_and_clears_records(reset_setup,tmp_path):
+    from zipfile import ZipFile
+    document=core.BOL_DIR/'123.pdf';document.write_bytes(b'Synthetic BOL')
+    outside=tmp_path/'keep.txt';outside.write_text('keep')
+    rows=core.read_json(owner.STORES_FILE);rows[0].update(pdf_path=str(document),printable_path=str(outside));core.write_json(owner.STORES_FILE,rows)
+    core.write_json(owner.ROUTES_FILE,[{'id':'route','status':'Assigned','store_ids':['test-store'],'stops':[rows[0]]}])
+    assert reset_request(reset_setup).status_code==200
+    assert core.read_json(owner.STORES_FILE)==[] and core.read_json(core.RMS_QUEUE_FILE)==[]
+    assert not document.exists() and outside.read_text()=='keep'
+    assert core.read_json(owner.ROUTES_FILE)[0]['store_ids']==[]
+    name=core.read_json(owner.DATA_DIR/'bol_reset_backup.json')['filename']
+    with ZipFile(owner.DATA_DIR/'bol_reset_backups'/name) as z:
+        assert json.loads(z.read('data/stores.json'))[0]['id']=='test-store'
+        assert any(z.read(n)==b'Synthetic BOL' for n in z.namelist() if n.startswith('documents/'))
+    assert reset_setup.get('/bol-reset-backup').status_code==200
+
+def test_reset_rejects_invalid_confirmation_and_csrf(reset_setup):
+    assert reset_request(reset_setup,confirmation='wrong').status_code==400
+    assert reset_request(reset_setup,csrf='wrong').status_code==403
+    assert len(core.read_json(owner.STORES_FILE))==1
+
+def test_reset_requires_admin(reset_setup,monkeypatch):
+    monkeypatch.setattr(core,'current_user',lambda:{'username':'dispatcher-test','role':'Dispatcher','assigned_cities':['All']})
+    monkeypatch.setattr(core,'current_role',lambda:'Dispatcher')
+    assert reset_request(reset_setup).status_code==403
+    assert len(core.read_json(owner.STORES_FILE))==1
+
+def test_reset_blocks_active_import(reset_setup):
+    core.write_json(owner.OWNER_JOBS_FILE,[{'status':'running','heartbeat':time.time()}])
+    assert reset_request(reset_setup).status_code==409
+    assert len(core.read_json(owner.STORES_FILE))==1

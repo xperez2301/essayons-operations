@@ -173,3 +173,76 @@ def update_archive_status(store_id):
         history.append({'event':'Archive Status Updated','timestamp':now,'operator':session.get('username','system'),'previous_status':previous,'status':status})
         write_json(STORES_FILE,stores)
     return jsonify(ok=True,message='BOL status saved: '+status+'.',status=status)
+
+
+@owner_bp.route('/bol-reset',methods=['GET','POST'])
+@admin_required
+def bol_reset_page():
+    from app import RMS_QUEUE_FILE
+    if not session.get('owner_csrf'):session['owner_csrf']=secrets.token_urlsafe(32)
+    if request.method=='POST':
+        result,code=reset_all_bols()
+        return render_template('bol_reset.html',csrf_token=session['owner_csrf'],result=result,stores=len(read_json(STORES_FILE)),queue=len(read_json(RMS_QUEUE_FILE))),code
+    return render_template('bol_reset.html',csrf_token=session['owner_csrf'],result=None,stores=len(read_json(STORES_FILE)),queue=len(read_json(RMS_QUEUE_FILE)))
+
+
+def reset_all_bols():
+    from app import RMS_QUEUE_FILE,delete_saved_bol_files,audit,BOL_DIR,UPLOAD_DIR,path_inside
+    import zipfile
+    if not secrets.compare_digest(request.form.get('csrf',''),session.get('owner_csrf','!')):
+        return {'ok':False,'message':'Reload this page and try again.'},403
+    if request.form.get('confirmation')!='CLEAR BOLS':
+        return {'ok':False,'message':'Type CLEAR BOLS to reset the BOL list.'},400
+    @synchronized_data_write(STORES_FILE,ROUTES_FILE,RMS_QUEUE_FILE,OWNER_JOBS_FILE)
+    def apply_reset():
+        pending=jobs()
+        if any(j.get('status')=='running' and time.time()-float(j.get('heartbeat',j.get('epoch',0)))<120 for j in pending):
+            return {'ok':False,'message':'An RMS import is running. Wait for it to finish before resetting BOLs.'},409
+        stores=read_json(STORES_FILE);queue=read_json(RMS_QUEUE_FILE)
+        if not stores and not queue:return {'ok':True,'message':'The BOL list is already empty.'},200
+        backup_dir=DATA_DIR/'bol_reset_backups';backup_dir.mkdir(parents=True,exist_ok=True)
+        backup=backup_dir/(datetime.now().strftime('%Y%m%d-%H%M%S')+'-'+secrets.token_hex(4)+'.zip')
+        candidates=set()
+        for root in (BOL_DIR,):
+            for pattern in ('*.pdf','*.html'):candidates.update(path.resolve() for path in root.rglob(pattern) if path.is_file() and path_inside(path.resolve(),BOL_DIR))
+        for row in stores+queue:
+            for key in ('pdf_path','printable_path'):
+                if row.get(key):
+                    path=Path(row[key]).resolve()
+                    if path.is_file() and (path_inside(path,BOL_DIR) or path_inside(path,UPLOAD_DIR)):candidates.add(path)
+        with zipfile.ZipFile(backup,'w',zipfile.ZIP_DEFLATED) as z:
+            for name,rows in [('stores',stores),('rms_queue',queue),('routes',read_json(ROUTES_FILE))]:z.writestr('data/'+name+'.json',json.dumps(rows))
+            for i,path in enumerate(sorted(candidates)):z.write(path,'documents/'+str(i)+'-'+path.name)
+        write_json(DATA_DIR/'bol_reset_backup.json',{'filename':backup.name})
+        files=[];failed=[]
+        for row in stores+queue:
+            cleanup=delete_saved_bol_files(row);files.extend(cleanup['deleted']);failed.extend(cleanup['failed'])
+        for path in candidates:
+            if path.is_file():
+                try:path.unlink();files.append(str(path))
+                except OSError:failed.append({'path':str(path)})
+        if failed:
+            return {'ok':False,'message':'Some BOL files could not be removed. The records were kept. Retry the reset.'},500
+        ids={str(s.get('id')) for s in stores}
+        routes=read_json(ROUTES_FILE)
+        for route in routes:
+            route['store_ids']=[sid for sid in (route.get('store_ids') or []) if str(sid) not in ids]
+            route['stops']=[stop for stop in (route.get('stops') or []) if str(stop.get('id')) not in ids]
+            if not route['store_ids'] and not route['stops'] and route.get('status')!='Completed':route['status']='Cancelled'
+        for job in pending:
+            if job.get('status') in {'queued','running'}:job.update(status='error',message='BOLs were reset. Click Import from RMS to start a fresh import.')
+        write_json(STORES_FILE,[]);write_json(RMS_QUEUE_FILE,[]);write_json(ROUTES_FILE,routes);write_json(OWNER_JOBS_FILE,pending)
+        audit('Reset All BOLs',{'removed_stores':len(stores),'removed_queue':len(queue),'deleted_files':len(set(files))})
+        return {'ok':True,'message':f'BOL reset complete. Removed {len(stores)} BOL records, {len(queue)} queued records, and {len(set(files))} saved files. You can now import from RMS again.'},200
+    return apply_reset()
+
+
+@owner_bp.get('/bol-reset-backup')
+@admin_required
+def download_bol_reset_backup():
+    from flask import send_file,abort
+    name=read_json(DATA_DIR/'bol_reset_backup.json').get('filename','')
+    if not name or Path(name).name!=name:abort(404)
+    path=DATA_DIR/'bol_reset_backups'/name
+    if not path.is_file():abort(404)
+    return send_file(path,as_attachment=True,download_name='bol-reset-backup.zip')
