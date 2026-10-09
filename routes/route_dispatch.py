@@ -234,6 +234,9 @@ def api_send_route_sms():
         body_lines.append("")
 
     body_lines.append("Please log into the EOMS Driver Portal to accept and complete your assignments.")
+    public_url = clean(os.environ.get("EOMS_BASE_URL")) or "https://eoms.essayonsbax.com"
+    if public_url.startswith("https://"):
+        body_lines.append(public_url.rstrip("/") + "/driver")
     body = "\n".join(body_lines).strip()
 
     telnyx_settings = read_json(SETTINGS_FILE)

@@ -1,0 +1,38 @@
+ESSAYONS OWNER DASHBOARD — PRODUCTION UPDATE
+
+This is a patch for the supplied essayons-operations-production.zip, not a complete standalone application. Use this package instead of the earlier standalone rebuild when updating the existing Azure website.
+
+WHAT CHANGES
+Admins open /owner after login. The owner page shows available pickups, due dates, priority filters, clickable map pins, route selection, existing driver-account assignment, and dispatch/text actions. Existing dispatch, driver recovery, receiving, closeout, data directories, user accounts, and deployment workflow are retained.
+
+1. APPLY THE CODE
+Extract the production project into a separate local working folder. Copy the contents of this update into that folder, merging routes, templates, and static directories and replacing the supplied files. Keep every other production file, especially eoms_local_worker.py and the existing routes. Review the changes against the production branch before committing.
+
+Deploy all patch files together to xperez2301/essayons-operations branch production. The existing GitHub Actions workflow deploys that branch to eoms-dispatch-v2. The patch has not been uploaded or deployed by Codex.
+
+Keep the Azure startup command unchanged:
+gunicorn --bind=0.0.0.0:8000 --timeout 600 --workers 1 --threads 4 app:app
+
+Keep existing DATA_DIR, BOL_DIR, UPLOAD_DIR, SECRET_KEY, authentication, SMS, and Azure Maps settings. Back up the current operational data before deploying. The update adds owner_rms_requests.json beside existing records; it does not migrate them to another database.
+
+2. CONNECT YOUR RMS COMPUTER
+Azure cannot open your computer's RMS browser. Keep this listener running on the Windows computer that already runs the existing RMS worker. Nothing is imported until an Admin clicks Import from RMS on the website.
+
+In the FULL local production project, install requirements into its virtual environment:
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+In that computer's local .env, set:
+EOMS_BASE_URL=https://eoms.essayonsbax.com
+EOMS_WORKER_TOKEN=<the same worker token configured in Azure>
+
+The legacy LOCAL_RMS_IMPORT_TOKEN is also supported. Preserve existing local RMS login/browser configuration. Never commit .env or paste token values into chat. If the worker token is absent in Azure, configure one there and put the same value locally.
+
+Run START_OWNER_RMS_LISTENER.cmd from the full project folder. Leave its console open. Sign in to RMS when the existing worker requires it. This listener polls only for a requested job; it does not periodically scrape RMS. The existing worker handles PDF uploads and callbacks.
+
+3. USE THE WEBSITE
+Log in as Admin and open /owner. Click Import from RMS; wait for its status to finish. Check imported pickup dates and locations, select stores, preview the route, assign an existing Driver account, then dispatch and text. Texts include the existing HTTPS /driver portal link; drivers sign in with their accounts. This update retains authenticated driver access rather than adding a new anonymous route-link system.
+
+VALIDATION
+115 automated tests passed: 106 existing production checks and 9 new owner/worker access checks. Browser verification covered production login, map tiles, overdue filtering, native route preview/assignment, a queued manual import, and mobile layout. The preview uses synthetic pickups. No live text messages were sent. The new Azure-to-PC bridge still needs an end-to-end import after deployment with your real worker configuration.
+
+Map pins use stored coordinates. Approximate or unverified coordinates are marked for review. The current production Azure Maps integration is preserved.

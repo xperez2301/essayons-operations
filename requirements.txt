@@ -10,3 +10,8 @@ requests==2.32.3
 # On Azure App Service this also requires `playwright install chromium`
 # (see README). The app runs fine without it; RMS automation is just disabled.
 playwright==1.59.0
+
+# Central-time owner priorities on Windows and Linux
+tzdata>=2024.1
+# Use the Windows certificate store for the local listener
+truststore>=0.10,<1

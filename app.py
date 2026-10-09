@@ -2057,6 +2057,8 @@ def enforce_login():
     path = request.path or "/"
     if path == "/" or path.startswith("/login") or path.startswith("/logout") or path.startswith("/static/") or path.startswith("/favicon"):
         return None
+    if path in {"/api/owner/worker/claim", "/api/owner/worker/heartbeat", "/api/owner/worker/result"}:
+        return None  # Each route validates the existing worker bearer token.
     if path == "/api/local-rms/import":
         return None
     if path == "/api/sync-result" and request.method == "POST":
@@ -2098,6 +2100,8 @@ def safe_next_url(candidate):
 def post_login_url_for_user(user, requested_next=""):
     if clean((user or {}).get("role")) == "Driver":
         return "/driver"
+    if clean((user or {}).get("role")) == "Admin" and clean(requested_next) in {"", "/dashboard"}:
+        return "/owner"
     return safe_next_url(requested_next)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -2142,7 +2146,7 @@ def logout():
 @app.route("/")
 def home():
     if session.get("logged_in"):
-        return redirect("/dashboard")
+        return redirect("/owner" if current_role() == "Admin" else "/dashboard")
     return redirect("/login")
 
 
@@ -5075,6 +5079,9 @@ from database_tools import backup_stores_json
 
 from routes.database_maintenance import database_maintenance_bp
 app.register_blueprint(database_maintenance_bp)
+
+from routes.owner_overview import owner_bp
+app.register_blueprint(owner_bp)
 
 app.config["BACKUP_STORES_JSON"] = backup_stores_json
 app.config["AUDIT"] = audit
