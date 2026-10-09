@@ -260,6 +260,14 @@ def repair_bol_numbers():
     from flask import abort
     if not session.get('owner_csrf'):session['owner_csrf']=secrets.token_urlsafe(32)
     if request.method=='POST' and not secrets.compare_digest(request.form.get('csrf',''),session['owner_csrf']):abort(403)
+    sources=[]
+    if request.method=='POST' and request.files.get('rms_source'):
+        try:sources=json.load(request.files['rms_source'])
+        except (ValueError,TypeError):abort(400)
+        if not isinstance(sources,list) or len(sources)>10000 or not all(isinstance(s,dict) for s in sources):abort(400)
+    def normalized(value):
+        import re
+        return re.sub(r'[^a-z0-9]','',str(value or '').lower())
     stores=read_json(STORES_FILE);existing={str(s.get('bol')) for s in stores if s.get('bol')};candidates=[]
     for row in stores:
         if row.get('bol'):continue
@@ -267,14 +275,19 @@ def repair_bol_numbers():
         roots=[BOL_DIR.resolve(),UPLOAD_DIR.resolve()]
         if not path.is_file() or path.suffix.lower()!='.pdf' or not any(path.is_relative_to(root) for root in roots):continue
         try:bol=extract_rms_bol_number(extract_pdf_text(path))
-        except Exception:continue
+        except Exception:bol=''
+        matches=[s for s in sources if all(normalized(s.get(k))==normalized(row.get(k)) for k in ('address','zip','store_name','city')) and float(s.get('expected_racks') or 0)==float(row.get('expected_racks') or 0)]
+        if len(matches)==1 and str(matches[0].get('bol','')).isdigit():
+            source_bol=str(matches[0]['bol'])
+            if bol and bol!=source_bol:continue
+            bol=source_bol
         if not bol or bol in existing:continue
         existing.add(bol);candidate=dict(row,bol=bol)
         reasons=essential_review_reasons(candidate)
         candidates.append({'id':row['id'],'store':row.get('store_name',''),'bol':bol,'reasons':reasons})
     applied=None
     if request.method=='POST':
-        backup_stores_json(reason='before_bol_number_repair')
+        backup_stores_json(STORES_FILE,DATA_DIR/'backups',reason='before_bol_number_repair')
         repairs={c['id']:c for c in candidates}
         for row in stores:
             if row['id'] not in repairs:continue

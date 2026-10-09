@@ -26,7 +26,7 @@ def test_repair_preserves_ids_dates_and_real_review_flags(reset_setup,monkeypatc
     rows=[{'id':name,'bol':'','store_name':'Test','city':'Austin','hub':hub,'expected_racks':5,'status':'Need Review','pdf_path':str(core.BOL_DIR/(name+'.pdf')),'due_date':'2026-10-08'} for name,hub in [('a','San Antonio'),('b','Manual Review')]]
     core.write_json(owner.STORES_FILE,rows)
     preview=reset_setup.get('/bol-number-repair');assert preview.status_code==200
-    assert b'Repair 2 BOL numbers' in preview.data
+    assert b'12345' in preview.data and b'23456' in preview.data
     assert reset_setup.post('/bol-number-repair',data={'csrf':'wrong'}).status_code==403
     assert core.read_json(owner.STORES_FILE)==rows
     response=reset_setup.post('/bol-number-repair',data={'csrf':'test-csrf'})
@@ -36,4 +36,22 @@ def test_repair_preserves_ids_dates_and_real_review_flags(reset_setup,monkeypatc
     assert updated[0]['id']=='a' and updated[0]['due_date']=='2026-10-08'
     assert updated[1]['bol']=='23456' and updated[1]['status']=='Need Review'
     assert updated[1]['review_reasons']==['Hub outside 100 miles']
-    assert b'Repair 0 BOL numbers' in reset_setup.get('/bol-number-repair').data
+    assert b'<td>12345</td>' not in reset_setup.get('/bol-number-repair').data
+
+
+def test_source_recovery_uses_exact_identity_and_real_backup(reset_setup,monkeypatch,tmp_path):
+    import io,json
+    from database_tools import backup_stores_json
+    monkeypatch.setattr(owner,'DATA_DIR',tmp_path/'data')
+    monkeypatch.setattr(core,'backup_stores_json',backup_stores_json)
+    monkeypatch.setattr(core,'extract_pdf_text',lambda path:'No extractable identifier')
+    pdf=core.BOL_DIR/'c.pdf';pdf.write_bytes(b'test')
+    row={'id':'source-repair','bol':'','store_name':'Test Store','city':'Austin','address':'123 Main Street','zip':'78701','hub':'San Antonio','expected_racks':5,'status':'Need Review','pdf_path':str(pdf)}
+    core.write_json(owner.STORES_FILE,[row])
+    source={**row,'bol':'34567','address':'123 Main S treet'}
+    response=reset_setup.post('/bol-number-repair',data={'csrf':'test-csrf','rms_source':(io.BytesIO(json.dumps([source]).encode()),'recovery.json')},content_type='multipart/form-data')
+    assert response.status_code==200
+    assert core.read_json(owner.STORES_FILE)[0]['bol']=='34567'
+    assert core.read_json(owner.STORES_FILE)[0]['status']=='Unassigned'
+    backups=list((owner.DATA_DIR/'backups').glob('*.json'))
+    assert len(backups)==1 and json.loads(backups[0].read_text())==[row]
