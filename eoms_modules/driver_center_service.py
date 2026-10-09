@@ -36,9 +36,10 @@ DRIVER_EXCEPTION_TYPES = (
 
 COMPONENT_ENTRY_LABELS = {
     '84" Corner Post': "Corner Posts",
-    '40" DRB': "Uprights",
-    '48" DRB': "Beams",
-    "Wood Shelf": "Bases",
+    '40" DRB': "40 DRB",
+    '48" DRB': "48 DRB",
+    "Wood Shelf": "Wood Shelf",
+    "Wood Pallet": "Wood Pallet",
 }
 
 
@@ -363,6 +364,7 @@ def sync_route_stop_from_store(route, store):
             "drb40",
             "drb48",
             "wood_shelf",
+            "wood_pallet",
         ):
             if field in store:
                 stop[field] = store.get(field)

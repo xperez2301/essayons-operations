@@ -10,6 +10,7 @@ COMPONENT_NAMES = (
     '40" DRB',
     '48" DRB',
     "Wood Shelf",
+    "Wood Pallet",
 )
 
 COMPONENT_WEIGHTS = {
@@ -24,6 +25,7 @@ STORE_COMPONENT_FIELDS = {
     '40" DRB': "drb40",
     '48" DRB': "drb48",
     "Wood Shelf": "wood_shelf",
+    "Wood Pallet": "wood_pallet",
 }
 
 COMPLETED_STOP_STATUSES = {
@@ -175,7 +177,8 @@ def calculate_estimated_weight(component_totals):
     totals = normalize_driver_counts(component_totals)
     weight = sum(
         totals[component] * COMPONENT_WEIGHTS[component]
-        for component in COMPONENT_NAMES
+        # Pallets are counted separately until a pallet weight is configured.
+        for component in COMPONENT_NAMES if component in COMPONENT_WEIGHTS
     )
     return round(weight, 2)
 

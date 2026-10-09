@@ -43,3 +43,22 @@ def test_owner_dispatch_does_not_call_sms():
     from pathlib import Path
     script=(Path(__file__).parent/'static/owner/owner.js').read_text(encoding='utf-8')
     assert '/api/owner/sms' not in script and 'Dispatch & text' not in script
+
+def test_material_labels_and_pallet_count_survive_save():
+    from eoms_modules.driver_center_service import component_entries_for_stop, save_driver_stop_counts, driver_counts_from_store
+    from eoms_modules.receiving_service import normalize_component_payload
+    entries=component_entries_for_stop({})
+    assert [entry['label'] for entry in entries]==['Corner Posts','40 DRB','48 DRB','Wood Shelf','Wood Pallet']
+    stores=[{'id':'pickup','assigned_driver':'d1','status':'Assigned'}]
+    payload={'corner_posts':8,'drb40':4,'drb48':4,'wood_shelf':3,'wood_pallet':6}
+    saved=save_driver_stop_counts(stores,'pickup',payload,driver_names={'d1'},saved_by='d1')
+    assert saved['wood_pallet']==6
+    counts=driver_counts_from_store(saved)
+    assert counts['Wood Pallet']==6 and counts['40" DRB']==4
+    assert normalize_component_payload(saved)['Wood Pallet']==6
+
+
+def test_pallets_default_zero_and_reject_negative_counts():
+    from eoms_modules.driver_center_service import normalize_driver_count_payload
+    assert normalize_driver_count_payload({})['wood_pallet']==0
+    with pytest.raises(ValueError):normalize_driver_count_payload({'wood_pallet':-1})
