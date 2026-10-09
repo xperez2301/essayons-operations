@@ -345,3 +345,27 @@ def save_weekly_driver_rates():
     write_json(DRIVER_WEEKLY_RATES_FILE, saved)
     audit('Weekly Driver Rates Saved', {'week':start.isoformat(),'drivers':list(normalized)})
     return jsonify(ok=True)
+
+
+@owner_bp.post('/api/archive/reopen/<store_id>')
+@dispatch_required
+@csrf_required
+@synchronized_data_write(STORES_FILE, ROUTES_FILE)
+def reopen_archive_bol(store_id):
+    from eoms_modules.archive_reopen import reopen_archived_bol
+    from app import audit
+    stores = read_json(STORES_FILE)
+    if store_id not in {str(row.get('id')) for row in filter_stores_for_user(stores)}:
+        return jsonify(ok=False, message='BOL not found.'), 404
+    routes = read_json(ROUTES_FILE)
+    try:
+        store, changed = reopen_archived_bol(stores, routes, store_id, session.get('username', 'system'))
+    except LookupError as exc:
+        return jsonify(ok=False, message=str(exc)), 404
+    except ValueError as exc:
+        return jsonify(ok=False, message=str(exc)), 409
+    if changed:
+        write_json(STORES_FILE, stores)
+        write_json(ROUTES_FILE, routes)
+        audit('BOL Returned to Pickups', {'store_id':store_id,'bol':store.get('bol')})
+    return jsonify(ok=True, message='BOL returned to pickups.', status=store.get('status'))

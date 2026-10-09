@@ -174,3 +174,13 @@ def test_weekly_pay_admin_report_and_saved_manual_rates(setup,monkeypatch,tmp_pa
     monkeypatch.setattr(core,'current_role',lambda:'Dispatcher')
     monkeypatch.setattr(core,'current_user',lambda:{'username':'dispatch-test','role':'Dispatcher'})
     assert setup.get('/weekly-driver-pay?week=2026-10-05').status_code==403
+
+def test_archive_reopen_csrf_and_visibility(setup):
+    record=core.read_json(owner.STORES_FILE)[0];record.update(status='Completed',completed_at='2026-10-09T15:00:00Z',rms_status='Closed in RMS')
+    core.write_json(owner.STORES_FILE,[record])
+    assert setup.post('/api/archive/reopen/test-store',json={}).status_code==403
+    response=setup.post('/api/archive/reopen/test-store',json={},headers={'X-CSRF-Token':'test-csrf'})
+    assert response.status_code==200 and response.json['status']=='Unassigned'
+    reopened=core.read_json(owner.STORES_FILE)[0]
+    assert reopened['archive_reopened_at'] and not reopened.get('completed_at')
+    assert setup.post('/api/archive/reopen/missing',json={},headers={'X-CSRF-Token':'test-csrf'}).status_code==404

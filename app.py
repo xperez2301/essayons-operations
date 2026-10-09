@@ -4628,7 +4628,7 @@ def archive():
         s for s in stores
         if (s.get("status") or "") == "Completed"
         or bool(s.get("archive_status_updated_at"))
-        or clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}
+        or (not s.get("archive_reopened_at") and clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"})
     ]
     completed_routes = [r for r in routes if (r.get("status") or "") == "Completed"]
 
