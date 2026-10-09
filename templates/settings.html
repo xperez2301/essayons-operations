@@ -77,15 +77,6 @@
         <input type="number" name="due_amber_days" min="1" max="60" value="{{ settings.due_amber_days or 7 }}">
         <p class="muted">Example: red 4 and amber 7 means 0–4 days is red, 5–7 days is amber, and anything above 7 is green.</p>
 
-        <hr>
-        <h3>Telnyx Driver SMS</h3>
-        <label>Telnyx API Key</label>
-        <input type="password" name="telnyx_api_key" placeholder="{{ 'API key saved - leave blank to keep it' if settings.telnyx_api_key_saved else 'KEY...' }}">
-
-        <label>Telnyx Sending Number</label>
-        <input type="tel" name="telnyx_from_number" value="{{ settings.telnyx_from_number or '' }}" placeholder="+12105551234">
-        <p class="muted">Use E.164 format, including +1. Only Admin can view or change these settings.</p>
-
         <button class="primary-btn" type="submit">Save Settings</button>
     </form>
 

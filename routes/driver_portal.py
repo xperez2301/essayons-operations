@@ -12,7 +12,9 @@ names are already defined, so this import is safe despite the circular
 app <-> routes.driver_portal relationship.
 """
 
-from flask import Blueprint, jsonify, render_template, request, session
+from pathlib import Path
+
+from flask import abort, send_file, make_response, Blueprint, jsonify, render_template, request, session
 
 from app import (
     STORES_FILE,
@@ -50,12 +52,51 @@ def _current_driver_names():
 def driver_portal():
     stores = read_json(STORES_FILE)
     routes = read_json(ROUTES_FILE)
+    names = {clean(name) for name in _current_driver_names() if clean(name)}
+    if current_role() == "Driver" and not names:
+        abort(403)
+    visible_routes = [route for route in routes if not names or clean(route.get("driver")) in names]
+    route_id = request.args.get("route_id")
+    if route_id and not any(clean(route.get("id")) == route_id for route in visible_routes):
+        abort(404)
+    selected_routes = [route for route in visible_routes if clean(route.get("id")) == route_id] if route_id else visible_routes
     workspace = build_driver_workspace(
-        routes=routes,
+        routes=selected_routes,
         stores=stores,
         driver_names=_current_driver_names(),
     )
-    return render_template("driver_center.html", workspace=workspace)
+    all_work = build_driver_workspace(routes=visible_routes, stores=stores, driver_names=names)
+    workspace["available_routes"] = all_work["routes"]
+    response = make_response(render_template("driver_center.html", workspace=workspace))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@driver_portal_bp.route("/driver/bol/<store_id>")
+def driver_bol(store_id):
+    from app import BOL_DIR, render_saved_bol
+    names = {clean(name) for name in _current_driver_names() if clean(name)}
+    if current_role() == "Driver" and not names:
+        abort(403)
+    routes = read_json(ROUTES_FILE)
+    allowed = any(
+        (not names or clean(route.get("driver")) in names)
+        and store_id in (route.get("store_ids") or [])
+        for route in routes
+    )
+    if not allowed:
+        abort(404)
+    record = next((row for row in read_json(STORES_FILE) if row.get("id") == store_id), None)
+    if not record:
+        abort(404)
+    path = Path(record.get("pdf_path") or record.get("printable_path") or "")
+    if not path.is_file() or not path.resolve().is_relative_to(Path(BOL_DIR).resolve()):
+        abort(404)
+    if path.suffix.lower() == ".pdf":
+        return send_file(path, mimetype="application/pdf", as_attachment=False)
+    if path.suffix.lower() != ".html":
+        abort(404)
+    return render_saved_bol(record, path, auto_print=False)
 
 
 @driver_portal_bp.route("/api/driver/accept-route", methods=["POST"])

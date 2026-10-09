@@ -731,7 +731,7 @@ def render_saved_bol(record, path, auto_print=False):
 
     summary = bol_edit_summary_html(record)
     bol_id = record.get("id") or clean(record.get("bol"))
-    raw_url = url_for("bol_view", store_id=bol_id, raw=1)
+    raw_url = url_for("driver_portal.driver_bol" if request.endpoint == "driver_portal.driver_bol" else "bol_view", store_id=bol_id, raw=1)
     title = f"BOL {escape(clean(record.get('bol')))}"
     print_script = "<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 700); });</script>" if auto_print else ""
     toolbar = f"""

@@ -190,6 +190,16 @@
   <div id="driverSaveNotice" class="eoms-status eoms-status-neutral" hidden>Ready</div>
 
   <div class="driver-home">
+    <section class="eoms-card">
+      <div class="driver-current-head"><h2>My routes</h2><a class="eoms-button eoms-button-secondary" href="{{ url_for('driver_portal.driver_portal', route_id=request.args.get('route_id', '')) }}">Refresh routes</a></div>
+      {% for route in workspace.available_routes %}
+        <a class="eoms-button eoms-button-secondary" href="{{ url_for('driver_portal.driver_portal', route_id=route.route_id) }}">{{ route.label }} · {{ route.stop_count }} stops · {{ route.driver_status }}</a>
+      {% else %}<p class="muted">No routes assigned yet. Refresh when your dispatcher assigns work.</p>{% endfor %}
+      {% if workspace.selected_route %}<h3>{{ workspace.selected_route.label }} — Stops</h3>{% endif %}
+      {% for stop in workspace.stops %}
+        <div class="driver-bol-row"><div><b>{{ stop.store_name or stop.store or 'Pickup' }}</b><small>BOL {{ stop.bol }} · Due {{ stop.due_date or 'Not set' }}</small><small>{{ stop.address }}</small></div><a class="eoms-button eoms-button-secondary" href="{{ url_for('driver_portal.driver_bol', store_id=stop.id) }}" target="_blank" rel="noopener">View BOL</a></div>
+      {% endfor %}
+    </section>
     <section class="driver-kpis" aria-label="Driver summary">
       <div class="driver-kpi">
         <span>Today's Assigned BOLs</span>

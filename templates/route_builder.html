@@ -39,12 +39,11 @@
             <input id="truck-{{ route.id }}" type="text" value="{{ route.truck or '' }}" placeholder="Truck # / M2">
             <input id="helper-{{ route.id }}" type="text" value="{{ route.helper or '' }}" placeholder="Helper">
             <button type="button" class="primary-btn small-btn" onclick="saveDriver('{{ route.id }}')">Save Driver</button>
-            <button type="button" class="secondary-btn small-btn" onclick="sendRoute('{{ route.id }}', '{{ route.route_number }}')">Send Route</button>
             <a class="secondary-btn small-btn" href="/route-print/{{ route.id }}" target="_blank">Printable Route</a>
             <button type="button" class="primary-btn small-btn" onclick="dispatchRoute('{{ route.id }}')">Mark Dispatched</button>
             <button type="button" class="secondary-btn small-btn" onclick="completeRoute('{{ route.id }}')">Mark Completed</button>
         </div>
-        <p class="muted">Send Route opens an SMS draft with the mobile route link. Direct Telnyx sending can be wired next.</p>
+        <p class="muted">Drivers sign in to the driver portal to view their assigned routes.</p>
     </div>
 
     <div class="metrics route-metrics">
@@ -160,108 +159,6 @@ async function saveDriver(routeId){
     if(!data.ok){ alert(data.message || "Unable to save driver."); return; }
     alert("Driver assignment saved.");
     location.reload();
-}
-
-function sendRoute(routeId, routeNumber){
-    const phone = document.getElementById("driver-phone-" + routeId).value.trim();
-    if(!phone){
-        alert("Add driver phone number first.");
-        return;
-    }
-
-    const routeLink = window.location.origin + "/route-print/" + routeId;
-    const driver = document.getElementById("driver-name-" + routeId).value.trim();
-    const truck = document.getElementById("truck-" + routeId).value.trim();
-    const helper = document.getElementById("helper-" + routeId).value.trim();
-
-    const msg =
-        "EOMS Route " + routeNumber + (driver ? " for " + driver : "") + "\\n" +
-        (truck ? "Truck: " + truck + "\\n" : "") +
-        (helper ? "Helper: " + helper + "\\n" : "") +
-        "Printable route: " + routeLink;
-
-    showRouteSendBox(phone, msg, routeId);
-}
-
-function showRouteSendBox(phone, msg, routeId){
-    window.currentSendRouteId = routeId;
-    let box = document.getElementById("route-send-box");
-    if(!box){
-        box = document.createElement("div");
-        box.id = "route-send-box";
-        box.className = "route-send-box";
-        document.body.appendChild(box);
-    }
-
-    const smsUrl1 = "sms:" + encodeURIComponent(phone) + "?&body=" + encodeURIComponent(msg);
-    const smsUrl2 = "sms:" + encodeURIComponent(phone) + "?body=" + encodeURIComponent(msg);
-
-    box.innerHTML = `
-        <div class="route-send-modal">
-            <h3>Send Route</h3>
-            <p><b>Driver Phone:</b> ${phone}</p>
-            <textarea id="route-send-message" readonly>${msg}</textarea>
-            <div class="route-send-actions">
-                <button type="button" class="primary-btn small-btn" onclick="copyRouteMessage()">Copy Message</button>
-                <button type="button" class="primary-btn small-btn" onclick="sendRouteTelnyx()">Send via Telnyx</button>
-                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl1}')">Open SMS App</button>
-                <button type="button" class="secondary-btn small-btn" onclick="openSmsLink('${smsUrl2}')">Try SMS Backup</button>
-                <button type="button" class="danger-btn small-btn" onclick="closeRouteSendBox()">Close</button>
-            </div>
-            <p class="muted">If Windows does not open SMS, copy the message and send it manually. Direct Telnyx sending is the next upgrade.</p>
-        </div>
-    `;
-
-    box.style.display = "flex";
-
-    copyRouteMessage();
-}
-
-function copyRouteMessage(){
-    const text = document.getElementById("route-send-message").value;
-    if(navigator.clipboard){
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Route message copied.");
-        }).catch(() => {
-            fallbackCopyRouteMessage(text);
-        });
-    }else{
-        fallbackCopyRouteMessage(text);
-    }
-}
-
-function fallbackCopyRouteMessage(text){
-    const area = document.getElementById("route-send-message");
-    area.focus();
-    area.select();
-    document.execCommand("copy");
-    alert("Route message copied.");
-}
-
-function openSmsLink(url){
-    window.location.href = url;
-}
-
-async function sendRouteTelnyx(){
-    const routeId = window.currentSendRouteId;
-    if(!routeId){
-        alert("Route ID missing.");
-        return;
-    }
-
-    const data = await postJson("/api/send-route-sms", {route_id: routeId});
-    if(!data.ok){
-        alert(data.message || "Unable to send Telnyx SMS.");
-        return;
-    }
-
-    alert("Route SMS sent by Telnyx.");
-    location.reload();
-}
-
-function closeRouteSendBox(){
-    const box = document.getElementById("route-send-box");
-    if(box) box.style.display = "none";
 }
 
 async function dispatchRoute(routeId){

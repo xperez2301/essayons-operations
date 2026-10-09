@@ -59,9 +59,9 @@ def data():
         s['document']=bool(row.get('pdf_path') or row.get('printable_path'));stores.append(s)
     routes=[]
     for row in filter_routes_for_user(read_json(ROUTES_FILE)):
-        routes.append({k:row.get(k) for k in ('id','route_number','driver','driver_phone','truck','hub','status','store_ids','metrics','last_sms_sent_at')})
+        routes.append({k:row.get(k) for k in ('id','route_number','driver','driver_phone','truck','hub','status','store_ids','metrics','driver_status')})
         safe_metrics={k:v for k,v in (row.get('metrics') or {}).items() if k in {'hub','store_count','racks','pieces','weight','remaining_capacity','mileage','status'} or current_role()=='Admin'}
-        routes[-1].update(number=row.get('route_number'),stops=row.get('store_ids') or [],metrics=safe_metrics,sms_status='Sent' if row.get('last_sms_sent_at') else None)
+        routes[-1].update(number=row.get('route_number'),stops=row.get('store_ids') or [],metrics=safe_metrics,driver_status=row.get('driver_status') or 'Pending acceptance')
     drivers=[{'id':u.get('username'),'name':u.get('display_name') or u.get('username'),'username':u.get('username'),'phone':u.get('phone',''),'truck':''} for u in users_payload().get('users',[]) if u.get('role')=='Driver' and u.get('active',True)]
     current_jobs=jobs();job=current_jobs[-1] if current_jobs else None
     if job and job['status']=='running' and time.time()-float(job.get('heartbeat',job.get('epoch',0)))>120:
