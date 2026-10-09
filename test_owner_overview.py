@@ -150,3 +150,13 @@ def test_reset_blocks_active_import(reset_setup):
     core.write_json(owner.OWNER_JOBS_FILE,[{'status':'running','heartbeat':time.time()}])
     assert reset_request(reset_setup).status_code==409
     assert len(core.read_json(owner.STORES_FILE))==1
+
+def test_completed_bol_details_are_available_without_private_paths(setup):
+    row=core.read_json(owner.STORES_FILE)[0]
+    row.update(status='Recovered',completed_at='2026-10-09T15:00:00+00:00',completed_by='driver',wood_pallet=3,notes='Pickup complete',receiving_status='Pending')
+    core.write_json(owner.STORES_FILE,[row])
+    result=setup.get('/api/owner/data').json['stores'][0]
+    assert result['completed_at']==row['completed_at'] and result['wood_pallet']==3
+    assert result['notes']=='Pickup complete' and result['receiving_status']=='Pending'
+    assert 'pdf_path' not in result
+    assert b'Completed BOLs' in setup.get('/owner').data

@@ -50,7 +50,7 @@ def overview():
 @owner_bp.get('/api/owner/data')
 @dispatch_required
 def data():
-    fields=('id','bol','store_name','origin_name','address','city','state','zip','hub','lat','lng','due_date','expected_racks','weight','status','collected_racks','review_reasons','assigned_driver','driver_work_status','receiving_status','dispatcher_closeout_status','route_id','geocode_status')
+    fields=('id','bol','store_name','origin_name','address','city','state','zip','hub','lat','lng','due_date','expected_racks','weight','status','collected_racks','review_reasons','assigned_driver','driver_work_status','receiving_status','dispatcher_closeout_status','route_id','geocode_status','completed_at','completed_by','corner_posts','drb40','drb48','wood_shelf','wood_pallet','notes','driver_damage_notes','driver_exception_type','driver_exception_notes')
     stores=[]
     for row in filter_stores_for_user(read_json(STORES_FILE)):
         s={k:row.get(k) for k in fields};s['status']=s.get('status') or 'Unassigned';s.update(priority(s.get('due_date')))
