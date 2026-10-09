@@ -1,9 +1,9 @@
-import json,secrets,time
+import hashlib,json,secrets,time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from functools import wraps
-from flask import Blueprint,jsonify,request,session,render_template
+from flask import Blueprint,jsonify,request,session,render_template,make_response
 from app import (DATA_DIR,STORES_FILE,ROUTES_FILE,SYNC_STATE_FILE,read_json,write_json,
     synchronized_data_write,filter_stores_for_user,filter_routes_for_user,users_payload,
     current_role,dispatch_required,admin_required,worker_token_required,HUBS,IS_AZURE)
@@ -41,7 +41,11 @@ def lease_valid(job,payload):return job and job.get('status')=='running' and sec
 @dispatch_required
 def overview():
     if not session.get('owner_csrf'):session['owner_csrf']=secrets.token_urlsafe(32)
-    return render_template('owner_dashboard.html',csrf_token=session['owner_csrf'],company='Essayons BAX')
+    static_root=Path(__file__).resolve().parents[1]/'static'/'owner'
+    asset_versions={name:hashlib.sha256((static_root/name).read_bytes()).hexdigest()[:12] for name in ('owner.js','owner.css')}
+    response=make_response(render_template('owner_dashboard.html',csrf_token=session['owner_csrf'],company='Essayons BAX',asset_versions=asset_versions))
+    response.headers['Cache-Control']='no-store'
+    return response
 
 @owner_bp.get('/api/owner/data')
 @dispatch_required
