@@ -8,9 +8,9 @@ CENTRAL = ZoneInfo("America/Chicago")
 
 def pay_week(value=None, today=None):
     today = today or datetime.now(CENTRAL).date()
-    anchor = date.fromisoformat(value) if value else today - timedelta(days=today.weekday() + 7)
-    monday = anchor - timedelta(days=anchor.weekday())
-    return monday, monday + timedelta(days=6)
+    anchor = date.fromisoformat(value) if value else today - timedelta(days=(today.weekday() + 1) % 7 + 7)
+    sunday = anchor - timedelta(days=(anchor.weekday() + 1) % 7)
+    return sunday, sunday + timedelta(days=6)
 
 
 def local_date(value):
@@ -82,4 +82,4 @@ def build_weekly_pay(stores, users, week=None, rates=None, today=None):
         elif group["closed_bols"]:
             missing_rates += 1
         group["bols"].sort(key=lambda row:(row["worked"],str(row["bol"])))
-    return {"start":start.isoformat(),"end":end.isoformat(),"verify":(start+timedelta(days=9)).isoformat(),"send":(start+timedelta(days=10)).isoformat(),"payday":(start+timedelta(days=11)).isoformat(),"drivers":sorted(groups.values(),key=lambda g:g["name"]),"total":str(total.quantize(Decimal("0.01"))),"incomplete_totals":missing_rates,"pending_bols":sum(g["pending_bols"] for g in groups.values())}
+    return {"start":start.isoformat(),"end":end.isoformat(),"verify":(start+timedelta(days=10)).isoformat(),"send":(start+timedelta(days=11)).isoformat(),"payday":(start+timedelta(days=12)).isoformat(),"drivers":sorted(groups.values(),key=lambda g:g["name"]),"total":str(total.quantize(Decimal("0.01"))),"incomplete_totals":missing_rates,"pending_bols":sum(g["pending_bols"] for g in groups.values())}

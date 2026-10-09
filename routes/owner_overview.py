@@ -306,13 +306,14 @@ DRIVER_WEEKLY_RATES_FILE = DATA_DIR / 'driver_weekly_rates.json'
 @admin_required
 def weekly_driver_pay():
     from eoms_modules.weekly_driver_pay import build_weekly_pay
+    from datetime import date, timedelta
     if not session.get('owner_csrf'):
         session['owner_csrf'] = secrets.token_urlsafe(32)
     saved = read_json(DRIVER_WEEKLY_RATES_FILE)
     saved = saved if isinstance(saved, dict) else {}
     try:
         report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=request.args.get('week'))
-        report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=report['start'], rates=saved.get(report['start'], {}))
+        report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=report['start'], rates=saved.get(report['start'], saved.get((date.fromisoformat(report['start']) + timedelta(days=1)).isoformat(), {})))
     except ValueError:
         return 'Choose a valid work-week date.', 400
     response = make_response(render_template('weekly_driver_pay.html', report=report, csrf_token=session['owner_csrf']))
