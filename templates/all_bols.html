@@ -97,8 +97,8 @@
                         {% endif %}
                     </td>
                     <td class="action-cell">
-                        <button class="primary-btn small-btn" type="button" onclick="saveBol({{ row_key|tojson }})">Save</button>
-                        <button class="danger-btn small-btn" type="button" onclick="deleteBol({{ row_key|tojson }}, {{ (bol_key or '')|tojson }})">Delete</button>
+                        <button class="primary-btn small-btn" type="button" onclick='saveBol({{ row_key|tojson }})'>Save</button>
+                        <button class="danger-btn small-btn" type="button" onclick='deleteBol({{ row_key|tojson }}, {{ (bol_key or "")|tojson }})'>Delete</button>
                     </td>
                 </tr>
                 {% else %}
