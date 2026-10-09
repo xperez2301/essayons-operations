@@ -43,7 +43,7 @@ def overview():
     if not session.get('owner_csrf'):session['owner_csrf']=secrets.token_urlsafe(32)
     static_root=Path(__file__).resolve().parents[1]/'static'/'owner'
     asset_versions={name:hashlib.sha256((static_root/name).read_bytes()).hexdigest()[:12] for name in ('owner.js','owner.css')}
-    response=make_response(render_template('owner_dashboard.html',csrf_token=session['owner_csrf'],company='Essayons BAX',asset_versions=asset_versions))
+    response=make_response(render_template('owner_dashboard.html',csrf_token=session['owner_csrf'],company='Essayons BAX',asset_versions=asset_versions,payroll_admin=current_role()=='Admin'))
     response.headers['Cache-Control']='no-store'
     return response
 
@@ -298,3 +298,50 @@ def repair_bol_numbers():
         audit('Repair PDF BOL numbers',{'repaired':len(candidates)})
         applied=len(candidates)
     return render_template('bol_number_repair.html',csrf_token=session['owner_csrf'],candidates=candidates,applied=applied)
+
+
+DRIVER_WEEKLY_RATES_FILE = DATA_DIR / 'driver_weekly_rates.json'
+
+@owner_bp.get('/weekly-driver-pay')
+@admin_required
+def weekly_driver_pay():
+    from eoms_modules.weekly_driver_pay import build_weekly_pay
+    if not session.get('owner_csrf'):
+        session['owner_csrf'] = secrets.token_urlsafe(32)
+    saved = read_json(DRIVER_WEEKLY_RATES_FILE)
+    saved = saved if isinstance(saved, dict) else {}
+    try:
+        report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=request.args.get('week'))
+        report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=report['start'], rates=saved.get(report['start'], {}))
+    except ValueError:
+        return 'Choose a valid work-week date.', 400
+    response = make_response(render_template('weekly_driver_pay.html', report=report, csrf_token=session['owner_csrf']))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+@owner_bp.post('/api/owner/weekly-driver-pay/rates')
+@admin_required
+@csrf_required
+@synchronized_data_write(DRIVER_WEEKLY_RATES_FILE)
+def save_weekly_driver_rates():
+    from eoms_modules.weekly_driver_pay import pay_week, piece_rate, build_weekly_pay
+    from app import audit
+    payload = request.get_json(silent=True) or {}
+    try:
+        start, _ = pay_week(payload.get('week'))
+        rates = payload.get('rates')
+        if not isinstance(rates, dict):
+            raise ValueError('Enter driver rates.')
+        report = build_weekly_pay(read_json(STORES_FILE), users_payload().get('users', []), week=start.isoformat())
+        allowed = {row['driver'] for row in report['drivers']}
+        if set(rates) - allowed:
+            raise ValueError('Driver is not listed for this work week.')
+        normalized = {driver:str(piece_rate(rate)) for driver,rate in rates.items() if piece_rate(rate) is not None}
+    except (ValueError, TypeError) as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+    saved = read_json(DRIVER_WEEKLY_RATES_FILE)
+    saved = saved if isinstance(saved, dict) else {}
+    saved[start.isoformat()] = normalized
+    write_json(DRIVER_WEEKLY_RATES_FILE, saved)
+    audit('Weekly Driver Rates Saved', {'week':start.isoformat(),'drivers':list(normalized)})
+    return jsonify(ok=True)

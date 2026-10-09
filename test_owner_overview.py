@@ -160,3 +160,17 @@ def test_completed_bol_details_are_available_without_private_paths(setup):
     assert result['notes']=='Pickup complete' and result['receiving_status']=='Pending'
     assert 'pdf_path' not in result
     assert b'Completed BOLs' in setup.get('/owner').data
+
+def test_weekly_pay_admin_report_and_saved_manual_rates(setup,monkeypatch,tmp_path):
+    monkeypatch.setattr(owner,'DRIVER_WEEKLY_RATES_FILE',tmp_path/'rates.json')
+    record=core.read_json(owner.STORES_FILE)[0]
+    record.update(assigned_driver='driver',completed_at='2026-10-06T15:00:00Z',dispatcher_closeout_status='Closed',warehouse_verified_pieces=100)
+    core.write_json(owner.STORES_FILE,[record])
+    assert setup.get('/weekly-driver-pay?week=2026-10-05').status_code==200
+    assert setup.post('/api/owner/weekly-driver-pay/rates',json={'week':'2026-10-05','rates':{'driver':'0.25'}}).status_code==403
+    response=setup.post('/api/owner/weekly-driver-pay/rates',json={'week':'2026-10-05','rates':{'driver':'0.25'}},headers={'X-CSRF-Token':'test-csrf'})
+    assert response.status_code==200
+    assert b'$25.00' in setup.get('/weekly-driver-pay?week=2026-10-05').data
+    monkeypatch.setattr(core,'current_role',lambda:'Dispatcher')
+    monkeypatch.setattr(core,'current_user',lambda:{'username':'dispatch-test','role':'Dispatcher'})
+    assert setup.get('/weekly-driver-pay?week=2026-10-05').status_code==403

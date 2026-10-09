@@ -29,7 +29,7 @@
         <span class="eoms-nav-label">{% if icon %}<span aria-hidden="true">{{ icon|safe }}</span> {% endif %}{{ label }}</span>
       </a>
     {% endfor %}
-    {% if session.get('role') == 'Admin' %}<details class="setup-menu"><summary>Setup</summary><a href="/users">Driver accounts</a><a href="/settings">Settings</a><a href="/rms-import">Upload BOL</a></details>{% endif %}
+    {% if session.get('role') == 'Admin' %}<a href="/weekly-driver-pay">Weekly driver pay</a><details class="setup-menu"><summary>Setup</summary><a href="/users">Driver accounts</a><a href="/settings">Settings</a><a href="/rms-import">Upload BOL</a></details>{% endif %}
   </nav>
 
   <div class="eoms-sidebar-footer">
