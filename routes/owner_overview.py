@@ -250,3 +250,38 @@ def download_bol_reset_backup():
     path=DATA_DIR/'bol_reset_backups'/name
     if not path.is_file():abort(404)
     return send_file(path,as_attachment=True,download_name='bol-reset-backup.zip')
+
+
+@owner_bp.route('/bol-number-repair',methods=['GET','POST'])
+@admin_required
+@synchronized_data_write(STORES_FILE)
+def repair_bol_numbers():
+    from app import extract_pdf_text,extract_rms_bol_number,essential_review_reasons,backup_stores_json,audit,BOL_DIR,UPLOAD_DIR
+    from flask import abort
+    if not session.get('owner_csrf'):session['owner_csrf']=secrets.token_urlsafe(32)
+    if request.method=='POST' and not secrets.compare_digest(request.form.get('csrf',''),session['owner_csrf']):abort(403)
+    stores=read_json(STORES_FILE);existing={str(s.get('bol')) for s in stores if s.get('bol')};candidates=[]
+    for row in stores:
+        if row.get('bol'):continue
+        path=Path(row.get('pdf_path') or '').resolve()
+        roots=[BOL_DIR.resolve(),UPLOAD_DIR.resolve()]
+        if not path.is_file() or path.suffix.lower()!='.pdf' or not any(path.is_relative_to(root) for root in roots):continue
+        try:bol=extract_rms_bol_number(extract_pdf_text(path))
+        except Exception:continue
+        if not bol or bol in existing:continue
+        existing.add(bol);candidate=dict(row,bol=bol)
+        reasons=essential_review_reasons(candidate)
+        candidates.append({'id':row['id'],'store':row.get('store_name',''),'bol':bol,'reasons':reasons})
+    applied=None
+    if request.method=='POST':
+        backup_stores_json(reason='before_bol_number_repair')
+        repairs={c['id']:c for c in candidates}
+        for row in stores:
+            if row['id'] not in repairs:continue
+            change=repairs[row['id']];row['bol']=change['bol'];row['review_reasons']=change['reasons']
+            if row.get('status')=='Need Review' and not change['reasons']:row['status']='Unassigned'
+            row['updated_at']=datetime.now().isoformat(timespec='seconds')
+        write_json(STORES_FILE,stores)
+        audit('Repair PDF BOL numbers',{'repaired':len(candidates)})
+        applied=len(candidates)
+    return render_template('bol_number_repair.html',csrf_token=session['owner_csrf'],candidates=candidates,applied=applied)

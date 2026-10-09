@@ -341,6 +341,23 @@ class LocalRmsImportDuplicateTests(unittest.TestCase):
             item.stop()
         self.temp_dir.cleanup()
 
+    def test_missing_pdf_number_recovers_from_exact_source_filename(self):
+        item={'id':'new','bol':'','store_name':'Test','city':'Austin','hub':'San Antonio','origin':'Store','expected_racks':5,'status':'Need Review','review_reasons':['Missing BOL']}
+        with patch.object(eoms_app,'parse_rms_pdf',return_value=item), patch.object(eoms_app,'month_folder',return_value=self.bol_dir):
+            result=eoms_app.import_rms_uploaded_files([FakeUpload('source.pdf')],bol_data={'23456':{'filename':'source.pdf','due_date':'07/15/2026'}})
+        self.assertEqual(result['added_bols'][0]['bol'],'23456')
+        self.assertEqual(result['need_review'],0)
+        rows=json.loads(self.stores_path.read_text())
+        self.assertEqual(rows[-1]['due_date'],'07/15/2026')
+        self.assertEqual(rows[-1]['status'],'Unassigned')
+
+    def test_unmatched_source_filename_does_not_guess_number(self):
+        item={'id':'new','bol':'','store_name':'Test','city':'Austin','hub':'San Antonio','expected_racks':5,'status':'Need Review','review_reasons':['Missing BOL']}
+        with patch.object(eoms_app,'parse_rms_pdf',return_value=item), patch.object(eoms_app,'month_folder',return_value=self.bol_dir):
+            result=eoms_app.import_rms_uploaded_files([FakeUpload('other.pdf')],bol_data={'23456':{'filename':'source.pdf'}})
+        self.assertEqual(result['need_review'],1)
+        self.assertEqual(result['added_bols'][0]['bol'],'')
+
     def test_duplicate_pdf_is_reported_and_not_retained_in_bol_storage(self):
         parsed_duplicate = {
             "id": "new",

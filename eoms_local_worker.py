@@ -357,6 +357,7 @@ def _upload_batch_to_azure(base_url, token, batch):
     for bol, info in batch.items():
         normalized = normalize_bol_number(bol)
         bol_data_sidecar[normalized or clean(bol)] = {
+            "filename": Path(info.get("pdf_path") or "").name,
             "due_date": info.get("due_date", ""),
             "assigned_date": info.get("assigned_date", ""),
         }

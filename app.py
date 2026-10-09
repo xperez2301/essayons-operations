@@ -1576,10 +1576,15 @@ def parse_city_state_zip(value):
         return city, state, zip_code
     return value, "TX", ""
 
+def extract_rms_bol_number(text):
+    # Chromium PDF extraction can split label words and omit punctuation.
+    return find_match(r"Bill\s*of\s*L\s*a\s*d\s*i\s*n\s*g\s*[:#]?\s*([0-9]+)\b", text or "")
+
+
 def parse_rms_pdf(path):
     text = demangle_pdf_text(extract_pdf_text(path))
 
-    bol = find_match(r"Bill of Lading:\s*([0-9]+)", text)
+    bol = extract_rms_bol_number(text)
     origin = find_match(r"Origin:\s*([A-Z0-9_-]+)", text)
     # The BOL lists three blocks (Origin, Destination, Carrier). Isolate Origin.
     origin_block = find_match(r"(Origin:.*?)(?:Destination:|Carrier:)", text) or text
@@ -1731,8 +1736,13 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
     duplicate_bols = []
     failed_bols = []
 
-    def merge_bol_data(item):
+    def merge_bol_data(item, filename=""):
         """Apply list-page data (due date, contact) from the sidecar by BOL number."""
+        matching=[(normalize_bol_number(key), value) for key,value in bol_data.items() if isinstance(value,dict) and value.get('filename')==filename and filename]
+        parsed_bol=normalize_bol_number(item.get('bol'))
+        source_bol=matching[0][0] if len(matching)==1 else ''
+        if not parsed_bol and source_bol:
+            item['bol']=source_bol
         info = bol_data.get(normalize_bol_number(item.get("bol"))) or bol_data.get(clean(item.get("bol")))
         if not isinstance(info, dict):
             return item
@@ -1740,6 +1750,10 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
             val = clean(info.get(field))
             if val and not clean(item.get(field)):
                 item[field] = val
+        item['review_reasons']=essential_review_reasons(item)
+        if parsed_bol and source_bol and parsed_bol!=source_bol:
+            item['review_reasons'].append('PDF BOL number differs from RMS source')
+        item['status']='Need Review' if item['review_reasons'] else 'Unassigned'
         return item
 
     for uploaded in files:
@@ -1753,7 +1767,7 @@ def import_rms_uploaded_files(files, source="RMS Import", bol_data=None):
         try:
             lower = filename.lower()
             if lower.endswith(".pdf"):
-                item = merge_bol_data(parse_rms_pdf(temp_path))
+                item = merge_bol_data(parse_rms_pdf(temp_path),filename)
                 imported = [item]
             elif lower.endswith(".xlsx"):
                 imported = [merge_bol_data(i) for i in parse_xlsx(temp_path)]
@@ -2494,7 +2508,7 @@ def rms_login_with_playwright(headless=True):
             diag_dir = BASE_DIR / "diagnostics"
             diag_dir.mkdir(exist_ok=True)
             screenshot_path = diag_dir / f"rms_sync_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-            page.screenshot(path=str(screenshot_path), full_page=True)
+            capture_rms_screenshot(page, path=str(screenshot_path), full_page=True)
 
             rms_debug_hold(page)
             close_rms_browser(browser, context)
@@ -3131,6 +3145,15 @@ def login_to_rms(page, login_url, username, password):
             + page_excerpt(page)
         )
 
+def capture_rms_screenshot(page, **kwargs):
+    try:
+        page.screenshot(timeout=5000, **kwargs)
+        return True
+    except Exception as exc:
+        app.logger.warning("RMS diagnostic screenshot unavailable: %s", type(exc).__name__)
+        return False
+
+
 def write_rms_diagnostic(page, prefix):
     diag_dir = BASE_DIR / "diagnostics"
     diag_dir.mkdir(exist_ok=True)
@@ -3138,7 +3161,7 @@ def write_rms_diagnostic(page, prefix):
     screenshot_path = diag_dir / f"{prefix}_{stamp}.png"
     html_path = diag_dir / f"{prefix}_{stamp}.html"
     try:
-        page.screenshot(path=str(screenshot_path), full_page=True)
+        capture_rms_screenshot(page, path=str(screenshot_path), full_page=True)
     except Exception:
         screenshot_path = ""
     try:
@@ -3580,7 +3603,7 @@ def scan_rms_queue_with_playwright(headless=True):
 
             diag_dir = BASE_DIR / "diagnostics"
             diag_dir.mkdir(exist_ok=True)
-            page.screenshot(path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
+            capture_rms_screenshot(page, path=str(diag_dir / f"rms_queue_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
 
             rms_debug_hold(page)
             close_rms_browser(browser, context)
@@ -3895,7 +3918,7 @@ def rms_full_import_with_playwright(headless=True, max_bols=0):
             # Diagnostic screenshot after pagination scan.
             diag_dir = BASE_DIR / "diagnostics"
             diag_dir.mkdir(exist_ok=True)
-            page.screenshot(path=str(diag_dir / f"rms_pagination_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
+            capture_rms_screenshot(page, path=str(diag_dir / f"rms_pagination_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"), full_page=True)
 
             for link in bol_links:
                 try:
