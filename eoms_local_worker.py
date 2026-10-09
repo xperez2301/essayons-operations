@@ -14,6 +14,13 @@ from uuid import uuid4
 import requests
 from dotenv import load_dotenv
 
+# Use the Windows trust store for HTTPS uploads, including managed certificates.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
