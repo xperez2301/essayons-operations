@@ -59,3 +59,48 @@ def test_admin_default_and_driver_redirect():
     assert core.post_login_url_for_user({'role':'Admin'},'/dashboard')=='/owner'
     assert core.post_login_url_for_user({'role':'Driver'},'/owner')=='/driver'
     assert core.post_login_url_for_user({'role':'Dispatcher'},'/dashboard')=='/dashboard'
+
+
+def archived_record(**extra):
+    row=core.read_json(owner.STORES_FILE)[0]
+    row.update(rms_status='Closed in RMS',collected_racks=4)
+    row.update(extra)
+    core.write_json(owner.STORES_FILE,[row])
+    return row
+
+def archive_save(c,status,csrf=True):
+    return c.post('/api/archive/status/test-store',json={'status':status},headers={'X-CSRF-Token':'test-csrf'} if csrf else {})
+
+def test_archive_completion_preserves_file_counts_and_rms(setup):
+    archived_record()
+    assert archive_save(setup,'Completed').status_code==200
+    row=core.read_json(owner.STORES_FILE)[0]
+    assert row['status']=='Completed' and row['completed_at'] and row['closed_source']=='Both'
+    assert row['pdf_path']=='PRIVATE-PATH' and row['collected_racks']==4 and row['rms_status']=='Closed in RMS'
+    assert row['audit_history'][-1]['operator']=='owner-test'
+    stamp=row['completed_at'];assert archive_save(setup,'Completed').status_code==200
+    assert core.read_json(owner.STORES_FILE)[0]['completed_at']==stamp
+    assert len(core.read_json(owner.STORES_FILE)[0]['audit_history'])==1
+
+def test_archive_rejects_invalid_status_and_csrf(setup):
+    before=archived_record()
+    assert archive_save(setup,'Completed',False).status_code==403
+    assert archive_save(setup,'Made up').status_code==400
+    assert core.read_json(owner.STORES_FILE)[0]==before
+
+def test_archive_active_route_needs_closeout(setup):
+    archived_record(route_id='route-1')
+    core.write_json(owner.ROUTES_FILE,[{'id':'route-1','status':'Dispatched','store_ids':['test-store']}])
+    assert archive_save(setup,'Completed').status_code==409
+    archived_record(route_id='route-1',dispatcher_closeout_status='Closed')
+    assert archive_save(setup,'Completed').status_code==200
+
+def test_archive_requires_visible_archived_record(setup,monkeypatch):
+    assert archive_save(setup,'Completed').status_code==409
+    archived_record();monkeypatch.setattr(owner,'filter_stores_for_user',lambda records:[])
+    assert archive_save(setup,'Completed').status_code==404
+
+def test_archive_status_can_be_corrected_again(setup):
+    archived_record(status='Completed',rms_status='Open')
+    assert archive_save(setup,'Exception').status_code==200
+    assert archive_save(setup,'Completed').status_code==200

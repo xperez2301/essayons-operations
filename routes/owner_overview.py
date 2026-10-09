@@ -138,3 +138,38 @@ def sms():
     if rid not in {str(r.get('id')) for r in visible}|{str(r.get('route_number')) for r in visible}:return jsonify(ok=False,message='Route not found or outside your assigned cities.'),404
     from routes.route_dispatch import api_send_route_sms
     return api_send_route_sms()
+
+
+@owner_bp.post('/api/archive/status/<store_id>')
+@dispatch_required
+@csrf_required
+@synchronized_data_write(STORES_FILE)
+def update_archive_status(store_id):
+    payload=request.get_json(silent=True) or {}
+    status=payload.get('status')
+    if status not in {'Completed','Recovered','Exception','Need Review'}:
+        return jsonify(ok=False,message='Choose a valid archive status.'),400
+    stores=read_json(STORES_FILE)
+    visible={str(s.get('id')) for s in filter_stores_for_user(stores)}
+    store=next((s for s in stores if str(s.get('id'))==store_id and store_id in visible),None)
+    if not store:
+        return jsonify(ok=False,message='BOL not found.'),404
+    if store.get('status')!='Completed' and not store.get('archive_status_updated_at') and store.get('rms_status') not in {'Missing from RMS','Closed in RMS'}:
+        return jsonify(ok=False,message='Use the active BOL workflow for this record.'),409
+    route=next((r for r in read_json(ROUTES_FILE) if store_id in (r.get('store_ids') or []) or (store.get('route_id') and r.get('id')==store.get('route_id'))),None)
+    if status=='Completed' and store.get('status')!='Completed' and route and route.get('status')!='Completed' and store.get('dispatcher_closeout_status')!='Closed':
+        return jsonify(ok=False,message='Finish warehouse receiving and dispatcher closeout for this active route before marking the BOL Completed.'),409
+    previous=store.get('status') or 'Unassigned'
+    if status!=previous:
+        now=datetime.now(ZoneInfo('America/Chicago')).isoformat(timespec='seconds')
+        store['status']=status
+        store['updated_at']=now
+        store['archive_status_updated_at']=now
+        if status=='Completed':
+            store['completed_at']=store.get('completed_at') or now
+            store['closed_source']='Both' if store.get('rms_status') in {'Missing from RMS','Closed in RMS'} else 'EOMS'
+        history=store.get('audit_history')
+        if not isinstance(history,list):history=[];store['audit_history']=history
+        history.append({'event':'Archive Status Updated','timestamp':now,'operator':session.get('username','system'),'previous_status':previous,'status':status})
+        write_json(STORES_FILE,stores)
+    return jsonify(ok=True,message='BOL status saved: '+status+'.',status=status)

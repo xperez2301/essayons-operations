@@ -4584,6 +4584,8 @@ def api_rms_auto_grab_bols():
 @app.route("/archive")
 @dispatch_required
 def archive():
+    if not session.get('owner_csrf'):
+        session['owner_csrf'] = secrets.token_urlsafe(32)
     stores = filter_stores_for_user(read_json(STORES_FILE))
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
 
@@ -4597,6 +4599,7 @@ def archive():
     archived_stores = [
         s for s in stores
         if (s.get("status") or "") == "Completed"
+        or bool(s.get("archive_status_updated_at"))
         or clean(s.get("rms_status")) in {"Missing from RMS", "Closed in RMS"}
     ]
     completed_routes = [r for r in routes if (r.get("status") or "") == "Completed"]
@@ -4682,6 +4685,8 @@ def archive():
 
     return render_template(
         "archive.html",
+        archive_csrf=session["owner_csrf"],
+        archive_status_options=["Completed", "Recovered", "Exception", "Need Review"],
         stores=completed_stores[:500],
         routes=completed_routes[:200],
         totals=totals,
