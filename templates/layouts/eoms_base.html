@@ -6,6 +6,7 @@
   <title>{% block title %}{{ page_title or module_title or "EOMS" }} | EOMS{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/eoms-design-system.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/essayons-bax-mark.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/essential.css') }}">
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

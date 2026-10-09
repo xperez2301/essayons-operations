@@ -58,7 +58,7 @@ def test_new_owner_route_honors_driver_role(setup,monkeypatch):
 def test_admin_default_and_driver_redirect():
     assert core.post_login_url_for_user({'role':'Admin'},'/dashboard')=='/owner'
     assert core.post_login_url_for_user({'role':'Driver'},'/owner')=='/driver'
-    assert core.post_login_url_for_user({'role':'Dispatcher'},'/dashboard')=='/dashboard'
+    assert core.post_login_url_for_user({'role':'Dispatcher'},'/dashboard')=='/owner'
 
 
 def archived_record(**extra):

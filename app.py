@@ -2095,12 +2095,12 @@ def safe_next_url(candidate):
     candidate = clean(candidate)
     if candidate.startswith("/") and not candidate.startswith("//"):
         return candidate
-    return "/dashboard"
+    return "/owner"
 
 def post_login_url_for_user(user, requested_next=""):
     if clean((user or {}).get("role")) == "Driver":
         return "/driver"
-    if clean((user or {}).get("role")) == "Admin" and clean(requested_next) in {"", "/dashboard"}:
+    if clean(requested_next) in {"", "/dashboard"}:
         return "/owner"
     return safe_next_url(requested_next)
 
@@ -2146,7 +2146,7 @@ def logout():
 @app.route("/")
 def home():
     if session.get("logged_in"):
-        return redirect("/owner" if current_role() == "Admin" else "/dashboard")
+        return redirect("/driver" if current_role() == "Driver" else "/owner")
     return redirect("/login")
 
 
@@ -2187,6 +2187,11 @@ def dashboard_metrics(stores=None, routes=None):
     }
 
 @app.route("/dashboard")
+@dispatch_required
+def simplified_dashboard():
+    return redirect("/owner")
+
+@app.route("/legacy-dashboard")
 def dashboard():
     stores = filter_stores_for_user(read_json(STORES_FILE))
     routes = filter_routes_for_user(read_json(ROUTES_FILE))
