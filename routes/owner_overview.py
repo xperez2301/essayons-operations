@@ -33,6 +33,12 @@ def jobs():
     rows=read_json(OWNER_JOBS_FILE)
     return rows if isinstance(rows,list) else []
 
+def expire_waiting_jobs(rows):
+    for job in rows:
+        if job.get('status') == 'queued' and time.time() - float(job.get('epoch', 0)) > 300:
+            job.update(status='error', message='Your PC RMS listener did not pick up the request within 5 minutes. Open the listener on your computer, then click Import from RMS to retry.', finished=datetime.now(ZoneInfo('America/Chicago')).isoformat())
+    return rows
+
 def clean_job(job):return {k:job.get(k) for k in ('id','status','message','started','finished')}
 
 def lease_valid(job,payload):return job and job.get('status')=='running' and secrets.compare_digest(str(payload.get('lease','')),str(job.get('lease','!')))
@@ -63,7 +69,7 @@ def data():
         safe_metrics={k:v for k,v in (row.get('metrics') or {}).items() if k in {'hub','store_count','racks','pieces','weight','remaining_capacity','mileage','status'} or current_role()=='Admin'}
         routes[-1].update(number=row.get('route_number'),stops=row.get('store_ids') or [],metrics=safe_metrics,driver_status=row.get('driver_status') or 'Pending acceptance')
     drivers=[{'id':u.get('username'),'name':u.get('display_name') or u.get('username'),'username':u.get('username'),'phone':u.get('phone',''),'truck':''} for u in users_payload().get('users',[]) if u.get('role')=='Driver' and u.get('active',True)]
-    current_jobs=jobs();job=current_jobs[-1] if current_jobs else None
+    current_jobs=expire_waiting_jobs(jobs());job=current_jobs[-1] if current_jobs else None
     if job and job['status']=='running' and time.time()-float(job.get('heartbeat',job.get('epoch',0)))>120:
         job=dict(job,status='error',message='PC worker stopped responding. Check the RMS listener and retry. The existing upload queue remains on your PC.')
     return jsonify(stores=stores,routes=routes,drivers=drivers,hubs={name:[point['lat'],point['lng']] for name,point in HUBS.items()},job=clean_job(job) if job else None,connections={'rms':True},role=current_role(),sync=read_json(SYNC_STATE_FILE))
@@ -74,7 +80,7 @@ def data():
 @synchronized_data_write(OWNER_JOBS_FILE)
 def request_import():
     from uuid import uuid4
-    rows=jobs();active=next((j for j in rows if j['status'] in ('queued','running')),None)
+    rows=expire_waiting_jobs(jobs());active=next((j for j in rows if j['status'] in ('queued','running')),None)
     if active:
         if active['status']=='queued' or time.time()-float(active.get('heartbeat',0))<120:
             return jsonify(ok=False,message='An RMS request is already queued or running. Keep your PC listener open.'),409
@@ -86,7 +92,7 @@ def request_import():
 @worker_token_required
 @synchronized_data_write(OWNER_JOBS_FILE)
 def claim():
-    rows=jobs();job=next((j for j in rows if j['status']=='queued'),None)
+    rows=expire_waiting_jobs(jobs());write_json(OWNER_JOBS_FILE,rows);job=next((j for j in rows if j['status']=='queued'),None)
     if not job:return jsonify(ok=True,job=None)
     job.update(status='running',lease=secrets.token_urlsafe(32),heartbeat=time.time(),message='PC worker is importing RMS BOLs and uploading them to Azure.')
     write_json(OWNER_JOBS_FILE,rows);return jsonify(ok=True,job={'id':job['id'],'lease':job['lease']})

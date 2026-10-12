@@ -184,3 +184,13 @@ def test_archive_reopen_csrf_and_visibility(setup):
     reopened=core.read_json(owner.STORES_FILE)[0]
     assert reopened['archive_reopened_at'] and not reopened.get('completed_at')
     assert setup.post('/api/archive/reopen/missing',json={},headers={'X-CSRF-Token':'test-csrf'}).status_code==404
+
+
+def test_expired_waiting_request_can_retry_without_losing_bols(setup):
+    manual(setup)
+    rows=core.read_json(owner.OWNER_JOBS_FILE);rows[0]['epoch']=time.time()-301
+    core.write_json(owner.OWNER_JOBS_FILE,rows)
+    assert setup.get('/api/owner/data').json['job']['status']=='error'
+    assert worker(setup,'claim',{}).json['job'] is None
+    assert manual(setup).status_code==202
+    assert len(setup.get('/api/owner/data').json['stores'])==1
